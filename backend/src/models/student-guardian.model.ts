@@ -68,12 +68,6 @@ studentGuardianSchema.index(
     }
 );
 
-// List guardians for a student.
-studentGuardianSchema.index({
-    workspaceId: 1,
-    studentId: 1,
-});
-
 // List students for a guardian.
 studentGuardianSchema.index({
     workspaceId: 1,

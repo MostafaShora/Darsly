@@ -82,6 +82,12 @@ const invoiceSchema = new Schema(
     }
 );
 
+invoiceSchema.pre("validate", function () {
+    if (this.periodEnd < this.periodStart) {
+        this.invalidate("periodEnd", "periodEnd cannot be before periodStart");
+    }
+});
+
 invoiceSchema.index(
     { workspaceId: 1, invoiceNumber: 1 },
     { unique: true }

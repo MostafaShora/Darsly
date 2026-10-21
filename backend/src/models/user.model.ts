@@ -18,7 +18,6 @@ const userSchema = new Schema(
             lowercase: true,
             trim: true,
             maxlength: 254,
-            index: true,
         },
 
         passwordHash: {

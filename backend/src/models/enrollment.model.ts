@@ -52,6 +52,12 @@ const enrollmentSchema = new Schema(
     }
 );
 
+enrollmentSchema.pre("validate", function () {
+    if (this.endedAt && this.endedAt < this.enrolledAt) {
+        this.invalidate("endedAt", "endedAt cannot be before enrolledAt");
+    }
+});
+
 // A student can have only one enrollment record
 // for a particular group. Rejoining updates the existing record.
 enrollmentSchema.index(

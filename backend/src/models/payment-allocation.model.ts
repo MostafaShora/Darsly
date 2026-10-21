@@ -45,11 +45,6 @@ paymentAllocationSchema.index({
     invoiceId: 1,
 });
 
-paymentAllocationSchema.index({
-    workspaceId: 1,
-    paymentId: 1,
-});
-
 export type PaymentAllocation = InferSchemaType<
     typeof paymentAllocationSchema
 >;

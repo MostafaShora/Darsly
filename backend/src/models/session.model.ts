@@ -52,6 +52,12 @@ const sessionSchema = new Schema(
     }
 );
 
+sessionSchema.pre("validate", function () {
+    if (this.endsAt <= this.startsAt) {
+        this.invalidate("endsAt", "endsAt must be after startsAt");
+    }
+});
+
 // Retrieve sessions for a group in chronological order.
 sessionSchema.index({
     workspaceId: 1,

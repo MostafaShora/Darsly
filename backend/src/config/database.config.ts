@@ -1,7 +1,7 @@
-import { Env } from "./env.config";
+import { Env } from "./env.config"
 import mongoose from "mongoose";
 
-const connectDatabase = async () => {
+const connectDatabase = async() => {
     try {
         await mongoose.connect(Env.MONGO_URI);
         console.log("Database connected successfully");
