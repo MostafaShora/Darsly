@@ -1,40 +1,63 @@
 
-import 'dotenv/config';
+import path from "path";
+import "dotenv/config";
+import cors from "cors";
+import http from "http";
+import dns from "dns";
+import express, { Request, Response } from "express";
 
-import express from 'express';
-import mongoose from 'mongoose';
+import { Env } from "./config/env.config";
+import { HTTPSTATUS } from "./config/http.config";
+import connectDatabase from "./config/database.config";
 
+// DNS Configuration
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
+// Express App & HTTP Server
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const server = http.createServer(app);
 
-app.use(express.json());
+// Middlewares
+app.use(express.json({ limit: "10MB" }));
+app.use(express.urlencoded({ extended: true }));
 
-app.get('/api/health', (_req, res) => {
-    res.status(200).json({
-        success: true,
-        message: 'Darsly API is running',
+app.use(
+    cors({
+        origin: Env.FRONTEND_ORIGIN,
+        credentials: true,
+    })
+);
+
+// Health Check
+app.get("/", (_req: Request, res: Response) => {
+    res.status(HTTPSTATUS.OK).json({
+        message: "Server is healthy",
+        status: "OK",
     });
 });
 
-async function startServer(): Promise<void> {
-    try {
-        const mongoUri = process.env.MONGODB_URI;
+// Serve Frontend in Production
+if (Env.NODE_ENV === "production") {
+    const clientPath = path.resolve(
+        __dirname,
+        "../../client/dist"
+    );
 
-        if (!mongoUri) {
-            throw new Error('MONGODB_URI is missing from .env');
-        }
+    app.use(express.static(clientPath));
 
-        await mongoose.connect(mongoUri);
-
-        console.log('MongoDB connected successfully');
-
-        app.listen(PORT, () => {
-            console.log(`Server running at http://localhost:${PORT}`);
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
-        process.exit(1);
-    }
+    app.get(/^(?!\/api).*/, (_req: Request, res: Response) => {
+        res.sendFile(path.join(clientPath, "index.html"));
+    });
 }
 
-void startServer();
+
+
+server.listen(Env.PORT, async () => {
+    await connectDatabase();
+    console.log(
+        `Server is running on port ${Env.PORT} in ${Env.NODE_ENV} mode`
+    );
+});
+
+
+export default app;

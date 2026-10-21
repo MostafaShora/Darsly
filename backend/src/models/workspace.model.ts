@@ -1,0 +1,71 @@
+
+import { Schema, model, Types, InferSchemaType } from "mongoose";
+
+const workspaceSchema = new Schema(
+    {
+        name: {
+            type: String,
+            required: true,
+            trim: true,
+            minlength: 2,
+            maxlength: 120,
+        },
+
+        slug: {
+            type: String,
+            required: true,
+            lowercase: true,
+            trim: true,
+            match: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+            maxlength: 100,
+            unique: true,
+        },
+
+        ownerId: {
+            type: Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+            index: true,
+        },
+
+        type: {
+            type: String,
+            enum: ["individual", "center"],
+            default: "individual",
+            required: true,
+        },
+
+        status: {
+            type: String,
+            enum: ["active", "suspended"],
+            default: "active",
+            required: true,
+        },
+
+        description: {
+            type: String,
+            trim: true,
+            maxlength: 1000,
+            default: "",
+        },
+
+        currency: {
+            type: String,
+            enum: ["EGP"],
+            default: "EGP",
+            required: true,
+        },
+    },
+    {
+        timestamps: true,
+        versionKey: false,
+    }
+);
+
+workspaceSchema.index({ ownerId: 1, status: 1 });
+
+export type Workspace = InferSchemaType<typeof workspaceSchema>;
+
+const WorkspaceModel = model("Workspace", workspaceSchema);
+
+export default WorkspaceModel;
