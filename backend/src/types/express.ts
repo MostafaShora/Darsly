@@ -1,5 +1,10 @@
+
+import type { UserDocument } from "../models/user.model";
+
 declare global {
     namespace Express {
+        interface User extends UserDocument { }
+
         interface Request {
             auth?: {
                 userId: string;
@@ -8,4 +13,4 @@ declare global {
     }
 }
 
-export {};
+export { };

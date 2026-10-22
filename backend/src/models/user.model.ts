@@ -1,7 +1,16 @@
+import mongoose, { Schema, type Document } from "mongoose";
 
-import { Schema, model, InferSchemaType } from "mongoose";
+export interface UserDocument extends Document {
+    name: string;
+    email: string;
+    passwordHash: string;
+    status: "active" | "suspended" | "pending";
+    lastLoginAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+}
 
-const userSchema = new Schema(
+const userSchema = new Schema<UserDocument>(
     {
         name: {
             type: String,
@@ -10,7 +19,6 @@ const userSchema = new Schema(
             minlength: 2,
             maxlength: 100,
         },
-
         email: {
             type: String,
             required: true,
@@ -19,20 +27,17 @@ const userSchema = new Schema(
             trim: true,
             maxlength: 254,
         },
-
         passwordHash: {
             type: String,
             required: true,
             select: false,
         },
-
         status: {
             type: String,
             enum: ["active", "suspended", "pending"],
             default: "active",
             required: true,
         },
-
         lastLoginAt: {
             type: Date,
             default: null,
@@ -44,8 +49,6 @@ const userSchema = new Schema(
     }
 );
 
-export type User = InferSchemaType<typeof userSchema>;
-
-const UserModel = model("User", userSchema);
+const UserModel = mongoose.model<UserDocument>("User", userSchema);
 
 export default UserModel;

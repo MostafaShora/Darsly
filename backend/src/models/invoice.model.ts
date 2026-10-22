@@ -1,7 +1,24 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const invoiceSchema = new Schema(
+export interface InvoiceDocument extends Document {
+    workspaceId: Types.ObjectId;
+    invoiceNumber: string;
+    studentId: Types.ObjectId;
+    enrollmentId: Types.ObjectId;
+    groupId: Types.ObjectId;
+    periodStart: Date;
+    periodEnd: Date;
+    totalAmount: Types.Decimal128;
+    dueDate: Date | null;
+    status: "draft" | "issued" | "void";
+    description: string;
+    notes: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const invoiceSchema = new Schema<InvoiceDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -84,7 +101,10 @@ const invoiceSchema = new Schema(
 
 invoiceSchema.pre("validate", function () {
     if (this.periodEnd < this.periodStart) {
-        this.invalidate("periodEnd", "periodEnd cannot be before periodStart");
+        this.invalidate(
+            "periodEnd",
+            "periodEnd cannot be before periodStart"
+        );
     }
 });
 
@@ -105,8 +125,9 @@ invoiceSchema.index({
     periodStart: 1,
 });
 
-export type Invoice = InferSchemaType<typeof invoiceSchema>;
-
-const InvoiceModel = model("Invoice", invoiceSchema);
+const InvoiceModel = mongoose.model<InvoiceDocument>(
+    "Invoice",
+    invoiceSchema
+);
 
 export default InvoiceModel;

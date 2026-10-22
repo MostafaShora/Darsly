@@ -1,7 +1,25 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const paymentSchema = new Schema(
+export interface PaymentDocument extends Document {
+    workspaceId: Types.ObjectId;
+    studentId: Types.ObjectId;
+    amount: Types.Decimal128;
+    method:
+        | "cash"
+        | "bank_transfer"
+        | "card"
+        | "wallet"
+        | "other";
+    status: "pending" | "completed" | "failed" | "refunded";
+    receivedAt: Date;
+    reference: string | null;
+    notes: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const paymentSchema = new Schema<PaymentDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -83,8 +101,9 @@ paymentSchema.index({
     receivedAt: -1,
 });
 
-export type Payment = InferSchemaType<typeof paymentSchema>;
-
-const PaymentModel = model("Payment", paymentSchema);
+const PaymentModel = mongoose.model<PaymentDocument>(
+    "Payment",
+    paymentSchema
+);
 
 export default PaymentModel;

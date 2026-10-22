@@ -1,7 +1,19 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const attendanceRecordSchema = new Schema(
+export interface AttendanceRecordDocument extends Document {
+    workspaceId: Types.ObjectId;
+    sessionId: Types.ObjectId;
+    studentId: Types.ObjectId;
+    status: "present" | "absent" | "late" | "excused";
+    lateMinutes: number;
+    notes: string;
+    recordedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const attendanceRecordSchema = new Schema<AttendanceRecordDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -73,11 +85,7 @@ attendanceRecordSchema.index({
     recordedAt: -1,
 });
 
-export type AttendanceRecord = InferSchemaType<
-    typeof attendanceRecordSchema
->;
-
-const AttendanceRecordModel = model(
+const AttendanceRecordModel = mongoose.model<AttendanceRecordDocument>(
     "AttendanceRecord",
     attendanceRecordSchema
 );

@@ -1,29 +1,38 @@
 import jwt from "jsonwebtoken";
-import { Response } from "express";
+import { Response, CookieOptions } from "express";
 import { Env } from "../config/env.config";
 
+type Time = `${number}${"s" | "m" | "h" | "d" | "w" | "y"}`;
 
-type Time = `${number}${'s' | 'm' | 'h' | 'd' | 'w' | 'y'}`;
-type cookie = {
+type CookieInput = {
     res: Response;
     userId: string;
-}
+};
 
-export const setJwtAuthCookie = ({ res, userId }: cookie) => {
-    const payload = { userId };
-    const expiresIn = Env.JWT_EXPIRES_IN as Time;
-    const token = jwt.sign(payload, Env.JWT_SECRET, {
-        audience: ["user"],
-        expiresIn: expiresIn || "7d",
-    });
+const authCookieOptions: CookieOptions = {
+    path: "/",
+    httpOnly: true,
+    secure: Env.NODE_ENV === "production",
+    sameSite: Env.NODE_ENV === "production" ? "strict" : "lax",
+};
+
+export const setJwtAuthCookie = ({ res, userId }: CookieInput) => {
+    const expiresIn = (Env.JWT_EXPIRES_IN || "7d") as Time;
+
+    const token = jwt.sign(
+        { userId },
+        Env.JWT_SECRET,
+        {
+            audience: ["user"],
+            expiresIn,
+        }
+    );
+
     return res.cookie("accessToken", token, {
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        httpOnly: true,
-        secure: Env.NODE_ENV == "production" ? true : false,
-        sameSite: Env.NODE_ENV == "production" ? "strict" : "lax",
+        ...authCookieOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-
 };
 
 export const clearJwtAuthCookie = (res: Response) =>
-    res.clearCookie("accessToken", { path: "/" });
+    res.clearCookie("accessToken", authCookieOptions);

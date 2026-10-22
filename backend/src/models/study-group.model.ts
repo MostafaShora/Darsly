@@ -1,7 +1,19 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const studyGroupSchema = new Schema(
+export interface StudyGroupDocument extends Document {
+    workspaceId: Types.ObjectId;
+    subjectId: Types.ObjectId;
+    name: string;
+    description: string;
+    monthlyFee: Types.Decimal128;
+    capacity: number | null;
+    status: "active" | "inactive" | "archived";
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const studyGroupSchema = new Schema<StudyGroupDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -67,8 +79,9 @@ studyGroupSchema.index({
     name: 1,
 });
 
-export type StudyGroup = InferSchemaType<typeof studyGroupSchema>;
-
-const StudyGroupModel = model("StudyGroup", studyGroupSchema);
+const StudyGroupModel = mongoose.model<StudyGroupDocument>(
+    "StudyGroup",
+    studyGroupSchema
+);
 
 export default StudyGroupModel;

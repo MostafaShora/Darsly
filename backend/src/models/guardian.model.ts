@@ -1,7 +1,25 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const guardianSchema = new Schema(
+export interface GuardianDocument extends Document {
+    workspaceId: Types.ObjectId;
+    name: string;
+    phone: string;
+    alternatePhone: string | null;
+    email: string | null;
+    relationship:
+        | "father"
+        | "mother"
+        | "brother"
+        | "sister"
+        | "relative"
+        | "other";
+    notes: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const guardianSchema = new Schema<GuardianDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -69,8 +87,9 @@ const guardianSchema = new Schema(
 guardianSchema.index({ workspaceId: 1, phone: 1 });
 guardianSchema.index({ workspaceId: 1, name: 1 });
 
-export type Guardian = InferSchemaType<typeof guardianSchema>;
-
-const GuardianModel = model("Guardian", guardianSchema);
+const GuardianModel = mongoose.model<GuardianDocument>(
+    "Guardian",
+    guardianSchema
+);
 
 export default GuardianModel;

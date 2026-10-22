@@ -1,7 +1,16 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const subjectSchema = new Schema(
+export interface SubjectDocument extends Document {
+    workspaceId: Types.ObjectId;
+    name: string;
+    description: string;
+    status: "active" | "archived";
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const subjectSchema = new Schema<SubjectDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -44,8 +53,9 @@ subjectSchema.index(
 
 subjectSchema.index({ workspaceId: 1, status: 1 });
 
-export type Subject = InferSchemaType<typeof subjectSchema>;
-
-const SubjectModel = model("Subject", subjectSchema);
+const SubjectModel = mongoose.model<SubjectDocument>(
+    "Subject",
+    subjectSchema
+);
 
 export default SubjectModel;

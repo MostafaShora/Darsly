@@ -1,7 +1,19 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const enrollmentSchema = new Schema(
+export interface EnrollmentDocument extends Document {
+    workspaceId: Types.ObjectId;
+    studentId: Types.ObjectId;
+    groupId: Types.ObjectId;
+    enrolledAt: Date;
+    endedAt: Date | null;
+    status: "active" | "paused" | "completed" | "cancelled";
+    notes: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const enrollmentSchema = new Schema<EnrollmentDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -54,12 +66,14 @@ const enrollmentSchema = new Schema(
 
 enrollmentSchema.pre("validate", function () {
     if (this.endedAt && this.endedAt < this.enrolledAt) {
-        this.invalidate("endedAt", "endedAt cannot be before enrolledAt");
+        this.invalidate(
+            "endedAt",
+            "endedAt cannot be before enrolledAt"
+        );
     }
 });
 
-// A student can have only one enrollment record
-// for a particular group. Rejoining updates the existing record.
+// A student can have only one enrollment record per group.
 enrollmentSchema.index(
     { workspaceId: 1, studentId: 1, groupId: 1 },
     { unique: true }
@@ -77,8 +91,9 @@ enrollmentSchema.index({
     status: 1,
 });
 
-export type Enrollment = InferSchemaType<typeof enrollmentSchema>;
-
-const EnrollmentModel = model("Enrollment", enrollmentSchema);
+const EnrollmentModel = mongoose.model<EnrollmentDocument>(
+    "Enrollment",
+    enrollmentSchema
+);
 
 export default EnrollmentModel;

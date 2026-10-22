@@ -1,7 +1,16 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const paymentAllocationSchema = new Schema(
+export interface PaymentAllocationDocument extends Document {
+    workspaceId: Types.ObjectId;
+    paymentId: Types.ObjectId;
+    invoiceId: Types.ObjectId;
+    amount: Types.Decimal128;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const paymentAllocationSchema = new Schema<PaymentAllocationDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -33,23 +42,19 @@ const paymentAllocationSchema = new Schema(
     }
 );
 
-// Prevent duplicate allocation documents for the same pair.
-// Update the existing allocation when necessary.
+// Prevent duplicate allocations for the same payment and invoice.
 paymentAllocationSchema.index(
     { workspaceId: 1, paymentId: 1, invoiceId: 1 },
     { unique: true }
 );
 
+// Find allocations associated with an invoice.
 paymentAllocationSchema.index({
     workspaceId: 1,
     invoiceId: 1,
 });
 
-export type PaymentAllocation = InferSchemaType<
-    typeof paymentAllocationSchema
->;
-
-const PaymentAllocationModel = model(
+const PaymentAllocationModel = mongoose.model<PaymentAllocationDocument>(
     "PaymentAllocation",
     paymentAllocationSchema
 );

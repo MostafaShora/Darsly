@@ -1,7 +1,18 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const workspaceMemberSchema = new Schema(
+export interface WorkspaceMemberDocument extends Document {
+    workspaceId: Types.ObjectId;
+    userId: Types.ObjectId;
+    role: "owner" | "admin" | "teacher" | "assistant";
+    status: "active" | "invited" | "suspended";
+    invitedBy: Types.ObjectId | null;
+    joinedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const workspaceMemberSchema = new Schema<WorkspaceMemberDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -55,11 +66,7 @@ workspaceMemberSchema.index(
 // Useful for listing active members of a workspace.
 workspaceMemberSchema.index({ workspaceId: 1, status: 1 });
 
-export type WorkspaceMember = InferSchemaType<
-    typeof workspaceMemberSchema
->;
-
-const WorkspaceMemberModel = model(
+const WorkspaceMemberModel = mongoose.model<WorkspaceMemberDocument>(
     "WorkspaceMember",
     workspaceMemberSchema
 );

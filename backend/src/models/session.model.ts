@@ -1,7 +1,19 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const sessionSchema = new Schema(
+export interface SessionDocument extends Document {
+    workspaceId: Types.ObjectId;
+    groupId: Types.ObjectId;
+    title: string;
+    startsAt: Date;
+    endsAt: Date;
+    status: "scheduled" | "completed" | "cancelled";
+    notes: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const sessionSchema = new Schema<SessionDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -72,8 +84,9 @@ sessionSchema.index({
     startsAt: 1,
 });
 
-export type Session = InferSchemaType<typeof sessionSchema>;
-
-const SessionModel = model("Session", sessionSchema);
+const SessionModel = mongoose.model<SessionDocument>(
+    "Session",
+    sessionSchema
+);
 
 export default SessionModel;

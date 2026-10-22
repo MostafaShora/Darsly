@@ -1,7 +1,20 @@
 
-import { Schema, model, InferSchemaType } from "mongoose";
+import mongoose, { Schema, Types, Document } from "mongoose";
 
-const studentSchema = new Schema(
+export interface StudentDocument extends Document {
+    workspaceId: Types.ObjectId;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    schoolName: string;
+    grade: string;
+    status: "active" | "inactive" | "archived";
+    notes: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+const studentSchema = new Schema<StudentDocument>(
     {
         workspaceId: {
             type: Schema.Types.ObjectId,
@@ -69,8 +82,9 @@ const studentSchema = new Schema(
 studentSchema.index({ workspaceId: 1, status: 1 });
 studentSchema.index({ workspaceId: 1, name: 1 });
 
-export type Student = InferSchemaType<typeof studentSchema>;
-
-const StudentModel = model("Student", studentSchema);
+const StudentModel = mongoose.model<StudentDocument>(
+    "Student",
+    studentSchema
+);
 
 export default StudentModel;
