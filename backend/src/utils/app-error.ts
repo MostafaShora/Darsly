@@ -46,6 +46,17 @@ export class ConflictException extends AppError {
         );
     }
 }
+
+export class ForbiddenException extends AppError {
+    constructor(message: string = "Forbidden") {
+        super(
+            message,
+            HTTPSTATUS.FORBIDDEN,
+            ErrorCodes.ERR_FORBIDDEN
+        );
+    }
+}
+
 export class UnauthorizedException extends AppError {
     constructor(message: string = "Unauthorized") {
         super(message, HTTPSTATUS.UNAUTHORIZED, ErrorCodes.ERR_UNAUTHORIZED);

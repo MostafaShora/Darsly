@@ -1,3 +1,4 @@
+
 import mongoose, { Schema, Types, Document } from "mongoose";
 
 export interface WorkspaceDocument extends Document {
@@ -8,6 +9,12 @@ export interface WorkspaceDocument extends Document {
     status: "active" | "suspended";
     description: string;
     currency: "EGP";
+
+    suspensionType: "owner" | "admin" | null;
+    suspendedAt: Date | null;
+    suspendedBy: Types.ObjectId | null;
+    suspensionReason: string | null;
+
     createdAt: Date;
     updatedAt: Date;
 }
@@ -27,7 +34,7 @@ const workspaceSchema = new Schema<WorkspaceDocument>(
             required: true,
             lowercase: true,
             trim: true,
-            match: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+            match: /^[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*$/u,
             maxlength: 100,
             unique: true,
         },
@@ -64,6 +71,30 @@ const workspaceSchema = new Schema<WorkspaceDocument>(
             enum: ["EGP"],
             default: "EGP",
             required: true,
+        },
+
+        suspensionType: {
+            type: String,
+            enum: ["owner", "admin", null],
+            default: null,
+        },
+
+        suspendedAt: {
+            type: Date,
+            default: null,
+        },
+
+        suspendedBy: {
+            type: Schema.Types.ObjectId,
+            ref: "User",
+            default: null,
+        },
+
+        suspensionReason: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+            default: null,
         },
     },
     {
