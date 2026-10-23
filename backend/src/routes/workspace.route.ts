@@ -1,4 +1,6 @@
+
 import { Router } from "express";
+import { passportAuthenticateJwt } from "../config/passport.config";
 
 import {
   createWorkspaceController,
@@ -8,25 +10,18 @@ import {
   suspendWorkspaceController,
   activateWorkspaceController,
 } from "../controllers/workspace.controller";
-import { get } from "mongoose";
 
-const workspaceRoutes = Router()
-  // Create a new workspace
+const workspaceRoutes = Router();
+
+// Require authentication for all workspace endpoints
+workspaceRoutes.use(passportAuthenticateJwt);
+
+workspaceRoutes
   .post("/", createWorkspaceController)
-
-  // Get all workspaces belonging to the current user
   .get("/mine", getMyWorkspacesController)
-
-  // Get a specific workspace
   .get("/:workspaceId", getWorkspaceByIdController)
-
-  // Update a workspace
   .patch("/:workspaceId", updateWorkspaceController)
-
-  // Suspend a workspace
   .patch("/:workspaceId/suspend", suspendWorkspaceController)
-
-  // Activate a workspace
   .patch("/:workspaceId/activate", activateWorkspaceController);
 
 export default workspaceRoutes;

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import authRoutes from "./auth.routes";
-import workspaceRoutes from "./workspace.routes";
+import authRoutes from "./auth.route";
+import workspaceRoutes from "./workspace.route";
 
 const routes = Router()
   // Auth

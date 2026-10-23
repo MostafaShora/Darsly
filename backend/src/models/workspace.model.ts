@@ -5,7 +5,6 @@ export interface WorkspaceDocument extends Document {
     name: string;
     slug: string;
     ownerId: Types.ObjectId;
-    type: "individual" | "center";
     status: "active" | "suspended";
     description: string;
     currency: "EGP";
@@ -42,13 +41,6 @@ const workspaceSchema = new Schema<WorkspaceDocument>(
         ownerId: {
             type: Schema.Types.ObjectId,
             ref: "User",
-            required: true,
-        },
-
-        type: {
-            type: String,
-            enum: ["individual", "center"],
-            default: "individual",
             required: true,
         },
 
@@ -103,6 +95,10 @@ const workspaceSchema = new Schema<WorkspaceDocument>(
     }
 );
 
+// Each teacher can own only one workspace.
+workspaceSchema.index({ ownerId: 1 }, { unique: true });
+
+// Keep the existing index for workspace status queries.
 workspaceSchema.index({ ownerId: 1, status: 1 });
 
 const WorkspaceModel = mongoose.model<WorkspaceDocument>(

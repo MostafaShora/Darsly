@@ -4,7 +4,7 @@ import mongoose, { Schema, Types, Document } from "mongoose";
 export interface WorkspaceMemberDocument extends Document {
     workspaceId: Types.ObjectId;
     userId: Types.ObjectId;
-    role: "owner" | "admin" | "teacher" | "assistant";
+    role: "owner";
     status: "active" | "invited" | "suspended";
     invitedBy: Types.ObjectId | null;
     joinedAt: Date | null;
@@ -28,9 +28,9 @@ const workspaceMemberSchema = new Schema<WorkspaceMemberDocument>(
 
         role: {
             type: String,
-            enum: ["owner", "admin", "teacher", "assistant"],
+            enum: ["owner"],
             required: true,
-            default: "teacher",
+            default: "owner",
         },
 
         status: {

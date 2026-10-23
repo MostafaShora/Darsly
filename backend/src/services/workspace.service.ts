@@ -16,7 +16,6 @@ import {
 
 export interface CreateWorkspaceInput {
     name: string;
-    type?: "individual" | "center";
     description?: string;
 }
 
@@ -158,7 +157,6 @@ export const createWorkspaceService = async (
 
     const name = data.name?.trim();
     const description = data.description?.trim() ?? "";
-    const type = data.type ?? "individual";
 
     if (!name || name.length < 2 || name.length > 120) {
         throw new BadRequestException(
@@ -166,12 +164,17 @@ export const createWorkspaceService = async (
         );
     }
 
-    if (!["individual", "center"].includes(type)) {
-        throw new BadRequestException("Invalid workspace type");
-    }
-
     if (description.length > 1000) {
         throw new BadRequestException("Description cannot exceed 1000 characters");
+    }
+
+    // Each teacher can own only one workspace.
+    const existingWorkspace = await WorkspaceModel.exists({
+        ownerId: new Types.ObjectId(userId),
+    });
+
+    if (existingWorkspace) {
+        throw new ConflictException("You already have a workspace");
     }
 
     const session = await mongoose.startSession();
@@ -188,7 +191,6 @@ export const createWorkspaceService = async (
                         name,
                         slug,
                         ownerId: new Types.ObjectId(userId),
-                        type,
                         description,
                         status: "active",
                         suspensionType: null,
@@ -218,6 +220,12 @@ export const createWorkspaceService = async (
         });
     } catch (error) {
         if (isDuplicateKeyError(error)) {
+            const duplicateError = error as { keyPattern?: Record<string, unknown> };
+
+            if (duplicateError.keyPattern?.ownerId) {
+                throw new ConflictException("You already have a workspace");
+            }
+
             throw new ConflictException("A workspace with this slug already exists");
         }
 
@@ -274,9 +282,12 @@ export const updateWorkspaceService = async (
     const workspace = await getActiveWorkspace(workspaceId);
     const membership = await getActiveMembership(userId, workspaceId);
 
-    if (membership.role !== "owner" && membership.role !== "admin") {
+    if (
+        membership.role !== "owner" ||
+        workspace.ownerId.toString() !== userId
+    ) {
         throw new ForbiddenException(
-            "You do not have permission to update this workspace",
+            "Only the workspace owner can update this workspace",
         );
     }
 
@@ -322,7 +333,7 @@ export const updateWorkspaceService = async (
         const updatedWorkspace = await WorkspaceModel.findOneAndUpdate(
             { _id: workspaceId, status: "active" },
             { $set: updates },
-            { new: true, runValidators: true },
+            { returnDocument: "after", runValidators: true },
         );
 
         if (!updatedWorkspace) {
