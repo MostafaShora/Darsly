@@ -1,11 +1,11 @@
 import { Router } from "express";
-import  authRoutes  from "./auth.routes";
+import authRoutes from "./auth.routes";
 import workspaceRoutes from "./workspace.routes";
 
-const router = Router();
-// Auth
-router.use("/auth", authRoutes);
-// Workspace
-router.use("/workspaces", workspaceRoutes);
+const routes = Router()
+  // Auth
+  .use("/auth", authRoutes)
+  // Workspace
+  .use("/workspaces", workspaceRoutes);
 
-export default router;
+export default routes;
