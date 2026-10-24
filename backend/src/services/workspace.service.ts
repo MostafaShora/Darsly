@@ -12,7 +12,7 @@ import {
     UnauthorizedException,
 } from "../utils/app-error";
 
-//  TYPES
+// TYPES
 
 export interface CreateWorkspaceInput {
     name: string;
@@ -24,7 +24,7 @@ export interface UpdateWorkspaceInput {
     description?: string;
 }
 
-//  HELPERS
+// HELPERS
 
 const ensureValidObjectId = (id: string, fieldName: string): void => {
     if (!Types.ObjectId.isValid(id)) {
@@ -61,7 +61,9 @@ const createUniqueSlug = async (
     name: string,
     excludeWorkspaceId?: Types.ObjectId,
 ): Promise<string> => {
-    const baseSlug = createSlug(name).slice(0, 100).replace(/-+$/g, "");
+    const baseSlug = createSlug(name)
+        .slice(0, 100)
+        .replace(/-+$/g, "");
 
     if (!baseSlug) {
         throw new BadRequestException(
@@ -86,7 +88,9 @@ const createUniqueSlug = async (
         }
 
         counter += 1;
+
         const suffix = `-${counter}`;
+
         slug = `${baseSlug.slice(0, 100 - suffix.length)}${suffix}`;
     }
 };
@@ -100,7 +104,33 @@ const isDuplicateKeyError = (error: unknown): boolean => {
     );
 };
 
-const getActiveMembership = async (userId: string, workspaceId: string) => {
+const getDuplicateKeyPattern = (
+    error: unknown,
+): Record<string, unknown> | undefined => {
+    if (
+        typeof error !== "object" ||
+        error === null ||
+        !("keyPattern" in error)
+    ) {
+        return undefined;
+    }
+
+    const keyPattern = error.keyPattern;
+
+    if (
+        typeof keyPattern !== "object" ||
+        keyPattern === null
+    ) {
+        return undefined;
+    }
+
+    return keyPattern as Record<string, unknown>;
+};
+
+const getActiveMembership = async (
+    userId: string,
+    workspaceId: string,
+) => {
     const membership = await WorkspaceMemberModel.findOne({
         userId,
         workspaceId,
@@ -129,9 +159,11 @@ const getActiveWorkspace = async (workspaceId: string) => {
     return workspace;
 };
 
-const requireOwner = async (userId: string, workspaceId: string) => {
+const requireOwner = async (
+    userId: string,
+    workspaceId: string,
+) => {
     const membership = await getActiveMembership(userId, workspaceId);
-
     const workspace = await WorkspaceModel.findById(workspaceId);
 
     if (
@@ -147,7 +179,7 @@ const requireOwner = async (userId: string, workspaceId: string) => {
     return { workspace, membership };
 };
 
-//  1. CREATE WORKSPACE
+// 1. CREATE WORKSPACE
 
 export const createWorkspaceService = async (
     userId: string,
@@ -165,12 +197,16 @@ export const createWorkspaceService = async (
     }
 
     if (description.length > 1000) {
-        throw new BadRequestException("Description cannot exceed 1000 characters");
+        throw new BadRequestException(
+            "Description cannot exceed 1000 characters",
+        );
     }
 
-    // Each teacher can own only one workspace.
+    const ownerObjectId = new Types.ObjectId(userId);
+
+    // UX check only. The unique ownerId index remains the final protection.
     const existingWorkspace = await WorkspaceModel.exists({
-        ownerId: new Types.ObjectId(userId),
+        ownerId: ownerObjectId,
     });
 
     if (existingWorkspace) {
@@ -190,7 +226,7 @@ export const createWorkspaceService = async (
                     {
                         name,
                         slug,
-                        ownerId: new Types.ObjectId(userId),
+                        ownerId: ownerObjectId,
                         description,
                         status: "active",
                         suspensionType: null,
@@ -206,7 +242,7 @@ export const createWorkspaceService = async (
                 [
                     {
                         workspaceId: workspace._id,
-                        userId: new Types.ObjectId(userId),
+                        userId: ownerObjectId,
                         role: "owner",
                         status: "active",
                         invitedBy: null,
@@ -220,13 +256,23 @@ export const createWorkspaceService = async (
         });
     } catch (error) {
         if (isDuplicateKeyError(error)) {
-            const duplicateError = error as { keyPattern?: Record<string, unknown> };
+            const keyPattern = getDuplicateKeyPattern(error);
 
-            if (duplicateError.keyPattern?.ownerId) {
-                throw new ConflictException("You already have a workspace");
+            if (keyPattern?.ownerId) {
+                throw new ConflictException(
+                    "You already have a workspace",
+                );
             }
 
-            throw new ConflictException("A workspace with this slug already exists");
+            if (keyPattern?.slug) {
+                throw new ConflictException(
+                    "A workspace with this slug already exists",
+                );
+            }
+
+            throw new ConflictException(
+                "A conflicting workspace record already exists",
+            );
         }
 
         throw error;
@@ -234,10 +280,16 @@ export const createWorkspaceService = async (
         await session.endSession();
     }
 
+    if (!createdWorkspaceId) {
+        throw new ConflictException(
+            "Workspace could not be created",
+        );
+    }
+
     return WorkspaceModel.findById(createdWorkspaceId);
 };
 
-//  2. GET MY WORKSPACES
+// 2. GET MY WORKSPACES
 
 export const getMyWorkspacesService = async (userId: string) => {
     await getActiveUser(userId);
@@ -247,15 +299,18 @@ export const getMyWorkspacesService = async (userId: string) => {
         status: "active",
     }).select("workspaceId");
 
-    const workspaceIds = memberships.map((membership) => membership.workspaceId);
+    const workspaceIds = memberships.map(
+        (membership) => membership.workspaceId,
+    );
 
+    // Include suspended workspaces so members can see their status.
+    // The owner can reactivate an owner-suspended workspace separately.
     return WorkspaceModel.find({
         _id: { $in: workspaceIds },
-        status: "active",
     }).sort({ createdAt: -1 });
 };
 
-//  3. GET WORKSPACE BY ID
+// 3. GET WORKSPACE BY ID
 
 export const getWorkspaceByIdService = async (
     userId: string,
@@ -266,10 +321,17 @@ export const getWorkspaceByIdService = async (
 
     await getActiveMembership(userId, workspaceId);
 
-    return getActiveWorkspace(workspaceId);
+    // Return suspended workspaces too, so their status is visible.
+    const workspace = await WorkspaceModel.findById(workspaceId);
+
+    if (!workspace) {
+        throw new NotFoundException("Workspace not found");
+    }
+
+    return workspace;
 };
 
-//  4. UPDATE WORKSPACE
+// 4. UPDATE WORKSPACE
 
 export const updateWorkspaceService = async (
     userId: string,
@@ -309,7 +371,10 @@ export const updateWorkspaceService = async (
         updates.name = name;
 
         if (name !== workspace.name) {
-            updates.slug = await createUniqueSlug(name, workspace._id);
+            updates.slug = await createUniqueSlug(
+                name,
+                workspace._id,
+            );
         }
     }
 
@@ -326,14 +391,22 @@ export const updateWorkspaceService = async (
     }
 
     if (Object.keys(updates).length === 0) {
-        throw new BadRequestException("Provide at least one field to update");
+        throw new BadRequestException(
+            "Provide at least one field to update",
+        );
     }
 
     try {
         const updatedWorkspace = await WorkspaceModel.findOneAndUpdate(
-            { _id: workspaceId, status: "active" },
+            {
+                _id: workspaceId,
+                status: "active",
+            },
             { $set: updates },
-            { returnDocument: "after", runValidators: true },
+            {
+                returnDocument: "after",
+                runValidators: true,
+            },
         );
 
         if (!updatedWorkspace) {
@@ -343,14 +416,24 @@ export const updateWorkspaceService = async (
         return updatedWorkspace;
     } catch (error) {
         if (isDuplicateKeyError(error)) {
-            throw new ConflictException("A workspace with this slug already exists");
+            const keyPattern = getDuplicateKeyPattern(error);
+
+            if (keyPattern?.slug) {
+                throw new ConflictException(
+                    "A workspace with this slug already exists",
+                );
+            }
+
+            throw new ConflictException(
+                "The update conflicts with an existing database record",
+            );
         }
 
         throw error;
     }
 };
 
-//  5. SUSPEND WORKSPACE
+// 5. SUSPEND WORKSPACE
 
 export const suspendWorkspaceService = async (
     userId: string,
@@ -362,7 +445,9 @@ export const suspendWorkspaceService = async (
     const { workspace } = await requireOwner(userId, workspaceId);
 
     if (workspace.status === "suspended") {
-        throw new ConflictException("Workspace is already suspended");
+        throw new ConflictException(
+            "Workspace is already suspended",
+        );
     }
 
     workspace.status = "suspended";
@@ -388,12 +473,26 @@ export const activateWorkspaceService = async (
     const { workspace } = await requireOwner(userId, workspaceId);
 
     if (workspace.status === "active") {
-        throw new ConflictException("Workspace is already active");
+        throw new ConflictException(
+            "Workspace is already active",
+        );
+    }
+
+    if (workspace.suspensionType === "admin") {
+        throw new ForbiddenException(
+            "Only platform administration can activate an administratively suspended workspace",
+        );
     }
 
     if (workspace.suspensionType !== "owner") {
-        throw new ForbiddenException(
-            "Only platform administration can activate an administratively suspended workspace",
+        throw new ConflictException(
+            "Workspace suspension data is inconsistent",
+        );
+    }
+
+    if (!workspace.suspendedAt || !workspace.suspendedBy) {
+        throw new ConflictException(
+            "Workspace suspension data is incomplete",
         );
     }
 

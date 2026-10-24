@@ -1,11 +1,18 @@
 
 import mongoose, { Schema, Types, Document } from "mongoose";
 
+export type WorkspaceMemberRole = "owner" | "teacher";
+
+export type WorkspaceMemberStatus =
+    | "active"
+    | "invited"
+    | "suspended";
+
 export interface WorkspaceMemberDocument extends Document {
     workspaceId: Types.ObjectId;
     userId: Types.ObjectId;
-    role: "owner";
-    status: "active" | "invited" | "suspended";
+    role: WorkspaceMemberRole;
+    status: WorkspaceMemberStatus;
     invitedBy: Types.ObjectId | null;
     joinedAt: Date | null;
     createdAt: Date;
@@ -28,16 +35,15 @@ const workspaceMemberSchema = new Schema<WorkspaceMemberDocument>(
 
         role: {
             type: String,
-            enum: ["owner"],
+            enum: ["owner", "teacher"],
             required: true,
-            default: "owner",
         },
 
         status: {
             type: String,
             enum: ["active", "invited", "suspended"],
             required: true,
-            default: "active",
+            default: "invited",
         },
 
         invitedBy: {
@@ -54,21 +60,38 @@ const workspaceMemberSchema = new Schema<WorkspaceMemberDocument>(
     {
         timestamps: true,
         versionKey: false,
-    }
+    },
 );
 
 // A user can belong to a workspace only once.
 workspaceMemberSchema.index(
     { workspaceId: 1, userId: 1 },
-    { unique: true }
+    { unique: true },
 );
 
-// Useful for listing active members of a workspace.
+// Useful for listing workspace members by status.
 workspaceMemberSchema.index({ workspaceId: 1, status: 1 });
+
+// An active member must have joinedAt; other statuses must not.
+workspaceMemberSchema.pre("validate", function () {
+    if (this.status === "active" && !this.joinedAt) {
+        this.invalidate(
+            "joinedAt",
+            "Active membership must have a join date",
+        );
+    }
+
+    if (this.status === "invited" && this.joinedAt) {
+        this.invalidate(
+            "joinedAt",
+            "Invited membership cannot have a join date",
+        );
+    }
+});
 
 const WorkspaceMemberModel = mongoose.model<WorkspaceMemberDocument>(
     "WorkspaceMember",
-    workspaceMemberSchema
+    workspaceMemberSchema,
 );
 
 export default WorkspaceMemberModel;

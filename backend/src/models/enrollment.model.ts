@@ -71,12 +71,27 @@ enrollmentSchema.pre("validate", function () {
             "endedAt cannot be before enrolledAt"
         );
     }
+
+    if (this.status === "active" && this.endedAt) {
+        this.invalidate("endedAt", "Active enrollment cannot have an end date");
+    }
+
+    if (this.status === "paused" && this.endedAt) {
+        this.invalidate("endedAt", "Paused enrollment cannot have an end date");
+    }
+
+    if (["completed", "cancelled"].includes(this.status) && !this.endedAt) {
+        this.invalidate("endedAt", "Ended enrollment must have an end date");
+    }
 });
 
-// A student can have only one enrollment record per group.
+// Keep enrollment history while preventing duplicate active enrollments.
 enrollmentSchema.index(
     { workspaceId: 1, studentId: 1, groupId: 1 },
-    { unique: true }
+    {
+        unique: true,
+        partialFilterExpression: { status: "active" },
+    }
 );
 
 enrollmentSchema.index({
