@@ -1,49 +1,127 @@
-<section class="journey-section" id="journey">
-    <div class="section-wrap journey-wrap">
-      <div class="section-heading">
-        <div class="eyebrow">رحلة المدرس مع Darsly</div>
-        <h2>من أول ما تفتح حسابك <span>لحد آخر الشهر</span></h2>
-        <p>اتنقل بين الخطوات وشوف إزاي تقدر تدير شغلك بشكل منظم.</p>
-      </div>
-      <div class="journey-layout">
-        <div class="journey-steps" aria-label="خطوات استخدام Darsly">
-          @for (step of steps; track $index) {
-            <button class="step-button" [class.active]="activeStep() === $index" (click)="selectStep($index)">
-              <span class="step-number">{{ $index + 1 }}</span>
-              <span class="step-label"><small>الخطوة {{ $index + 1 }}</small><b>{{ step.eyebrow }}</b></span>
-              <span class="step-arrow">←</span>
-            </button>
-          }
-        </div>
-        <article class="journey-panel">
-          <div class="panel-topline"><span class="live-dot"></span> {{ currentStep().eyebrow }} <span class="panel-count">{{ activeStep() + 1 }} / {{ steps.length }}</span></div>
-          <div class="panel-content">
-            <div class="panel-copy">
-              <span class="panel-icon">{{ currentStep().icon }}</span>
-              <h3>{{ currentStep().title }}</h3>
-              <p>{{ currentStep().description }}</p>
-              <ul>
-                @for (bullet of currentStep().bullets; track bullet) {
-                  <li><span>✓</span>{{ bullet }}</li>
-                }
-              </ul>
-            </div>
-            <div class="stage-character" [attr.data-stage]="activeStep() + 1">
-              <div class="character-halo"></div>
-              <img [src]="'assets/' + currentStep().image" [alt]="currentStep().visualTitle" />
-              <div class="character-caption"><span class="caption-check">✦</span>{{ currentStep().visualTitle }}</div>
-            </div>
-          </div>
-          <div class="panel-footer">
-            <button class="round-nav" (click)="previous()" [disabled]="activeStep() === 0" aria-label="الخطوة السابقة">→</button>
-            <div class="progress-dots">
-              @for (step of steps; track $index) {
-                <button [class.active]="activeStep() === $index" (click)="selectStep($index)" [attr.aria-label]="'الانتقال للخطوة ' + ($index + 1)"></button>
-              }
-            </div>
-            <button class="round-nav next" (click)="next()" [disabled]="activeStep() === steps.length - 1" aria-label="الخطوة التالية">←</button>
-          </div>
-        </article>
-      </div>
+<section
+  class="relative overflow-hidden bg-[#eff8f2] py-[60px] md:py-[88px] md:pb-[100px]"
+  id="journey"
+>
+  <div class="section-wrap journey-wrap">
+    <div class="mb-[27px] text-center md:mb-[42px]">
+      <div class="eyebrow">رحلة المدرس مع Darsly</div>
+      <h2 class="mt-[10px] mb-[10px] text-[27px] font-black text-[#173d32] md:text-[39px]">
+        من أول ما تفتح حسابك <span class="text-[#0ca879]">لحد آخر الشهر</span>
+      </h2>
+      <p class="text-[12px] leading-[1.9] text-[#819188] md:text-[14px]">
+        اتنقل بين الخطوات وشوف إزاي تقدر تدير شغلك بشكل منظم.
+      </p>
     </div>
-  </section>
+    <div
+      class="relative grid grid-cols-1 gap-[15px] lg:grid-cols-[300px_1fr] lg:gap-[25px]"
+      dir="ltr"
+    >
+      <div
+        class="grid grid-cols-2 gap-[7px] lg:flex lg:flex-col lg:gap-[9px]"
+        aria-label="خطوات استخدام Darsly"
+        dir="rtl"
+      >
+        @for (step of steps; track $index) {
+          <button
+            class="flex items-center gap-[7px] rounded-[14px] border border-transparent px-[8px] py-[9px] text-right text-[11px] text-[#71867b] transition lg:gap-[12px] lg:px-[14px] lg:py-[12px]"
+            [class.bg-white]="activeStep() === $index"
+            [class.border-[#dcefe3]]="activeStep() === $index"
+            [class.text-[#164436]]="activeStep() === $index"
+            [class.shadow-[0_8px_20px_#285b4210]]="activeStep() === $index"
+            (click)="selectStep($index)"
+          >
+            <span
+              class="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[11px] bg-[#e1f1e7] text-[11px] font-black text-[#0a9c70] lg:h-[36px] lg:w-[36px] lg:text-[13px]"
+              [class.bg-[#0ca879]]="activeStep() === $index"
+              [class.text-white]="activeStep() === $index"
+              >{{ $index + 1 }}</span
+            >
+            <span class="flex-1"
+              ><small class="block text-[8px] text-[#9bad9f] lg:text-[9px]"
+                >الخطوة {{ $index + 1 }}</small
+              ><b class="mt-[2px] block text-[10px] lg:text-[12px]">{{ step.eyebrow }}</b></span
+            >
+            <span class="hidden text-[17px] opacity-45 lg:block">←</span>
+          </button>
+        }
+      </div>
+      <article
+        class="min-h-0 rounded-[22px] border border-[#e0eee5] bg-white p-[17px] shadow-[0_18px_50px_#24563b0c] lg:min-h-[390px] lg:p-[24px] lg:px-[27px]"
+        dir="rtl"
+      >
+        <div
+          class="flex items-center gap-[9px] border-b border-[#edf3ef] pb-[17px] text-[11px] font-extrabold text-[#55766a]"
+        >
+          <span class="live-dot"></span> {{ currentStep().eyebrow }}
+          <span class="mr-auto text-[10px] text-[#a1b0a8]" dir="ltr"
+            >{{ activeStep() + 1 }} / {{ steps.length }}</span
+          >
+        </div>
+        <div
+          class="grid grid-cols-1 items-center gap-[25px] py-[18px] md:grid-cols-[1.1fr_0.9fr] lg:py-[24px]"
+        >
+          <div>
+            <span
+              class="grid h-[42px] w-[42px] place-items-center rounded-[13px] bg-[#e8f8ef] text-[22px] font-extrabold text-[#0ba477]"
+              >{{ currentStep().icon }}</span
+            >
+            <h3 class="mt-[13px] mb-[8px] text-[19px] leading-[1.55] text-[#183e32] lg:text-[22px]">
+              {{ currentStep().title }}
+            </h3>
+            <p class="m-0 text-[12px] leading-[2] text-[#819188]">
+              {{ currentStep().description }}
+            </p>
+            <ul class="m-0 mt-[16px] grid list-none gap-[8px] p-0">
+              @for (bullet of currentStep().bullets; track bullet) {
+                <li class="flex items-center gap-[8px] text-[11px] text-[#577267]">
+                  <span
+                    class="grid h-[17px] w-[17px] place-items-center rounded-full bg-[#e8f8ef] text-[10px] font-black text-[#0ca879]"
+                    >✓</span
+                  >{{ bullet }}
+                </li>
+              }
+            </ul>
+          </div>
+          <div class="stage-character" [attr.data-stage]="activeStep() + 1">
+            <div class="character-halo"></div>
+            <img [src]="'assets/' + currentStep().image" [alt]="currentStep().visualTitle" />
+            <div
+              class="absolute right-[12px] bottom-[12px] left-[12px] rounded-[12px] border border-[#e1eee5] bg-[#ffffffdf] px-[12px] py-[9px] text-center text-[11px] font-extrabold text-[#356052] shadow-[0_8px_20px_#214d3610] backdrop-blur-[10px]"
+            >
+              <span class="ml-[7px] text-[#0ca879]">✦</span>{{ currentStep().visualTitle }}
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between border-t border-[#edf3ef] pt-[16px]">
+          <button
+            class="grid h-[34px] w-[34px] place-items-center rounded-full border border-[#dcebe1] bg-white text-[17px] text-[#0a986d] disabled:cursor-not-allowed disabled:opacity-30"
+            (click)="previous()"
+            [disabled]="activeStep() === 0"
+            aria-label="الخطوة السابقة"
+          >
+            →
+          </button>
+          <div class="flex gap-[7px]">
+            @for (step of steps; track $index) {
+              <button
+                class="h-[7px] w-[7px] rounded-[10px] border-0 bg-[#d9e8df] p-0 transition"
+                [class.w-[23px]]="activeStep() === $index"
+                [class.bg-[#0ca879]]="activeStep() === $index"
+                (click)="selectStep($index)"
+                [attr.aria-label]="'الانتقال للخطوة ' + ($index + 1)"
+              ></button>
+            }
+          </div>
+          <button
+            class="grid h-[34px] w-[34px] place-items-center rounded-full border border-[#0ca879] bg-[#0ca879] text-[17px] text-white disabled:cursor-not-allowed disabled:opacity-30"
+            (click)="next()"
+            [disabled]="activeStep() === steps.length - 1"
+            aria-label="الخطوة التالية"
+          >
+            ←
+          </button>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>

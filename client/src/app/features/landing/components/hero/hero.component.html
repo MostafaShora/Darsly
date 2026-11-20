@@ -1,43 +1,123 @@
-<section class="hero section-wrap">
-  <div class="hero-copy">
-    <div class="eyebrow"><span class="pulse"></span> إدارة تعليمك بشكل أذكى</div>
-    <h1>خلّي تركيزك في <span>التدريس</span><br />وسيّب التنظيم علينا</h1>
-    <p class="hero-lead">
+<section
+  dir="ltr"
+  class="section-wrap relative grid min-h-[600px] grid-cols-1 grid-rows-[auto_auto] items-center py-[22px] pb-[65px] md:grid-cols-[0.95fr_1.05fr] md:grid-rows-1 md:py-[55px] md:pb-[75px]"
+>
+  <!-- Hero Text: Right Side -->
+  <div
+    dir="rtl"
+    class="relative z-10 row-start-2 w-full pb-0 text-right md:col-start-2 md:row-start-1 md:pb-[25px]"
+  >
+    <div class="eyebrow">
+      <span class="pulse"></span>
+      إدارة تعليمك بشكل أذكى
+    </div>
+
+    <h1
+      class="mt-[12px] mb-[15px] text-[39px] leading-[1.35] font-black tracking-[-1.8px] text-[#153d32] md:mt-[20px] md:text-[clamp(38px,5vw,62px)]"
+    >
+      خلّي تركيزك في
+      <span class="text-[#0ca879]">التدريس</span>
+      <br />
+      وسيّب التنظيم علينا
+    </h1>
+
+    <p class="m-0 max-w-[550px] text-[13px] leading-[2.05] text-[#6b8178] md:text-[16px]">
       Darsly بيجمعلك إدارة الطلاب والمجموعات والحضور والمدفوعات والتقارير في مكان واحد. شغل منظم،
       ومتابعة أسهل، ووقت أكتر لطلابك.
     </p>
-    <div class="hero-actions">
-      <button class="primary-btn" (click)="scrollToJourney()">
+
+    <div class="mt-[27px] flex flex-wrap items-center gap-[15px] md:gap-[25px]">
+      <button
+        type="button"
+        class="rounded-[13px] border-0 bg-[#0ca879] px-[14px] py-[12px] text-[12px] font-extrabold text-white shadow-[0_10px_22px_#0ca8792c] transition hover:-translate-y-[2px] hover:bg-[#078b65] md:px-[22px] md:py-[14px] md:text-[14px]"
+        (click)="scrollToJourney()"
+      >
         شوف Darsly بيشتغل إزاي <span>←</span>
       </button>
-      <a class="text-link" href="#features">اكتشف المميزات</a>
+
+      <a class="text-[13px] font-extrabold text-[#547066] hover:text-[#079b70]" href="#features">
+        اكتشف المميزات
+      </a>
     </div>
-    <div class="hero-proof">
-      <div class="proof-icon">✦</div>
+
+    <div class="mt-[24px] flex items-center gap-[12px] md:mt-[40px]">
+      <div
+        class="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] bg-[#e4f7ee] text-[20px] text-[#0b9c70]"
+      >
+        ✦
+      </div>
+
       <div>
-        <strong>كل تفاصيل شغلك في مكان واحد</strong
-        ><small>من أول تسجيل الطالب لحد تقفيل الشهر</small>
+        <strong class="block text-[12px]"> كل تفاصيل شغلك في مكان واحد </strong>
+
+        <small class="mt-[3px] block text-[11px] text-[#8a9b93]">
+          من أول تسجيل الطالب لحد تقفيل الشهر
+        </small>
       </div>
     </div>
   </div>
-  <div class="hero-visual">
+
+  <!-- 3D Teacher Visual: Left Side -->
+  <div
+    dir="ltr"
+    class="relative z-0 row-start-1 grid h-[330px] w-full place-items-center md:col-start-1 md:row-start-1 md:h-[490px] lg:h-[490px]"
+  >
     <div class="visual-glow"></div>
+
     <div class="float-card card-top">
-      <span class="mini-icon">✓</span>
-      <div><b>الحضور اتسجل</b><small>متابعة أسهل كل حصة</small></div>
+      <span
+        class="grid h-[32px] w-[32px] shrink-0 place-items-center rounded-[10px] bg-[#e5f8ee] text-[11px] font-black text-[#0ca879]"
+      >
+        ✓
+      </span>
+
+      <div>
+        <b class="block text-[9px] md:text-[11px]"> الحضور اتسجل </b>
+
+        <small class="mt-[2px] block text-[8px] text-[#91a198] md:text-[9px]">
+          متابعة أسهل كل حصة
+        </small>
+      </div>
     </div>
+
     <img
       class="teacher-img"
       src="assets/teacher-3d.png"
       alt="شخصية مدرس ثلاثية الأبعاد تمثل Darsly"
     />
+
     <div class="float-card card-bottom">
-      <span class="mini-icon coin">ج</span>
-      <div><b>متابعة المدفوعات</b><small>كل حاجة واضحة ومنظمة</small></div>
+      <span
+        class="grid h-[32px] w-[32px] shrink-0 place-items-center rounded-[10px] bg-[#fff4dc] text-[11px] font-black text-[#d69b28]"
+      >
+        ج
+      </span>
+
+      <div>
+        <b class="block text-[9px] md:text-[11px]"> متابعة المدفوعات </b>
+
+        <small class="mt-[2px] block text-[8px] text-[#91a198] md:text-[9px]">
+          كل حاجة واضحة ومنظمة
+        </small>
+      </div>
     </div>
+
     <div class="orbit orbit-one"></div>
     <div class="orbit orbit-two"></div>
-    <span class="sparkle sparkle-one">✳</span><span class="sparkle sparkle-two">✦</span>
+
+    <span class="sparkle sparkle-one">✳</span>
+    <span class="sparkle sparkle-two">✦</span>
   </div>
-  <div class="hero-scroll"><span></span> انزل واكتشف التجربة</div>
+
+  <!-- Scroll Indicator -->
+  <div
+    dir="rtl"
+    class="absolute bottom-[15px] left-1/2 flex -translate-x-1/2 items-center gap-[9px] whitespace-nowrap text-[10px] text-[#9aaba2] md:bottom-[20px]"
+  >
+    <span
+      class="relative h-[28px] w-[18px] rounded-[20px] border border-[#a9c8b8] after:absolute after:top-[5px] after:left-[6px] after:h-[6px] after:w-[3px] after:rounded-[4px] after:bg-[#0ca879]"
+    ></span>
+
+    انزل واكتشف التجربة
+  </div>
 </section>

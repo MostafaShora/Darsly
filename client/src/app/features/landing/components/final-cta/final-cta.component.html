@@ -1,7 +1,27 @@
-<section class="closing section-wrap" id="about">
-    <div class="closing-card">
-      <div><div class="eyebrow">Darsly معاك في كل خطوة</div><h2>نظّم شغلك.. وخلّي وقتك لطلابك</h2><p>ابدأ رحلتك مع تجربة أبسط لإدارة تفاصيل يومك كمدرس.</p></div>
-      <button class="primary-btn" (click)="scrollToJourney()">استكشف طريقة العمل <span>←</span></button>
-      <div class="closing-decoration">D</div>
+<section class="section-wrap py-[50px] md:py-[75px]" id="about">
+  <div
+    class="relative overflow-hidden rounded-[24px] bg-[#153f33] px-[22px] py-[27px] text-white md:flex md:items-center md:justify-between md:px-[50px] md:py-[43px]"
+  >
+    <div>
+      <div class="eyebrow text-[#7be0b6]">Darsly معاك في كل خطوة</div>
+      <h2 class="relative mt-[10px] mb-[5px] text-[21px] md:text-[27px]">
+        نظّم شغلك.. وخلّي وقتك لطلابك
+      </h2>
+      <p class="m-0 text-[12px] text-[#b5cec2]">
+        ابدأ رحلتك مع تجربة أبسط لإدارة تفاصيل يومك كمدرس.
+      </p>
     </div>
-  </section>
+    <button
+      class="relative z-[2] mt-[20px] whitespace-nowrap rounded-[13px] border-0 bg-[#19b982] px-[14px] py-[12px] text-[12px] font-extrabold text-white shadow-[0_10px_22px_#0ca8792c] transition hover:-translate-y-[2px] md:mt-0 md:px-[22px] md:py-[14px] md:text-[14px]"
+      (click)="scrollToJourney()"
+    >
+      استكشف طريقة العمل <span class="mr-[12px]">←</span>
+    </button>
+    <div
+      class="pointer-events-none absolute left-[30%] top-[-100px] text-[220px] font-black text-[#ffffff08]"
+      dir="ltr"
+    >
+      D
+    </div>
+  </div>
+</section>
