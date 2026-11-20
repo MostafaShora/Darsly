@@ -1,0 +1,49 @@
+<section class="journey-section" id="journey">
+    <div class="section-wrap journey-wrap">
+      <div class="section-heading">
+        <div class="eyebrow">رحلة المدرس مع Darsly</div>
+        <h2>من أول ما تفتح حسابك <span>لحد آخر الشهر</span></h2>
+        <p>اتنقل بين الخطوات وشوف إزاي تقدر تدير شغلك بشكل منظم.</p>
+      </div>
+      <div class="journey-layout">
+        <div class="journey-steps" aria-label="خطوات استخدام Darsly">
+          @for (step of steps; track $index) {
+            <button class="step-button" [class.active]="activeStep() === $index" (click)="selectStep($index)">
+              <span class="step-number">{{ $index + 1 }}</span>
+              <span class="step-label"><small>الخطوة {{ $index + 1 }}</small><b>{{ step.eyebrow }}</b></span>
+              <span class="step-arrow">←</span>
+            </button>
+          }
+        </div>
+        <article class="journey-panel">
+          <div class="panel-topline"><span class="live-dot"></span> {{ currentStep().eyebrow }} <span class="panel-count">{{ activeStep() + 1 }} / {{ steps.length }}</span></div>
+          <div class="panel-content">
+            <div class="panel-copy">
+              <span class="panel-icon">{{ currentStep().icon }}</span>
+              <h3>{{ currentStep().title }}</h3>
+              <p>{{ currentStep().description }}</p>
+              <ul>
+                @for (bullet of currentStep().bullets; track bullet) {
+                  <li><span>✓</span>{{ bullet }}</li>
+                }
+              </ul>
+            </div>
+            <div class="stage-character" [attr.data-stage]="activeStep() + 1">
+              <div class="character-halo"></div>
+              <img [src]="'assets/' + currentStep().image" [alt]="currentStep().visualTitle" />
+              <div class="character-caption"><span class="caption-check">✦</span>{{ currentStep().visualTitle }}</div>
+            </div>
+          </div>
+          <div class="panel-footer">
+            <button class="round-nav" (click)="previous()" [disabled]="activeStep() === 0" aria-label="الخطوة السابقة">→</button>
+            <div class="progress-dots">
+              @for (step of steps; track $index) {
+                <button [class.active]="activeStep() === $index" (click)="selectStep($index)" [attr.aria-label]="'الانتقال للخطوة ' + ($index + 1)"></button>
+              }
+            </div>
+            <button class="round-nav next" (click)="next()" [disabled]="activeStep() === steps.length - 1" aria-label="الخطوة التالية">←</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
