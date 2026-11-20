@@ -8,7 +8,7 @@
       <h2 class="mt-[10px] mb-[10px] text-[27px] font-black text-[#173d32] md:text-[39px]">
         من أول ما تفتح حسابك <span class="text-[#0ca879]">لحد آخر الشهر</span>
       </h2>
-      <p class="text-[12px] leading-[1.9] text-[#819188] md:text-[14px]">
+      <p class="text-[13px] leading-[1.9] text-[#65786f] md:text-[14px]">
         اتنقل بين الخطوات وشوف إزاي تقدر تدير شغلك بشكل منظم.
       </p>
     </div>
@@ -23,7 +23,7 @@
       >
         @for (step of steps; track $index) {
           <button
-            class="flex items-center gap-[7px] rounded-[14px] border border-transparent px-[8px] py-[9px] text-right text-[11px] text-[#71867b] transition lg:gap-[12px] lg:px-[14px] lg:py-[12px]"
+            class="flex items-center gap-[7px] rounded-[14px] border border-transparent px-[8px] py-[9px] text-right text-[12px] text-[#71867b] transition lg:gap-[12px] lg:px-[14px] lg:py-[12px]"
             [class.bg-white]="activeStep() === $index"
             [class.border-[#dcefe3]]="activeStep() === $index"
             [class.text-[#164436]]="activeStep() === $index"
@@ -37,9 +37,9 @@
               >{{ $index + 1 }}</span
             >
             <span class="flex-1"
-              ><small class="block text-[8px] text-[#9bad9f] lg:text-[9px]"
+              ><small class="block text-[10px] text-[#6c8076] lg:text-[11px]"
                 >الخطوة {{ $index + 1 }}</small
-              ><b class="mt-[2px] block text-[10px] lg:text-[12px]">{{ step.eyebrow }}</b></span
+              ><b class="mt-[2px] block text-[11px] lg:text-[13px]">{{ step.eyebrow }}</b></span
             >
             <span class="hidden text-[17px] opacity-45 lg:block">←</span>
           </button>
@@ -50,10 +50,10 @@
         dir="rtl"
       >
         <div
-          class="flex items-center gap-[9px] border-b border-[#edf3ef] pb-[17px] text-[11px] font-extrabold text-[#55766a]"
+          class="flex items-center gap-[9px] border-b border-[#edf3ef] pb-[17px] text-[12px] font-extrabold text-[#55766a]"
         >
           <span class="live-dot"></span> {{ currentStep().eyebrow }}
-          <span class="mr-auto text-[10px] text-[#a1b0a8]" dir="ltr"
+          <span class="mr-auto text-[11px] text-[#66796f]" dir="ltr"
             >{{ activeStep() + 1 }} / {{ steps.length }}</span
           >
         </div>
@@ -68,12 +68,12 @@
             <h3 class="mt-[13px] mb-[8px] text-[19px] leading-[1.55] text-[#183e32] lg:text-[22px]">
               {{ currentStep().title }}
             </h3>
-            <p class="m-0 text-[12px] leading-[2] text-[#819188]">
+            <p class="m-0 text-[13px] leading-[1.9] text-[#65786f]">
               {{ currentStep().description }}
             </p>
             <ul class="m-0 mt-[16px] grid list-none gap-[8px] p-0">
-              @for (bullet of currentStep().bullets; track bullet) {
-                <li class="flex items-center gap-[8px] text-[11px] text-[#577267]">
+              @for (bullet of currentStep().bullets; track $index) {
+                <li class="flex items-center gap-[8px] text-[12px] text-[#577267]">
                   <span
                     class="grid h-[17px] w-[17px] place-items-center rounded-full bg-[#e8f8ef] text-[10px] font-black text-[#0ca879]"
                     >✓</span

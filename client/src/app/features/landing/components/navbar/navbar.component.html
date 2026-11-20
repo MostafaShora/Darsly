@@ -1,14 +1,14 @@
 <header
-  class="mx-auto flex h-[70px] w-[calc(100%-32px)] max-w-[1240px] items-center justify-between border-b border-[#e8f0eb] md:h-[82px] md:w-[calc(100%-48px)]"
+  class="relative z-20 mx-auto flex h-[70px] w-[calc(100%-32px)] max-w-[1240px] items-center justify-between border-b border-[#e8f0eb] md:h-[82px] md:w-[calc(100%-48px)]"
 >
   <a
-    class="flex h-[92px] w-[138px] shrink-0 items-center md:h-[104px] md:w-[156px]"
+    class="flex h-[70px] w-[105px] shrink-0 items-center md:h-[82px] md:w-[123px]"
     href="/"
   >
     <img
-      class="h-full w-full object-contain"
+      class="h-full w-full scale-[1.3] object-contain md:scale-[1.27]"
       src="assets/images/logo/Darsly-Logo.png"
-      alt="شعار Darsly"
+      alt="شعار منصة دارسلي"
     />
   </a>
   <nav
@@ -20,8 +20,50 @@
     <a class="transition-colors hover:text-[#079b70]" href="#about">عن Darsly</a>
   </nav>
   <a
-    class="shrink-0 whitespace-nowrap rounded-[12px] bg-[#e5f6ee] px-[12px] py-[9px] text-[11px] font-extrabold text-[#07845f] md:px-[18px] md:py-[10px] md:text-[13px]"
+    class="shrink-0 whitespace-nowrap rounded-[12px] bg-[#e5f6ee] px-[12px] py-[9px] text-[12px] font-extrabold text-[#07845f] md:px-[18px] md:py-[10px] md:text-[14px]"
     href="#journey"
     >اكتشف Darsly <span class="mr-[8px]">←</span></a
   >
+  <button
+    type="button"
+    class="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[12px] border border-[#dcebe1] bg-white text-[#0ca879] transition hover:bg-[#e5f6ee] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] md:hidden"
+    [attr.aria-expanded]="mobileMenuOpen()"
+    aria-controls="mobile-navigation"
+    [attr.aria-label]="mobileMenuOpen() ? 'إغلاق القائمة' : 'فتح القائمة'"
+    (click)="toggleMobileMenu()"
+    (keydown.escape)="closeMobileMenu()"
+  >
+    <span class="flex flex-col gap-[4px]" aria-hidden="true">
+      <span class="h-[2px] w-[18px] rounded bg-current"></span>
+      <span class="h-[2px] w-[18px] rounded bg-current"></span>
+      <span class="h-[2px] w-[18px] rounded bg-current"></span>
+    </span>
+  </button>
+  <nav
+    id="mobile-navigation"
+    class="absolute top-full right-0 left-0 z-30 gap-[4px] rounded-b-[14px] border border-t-0 border-[#e8f0eb] bg-[#f7fbf8] p-[8px] shadow-[0_12px_25px_#214d3612] md:hidden"
+    [class.hidden]="!mobileMenuOpen()"
+    [class.grid]="mobileMenuOpen()"
+    aria-label="القائمة الرئيسية"
+    (keydown.escape)="closeMobileMenu()"
+  >
+    <a
+      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59]"
+      href="#features"
+      (click)="closeMobileMenu()"
+      >المميزات</a
+    >
+    <a
+      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59]"
+      href="#journey"
+      (click)="closeMobileMenu()"
+      >طريقة العمل</a
+    >
+    <a
+      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59]"
+      href="#about"
+      (click)="closeMobileMenu()"
+      >عن Darsly</a
+    >
+  </nav>
 </header>

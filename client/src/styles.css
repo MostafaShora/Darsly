@@ -16,6 +16,7 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 90px;
+  overflow-x: clip;
 }
 
 body {
@@ -46,9 +47,13 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  color: #0b9b70;
+  color: #087b59;
   font-weight: 800;
   font-size: 13px;
+}
+
+.eyebrow-on-dark {
+  color: #7be0b6;
 }
 
 .pulse,
@@ -180,9 +185,26 @@ button {
   border: 1px solid #d7eee0;
 }
 
+@media (max-width: 1100px) {
+  .orbit {
+    width: 260px;
+    height: 190px;
+  }
+
+  .orbit-two {
+    width: 220px;
+    height: 260px;
+  }
+}
+
 @media (max-width: 900px) {
   .section-wrap {
     width: calc(100% - 48px);
+  }
+
+  .visual-glow {
+    width: 330px;
+    height: 330px;
   }
 
   .teacher-img {
@@ -226,13 +248,13 @@ button {
   }
 
   .orbit {
-    width: 300px;
-    height: 210px;
+    width: 250px;
+    height: 170px;
   }
 
   .orbit-two {
-    width: 260px;
-    height: 310px;
+    width: 180px;
+    height: 220px;
   }
 
   .card-top {
