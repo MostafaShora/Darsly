@@ -1,9 +1,11 @@
 import { Component, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-navbar',
   standalone: true,
-  templateUrl: './navbar.component.html'
+  imports: [RouterLink],
+  templateUrl: './navbar.component.html',
 })
 export class NavbarComponent {
   readonly mobileMenuOpen = signal(false);

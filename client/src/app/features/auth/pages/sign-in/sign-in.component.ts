@@ -1,0 +1,56 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, inject, signal } from '@angular/core';
+import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../../../core/services/auth.service';
+
+@Component({
+  selector: 'app-sign-in',
+  standalone: true,
+  imports: [ReactiveFormsModule, RouterLink],
+  templateUrl: './sign-in.component.html',
+})
+export class SignInComponent {
+  private readonly formBuilder = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
+  readonly form = this.formBuilder.nonNullable.group({
+    email: ['', [Validators.required, Validators.email]],
+    password: ['', Validators.required],
+  });
+
+  readonly isSubmitting = signal(false);
+  readonly showPassword = signal(false);
+  readonly apiError = signal('');
+  readonly successMessage = signal('');
+
+  submit(): void {
+    this.form.markAllAsTouched();
+    if (this.form.invalid || this.isSubmitting()) {
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.apiError.set('');
+    this.authService.login(this.form.getRawValue()).subscribe({
+      next: () => {
+        this.isSubmitting.set(false);
+        this.successMessage.set('تم تسجيل الدخول بنجاح. جارٍ نقلك إلى الصفحة الرئيسية.');
+        window.setTimeout(() => void this.router.navigateByUrl('/'), 900);
+      },
+      error: (error: unknown) => {
+        this.isSubmitting.set(false);
+        this.apiError.set(this.getApiErrorMessage(error));
+      },
+    });
+  }
+
+  private getApiErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse && error.status === 0) {
+      return 'تعذر الاتصال بالخادم. تحقق من اتصالك وحاول مرة أخرى.';
+    }
+
+    return 'تعذر تسجيل الدخول. تحقق من بياناتك وحاول مرة أخرى.';
+  }
+}

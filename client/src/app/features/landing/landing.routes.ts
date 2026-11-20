@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
+import { LandingComponent } from './landing.component';
 
-// Landing page is currently mounted directly by AppComponent.
-// Keep this route definition ready for a future route-based layout.
-export const LANDING_ROUTES: Routes = [];
+export const LANDING_ROUTES: Routes = [{ path: '', component: LandingComponent }];

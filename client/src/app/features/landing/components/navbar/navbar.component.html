@@ -1,10 +1,7 @@
 <header
   class="relative z-20 mx-auto flex h-[70px] w-[calc(100%-32px)] max-w-[1240px] items-center justify-between border-b border-[#e8f0eb] md:h-[82px] md:w-[calc(100%-48px)]"
 >
-  <a
-    class="flex h-[70px] w-[105px] shrink-0 items-center md:h-[82px] md:w-[123px]"
-    href="/"
-  >
+  <a class="flex h-[70px] w-[105px] shrink-0 items-center md:h-[82px] md:w-[123px]" href="/">
     <img
       class="h-full w-full scale-[1.3] object-contain md:scale-[1.27]"
       src="assets/images/logo/Darsly-Logo.png"
@@ -19,11 +16,18 @@
     <a class="transition-colors hover:text-[#079b70]" href="#journey">طريقة العمل</a>
     <a class="transition-colors hover:text-[#079b70]" href="#about">عن Darsly</a>
   </nav>
-  <a
-    class="shrink-0 whitespace-nowrap rounded-[12px] bg-[#e5f6ee] px-[12px] py-[9px] text-[12px] font-extrabold text-[#07845f] md:px-[18px] md:py-[10px] md:text-[14px]"
-    href="#journey"
-    >اكتشف Darsly <span class="mr-[8px]">←</span></a
-  >
+  <div class="hidden shrink-0 items-center gap-[8px] md:flex">
+    <a
+      class="whitespace-nowrap rounded-[12px] px-[12px] py-[10px] text-[13px] font-extrabold text-[#07845f] transition hover:bg-[#e5f6ee] md:px-[14px] md:text-[14px]"
+      routerLink="/sign-in"
+      >تسجيل الدخول</a
+    >
+    <a
+      class="whitespace-nowrap rounded-[12px] bg-[#0ca879] px-[14px] py-[10px] text-[13px] font-extrabold text-white shadow-[0_8px_18px_#0ca87925] transition hover:bg-[#078f68] md:px-[17px] md:text-[14px]"
+      routerLink="/sign-up"
+      >إنشاء حساب</a
+    >
+  </div>
   <button
     type="button"
     class="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[12px] border border-[#dcebe1] bg-white text-[#0ca879] transition hover:bg-[#e5f6ee] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] md:hidden"
@@ -64,6 +68,18 @@
       href="#about"
       (click)="closeMobileMenu()"
       >عن Darsly</a
+    >
+    <a
+      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#07845f] hover:bg-[#e5f6ee]"
+      routerLink="/sign-in"
+      (click)="closeMobileMenu()"
+      >تسجيل الدخول</a
+    >
+    <a
+      class="rounded-[10px] bg-[#0ca879] px-[12px] py-[10px] text-[14px] font-extrabold text-white hover:bg-[#078f68]"
+      routerLink="/sign-up"
+      (click)="closeMobileMenu()"
+      >إنشاء حساب</a
     >
   </nav>
 </header>
