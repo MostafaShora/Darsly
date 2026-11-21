@@ -1,15 +1,19 @@
 import mongoose, { Types } from "mongoose";
 
-import UserModel from "../models/user.model";
 import WorkspaceModel from "../models/workspace.model";
 import WorkspaceMemberModel from "../models/workspace-member.model";
+import {
+    assertValidObjectId,
+    getActiveMembership,
+    getActiveUser,
+    resolveWorkspaceAccess,
+} from "./workspace-access.service";
 
 import {
     BadRequestException,
     ConflictException,
     ForbiddenException,
     NotFoundException,
-    UnauthorizedException,
 } from "../utils/app-error";
 
 // TYPES
@@ -25,28 +29,6 @@ export interface UpdateWorkspaceInput {
 }
 
 // HELPERS
-
-const ensureValidObjectId = (id: string, fieldName: string): void => {
-    if (!Types.ObjectId.isValid(id)) {
-        throw new BadRequestException(`Invalid ${fieldName}`);
-    }
-};
-
-const getActiveUser = async (userId: string) => {
-    ensureValidObjectId(userId, "user ID");
-
-    const user = await UserModel.findById(userId);
-
-    if (!user) {
-        throw new UnauthorizedException("User not found");
-    }
-
-    if (user.status !== "active") {
-        throw new ForbiddenException("Your account is not active");
-    }
-
-    return user;
-};
 
 const createSlug = (value: string): string => {
     return value
@@ -125,25 +107,6 @@ const getDuplicateKeyPattern = (
     }
 
     return keyPattern as Record<string, unknown>;
-};
-
-const getActiveMembership = async (
-    userId: string,
-    workspaceId: string,
-) => {
-    const membership = await WorkspaceMemberModel.findOne({
-        userId,
-        workspaceId,
-        status: "active",
-    });
-
-    if (!membership) {
-        throw new ForbiddenException(
-            "You do not have an active membership in this workspace",
-        );
-    }
-
-    return membership;
 };
 
 const getActiveWorkspace = async (workspaceId: string) => {
@@ -316,17 +279,11 @@ export const getWorkspaceByIdService = async (
     userId: string,
     workspaceId: string,
 ) => {
-    await getActiveUser(userId);
-    ensureValidObjectId(workspaceId, "workspace ID");
-
-    await getActiveMembership(userId, workspaceId);
-
-    // Return suspended workspaces too, so their status is visible.
-    const workspace = await WorkspaceModel.findById(workspaceId);
-
-    if (!workspace) {
-        throw new NotFoundException("Workspace not found");
-    }
+    const { workspace } = await resolveWorkspaceAccess(
+        userId,
+        workspaceId,
+        { allowSuspended: true },
+    );
 
     return workspace;
 };
@@ -339,7 +296,7 @@ export const updateWorkspaceService = async (
     data: UpdateWorkspaceInput,
 ) => {
     await getActiveUser(userId);
-    ensureValidObjectId(workspaceId, "workspace ID");
+    assertValidObjectId(workspaceId, "workspace ID");
 
     const workspace = await getActiveWorkspace(workspaceId);
     const membership = await getActiveMembership(userId, workspaceId);
@@ -440,7 +397,7 @@ export const suspendWorkspaceService = async (
     workspaceId: string,
 ) => {
     await getActiveUser(userId);
-    ensureValidObjectId(workspaceId, "workspace ID");
+    assertValidObjectId(workspaceId, "workspace ID");
 
     const { workspace } = await requireOwner(userId, workspaceId);
 
@@ -468,7 +425,7 @@ export const activateWorkspaceService = async (
     workspaceId: string,
 ) => {
     await getActiveUser(userId);
-    ensureValidObjectId(workspaceId, "workspace ID");
+    assertValidObjectId(workspaceId, "workspace ID");
 
     const { workspace } = await requireOwner(userId, workspaceId);
 

@@ -11,16 +11,32 @@ export const ErrorCodes = {
 
 export type ErrorCodeType = keyof typeof ErrorCodes;
 
+export interface ErrorDetail {
+    path: string;
+    message: string;
+}
+
 export class AppError extends Error {
     constructor(
-        massage: string,
+        message: string,
         public statusCode: HttpStatusCodeType = HTTPSTATUS.INTERNAL_SERVER_ERROR,
-        public erroeCode: ErrorCodeType = ErrorCodes.ERR_INTERNAL
+        public errorCode: ErrorCodeType = ErrorCodes.ERR_INTERNAL
     ) {
-        super(massage);
+        super(message);
         Error.captureStackTrace(this, this.constructor);
     }
 }
+
+export class RequestValidationException extends AppError {
+    constructor(public details: ErrorDetail[]) {
+        super(
+            "Invalid request data",
+            HTTPSTATUS.BAD_REQUEST,
+            ErrorCodes.ERR_BAD_REQUEST
+        );
+    }
+}
+
 export class InternalServerException extends AppError {
     constructor(message: string = "Internal Server Error") {
         super(message, HTTPSTATUS.INTERNAL_SERVER_ERROR, ErrorCodes.ERR_INTERNAL);
