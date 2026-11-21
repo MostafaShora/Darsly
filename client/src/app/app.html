@@ -1,1 +1,25 @@
 <router-outlet />
+@if (authService.isCheckingSession()) {
+  <main
+    class="dashboard-route-skeleton"
+    aria-busy="true"
+    aria-live="polite"
+    aria-label="جارٍ التحقق من الجلسة"
+  >
+    <div class="dashboard-skeleton-sidebar"></div>
+    <div class="dashboard-skeleton-content">
+      <div class="dashboard-skeleton-bar"></div>
+      <div class="dashboard-skeleton-welcome"></div>
+      <div class="dashboard-skeleton-cards">
+        <div></div>
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+      <div class="dashboard-skeleton-panels">
+        <div></div>
+        <div></div>
+      </div>
+    </div>
+  </main>
+}

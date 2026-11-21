@@ -56,8 +56,8 @@ export class SignUpComponent {
     this.authService.register({ name, email, password }).subscribe({
       next: () => {
         this.isSubmitting.set(false);
-        this.successMessage.set('تم إنشاء حسابك بنجاح. جارٍ نقلك إلى الصفحة الرئيسية.');
-        window.setTimeout(() => void this.router.navigateByUrl('/'), 900);
+        this.successMessage.set('تم إنشاء حسابك بنجاح. جارٍ نقلك إلى لوحة التحكم.');
+        window.setTimeout(() => void this.router.navigateByUrl('/dashboard'), 900);
       },
       error: (error: unknown) => {
         this.isSubmitting.set(false);

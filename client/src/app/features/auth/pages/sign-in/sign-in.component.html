@@ -32,6 +32,15 @@
         </p>
       </div>
 
+      @if (redirectMessage()) {
+        <p
+          class="mb-5 rounded-[12px] bg-[#fff7e6] px-4 py-3 text-[13px] leading-[1.8] text-[#805b12]"
+          role="status"
+        >
+          {{ redirectMessage() }}
+        </p>
+      }
+
       <form class="grid gap-5" [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <div>
           <label for="sign-in-email" class="mb-2 block text-[13px] font-bold text-[#29483d]">

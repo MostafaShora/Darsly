@@ -1,0 +1,214 @@
+<div class="dashboard-app" [attr.dir]="isArabic() ? 'rtl' : 'ltr'" [attr.lang]="language()">
+  @if (isMobileNavigationOpen()) {
+    <button
+      class="dashboard-mobile-scrim"
+      type="button"
+      [attr.aria-label]="copy().closeMenu"
+      (click)="closeMobileNavigation()"
+    ></button>
+  }
+
+  <aside class="dashboard-sidebar" [class.dashboard-sidebar--open]="isMobileNavigationOpen()">
+    <a class="dashboard-brand" routerLink="/dashboard" [attr.aria-label]="copy().workspace">
+      <img src="/assets/images/logo/Darsly-Logo.png" alt="Darsly" />
+    </a>
+
+    <div class="dashboard-workspace-label">{{ copy().workspace }}</div>
+    <nav class="dashboard-navigation" [attr.aria-label]="copy().navigation">
+      @for (item of navigationItems(); track item.id; let index = $index) {
+        <a
+          class="dashboard-navigation-link"
+          [class.dashboard-navigation-link--active]="item.id === activeSection()"
+          [href]="'#' + item.id"
+          [attr.aria-current]="item.id === activeSection() ? 'location' : null"
+          (click)="setActiveSection(item.id)"
+        >
+          <span class="dashboard-navigation-index" aria-hidden="true">{{ index + 1 }}</span>
+          <span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+
+    <div class="dashboard-sidebar-footer">
+      @if (signOutError()) {
+        <p class="dashboard-signout-error" role="alert">{{ signOutError() }}</p>
+      }
+      <button
+        class="dashboard-signout"
+        type="button"
+        [disabled]="isSigningOut()"
+        [attr.aria-busy]="isSigningOut()"
+        (click)="signOut()"
+      >
+        <span aria-hidden="true">↪</span>
+        {{ isSigningOut() ? copy().signingOut : copy().signOut }}
+      </button>
+    </div>
+  </aside>
+
+  <div class="dashboard-main">
+    <header class="dashboard-topbar">
+      <div class="dashboard-topbar-start">
+        <button
+          class="dashboard-menu-toggle"
+          type="button"
+          [attr.aria-expanded]="isMobileNavigationOpen()"
+          [attr.aria-label]="isMobileNavigationOpen() ? copy().closeMenu : copy().menu"
+          (click)="isMobileNavigationOpen.update((open) => !open)"
+        >
+          <span aria-hidden="true">☰</span>
+        </button>
+        <div class="dashboard-page-label">
+          <span>{{ copy().workspace }}</span>
+          <strong>{{ copy().pageTitle }}</strong>
+        </div>
+      </div>
+
+      <div class="dashboard-topbar-end">
+        <time class="dashboard-date" [attr.aria-label]="copy().dateLabel">{{ today() }}</time>
+        <button
+          class="dashboard-language-toggle"
+          type="button"
+          [attr.aria-label]="copy().language"
+          (click)="toggleLanguage()"
+        >
+          <span aria-hidden="true">文</span>
+          {{ copy().language }}
+        </button>
+        <div class="dashboard-user-chip">
+          <span class="dashboard-avatar" aria-hidden="true">{{ teacherInitials() }}</span>
+          <span class="dashboard-user-copy">
+            <strong>{{ teacherName() }}</strong>
+            <small>{{ copy().account }}</small>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main id="overview" class="dashboard-content">
+      <section
+        class="dashboard-welcome dashboard-enter"
+        aria-labelledby="dashboard-welcome-heading"
+      >
+        <div class="dashboard-welcome-copy">
+          <span class="dashboard-eyebrow">
+            <span class="dashboard-eyebrow-dot" aria-hidden="true"></span>
+            {{ copy().workspace }}
+          </span>
+          <h1 id="dashboard-welcome-heading">
+            {{ copy().welcome }} <span>{{ teacherName() }}</span>
+          </h1>
+          <p>{{ copy().welcomeDescription }}</p>
+          <div class="dashboard-welcome-meta">
+            <span class="dashboard-authenticated">
+              <span aria-hidden="true">✓</span>
+              {{ copy().signedIn }}
+            </span>
+            <span class="dashboard-email" dir="ltr">{{ teacherEmail() }}</span>
+          </div>
+        </div>
+        <img
+          class="dashboard-welcome-character"
+          src="/assets/teacher-3d.png"
+          [alt]="copy().characterAlt"
+          fetchpriority="high"
+        />
+      </section>
+
+      <section
+        class="dashboard-overview-grid dashboard-stagger"
+        [attr.aria-label]="copy().overview"
+      >
+        @for (card of overviewCards(); track card.id; let index = $index) {
+          <a
+            class="dashboard-overview-card"
+            [href]="'#' + card.id"
+            (click)="setActiveSection(card.id)"
+            [attr.aria-label]="copy().goTo + ' ' + card.label + '. ' + copy().notConnected"
+          >
+            <div class="dashboard-overview-card-top">
+              <span class="dashboard-card-index" aria-hidden="true">0{{ index + 1 }}</span>
+              <span class="dashboard-status-dot" aria-hidden="true"></span>
+            </div>
+            <strong>{{ card.label }}</strong>
+            <span class="dashboard-overview-value" aria-hidden="true">—</span>
+            <small>{{ copy().notConnected }}</small>
+          </a>
+        }
+      </section>
+
+      <div class="dashboard-primary-panels">
+        <section
+          id="schedule"
+          class="dashboard-panel dashboard-schedule-panel"
+          aria-labelledby="schedule-heading"
+        >
+          <div class="dashboard-panel-heading">
+            <div>
+              <h2 id="schedule-heading">{{ copy().schedule }}</h2>
+              <p>{{ copy().scheduleDescription }}</p>
+            </div>
+            <span class="dashboard-panel-date">{{ today() }}</span>
+          </div>
+          <div class="dashboard-empty-state">
+            <img
+              class="dashboard-schedule-character"
+              src="/assets/journey-3.webp"
+              [alt]="copy().scheduleCharacterAlt"
+            />
+            <div>
+              <h3>{{ copy().scheduleEmpty }}</h3>
+              <p>{{ copy().scheduleEmptyDescription }}</p>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="dashboard-panel dashboard-activity-panel"
+          aria-labelledby="activity-heading"
+        >
+          <div class="dashboard-panel-heading">
+            <div>
+              <h2 id="activity-heading">{{ copy().activity }}</h2>
+              <p>{{ copy().activityEmptyDescription }}</p>
+            </div>
+            <span class="dashboard-panel-mark" aria-hidden="true">↗</span>
+          </div>
+          <div class="dashboard-activity-empty">
+            <span class="dashboard-activity-line" aria-hidden="true"></span>
+            <h3>{{ copy().activityEmpty }}</h3>
+            <p>{{ copy().activityEmptyDescription }}</p>
+          </div>
+        </section>
+      </div>
+
+      <section class="dashboard-sections" aria-labelledby="sections-heading">
+        <div class="dashboard-section-heading">
+          <div>
+            <h2 id="sections-heading">{{ copy().sections }}</h2>
+            <p>{{ copy().sectionsDescription }}</p>
+          </div>
+        </div>
+        <div class="dashboard-feature-grid">
+          @for (feature of featureCards(); track feature.id) {
+            <article
+              class="dashboard-feature-card"
+              [id]="feature.id"
+              [attr.aria-labelledby]="'feature-heading-' + feature.id"
+            >
+              <div class="dashboard-feature-card-top">
+                <span class="dashboard-feature-mark" aria-hidden="true">{{
+                  feature.label.charAt(0)
+                }}</span>
+                <span class="dashboard-feature-status">{{ copy().notConnected }}</span>
+              </div>
+              <h3 [id]="'feature-heading-' + feature.id">{{ feature.label }}</h3>
+              <p>{{ feature.description }}</p>
+              <span class="dashboard-feature-note">{{ copy().statsDescription }}</span>
+            </article>
+          }
+        </div>
+      </section>
+    </main>
+  </div>
+</div>

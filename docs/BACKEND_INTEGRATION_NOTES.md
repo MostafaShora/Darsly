@@ -1,19 +1,17 @@
 # Darsly Backend Integration Notes
 
-## Current frontend readiness
+## Current frontend integration
 
-The current frontend is a static landing page. It has no HTTP calls and no authentication or workspace UI flows.
+The Angular frontend consumes the existing authentication API through `AuthService` and protects `/dashboard` with an auth-status check. Requests preserve the backend JWT cookie behavior with `withCredentials: true`; no bearer-token contract was introduced.
 
-Preserved environment contracts:
+Environment values remain unchanged:
 
-- `src/environments/environment.ts`: `apiBaseUrl: '/api'`, `production: true`
-- `src/environments/environment.development.ts`: `apiBaseUrl: '/api'`, `production: false`
+- `client/src/environments/environment.ts`: `apiBaseUrl: '/api'`, `production: true`
+- `client/src/environments/environment.development.ts`: `apiBaseUrl: '/api'`, `production: false`
 
-These values must not be renamed or replaced until a proven integration change is made.
+The dashboard uses the safe user returned by `/auth/status` for the teacher's name and email. It does not show fabricated student, group, session, attendance, payment, or report data.
 
-## Existing backend areas
-
-The backend exposes auth and workspace capabilities.
+## Existing backend endpoints
 
 ### Authentication
 
@@ -22,16 +20,7 @@ The backend exposes auth and workspace capabilities.
 - `POST /api/auth/logout`
 - `GET /api/auth/status`
 
-The backend uses a JWT authentication cookie. Browser integration must preserve credential/cookie behavior and must not assume that auth should be implemented with a manually created bearer header.
-
-Known auth response shapes:
-
-- Register/login: `{ message, user }`
-- Logout: `{ message }`
-- Auth status: `{ message, user }`
-- Safe user fields: `id`, `name`, `email`, `status`, `lastLoginAt`
-
-Actual backend validation and user models remain the source of truth.
+Auth responses include `{ message, user }` (or `{ message }` for logout). Safe user fields are `id`, `name`, `email`, `status`, and `lastLoginAt`.
 
 ### Workspaces
 
@@ -42,41 +31,10 @@ Actual backend validation and user models remain the source of truth.
 - `PATCH /api/workspaces/:workspaceId/suspend`
 - `PATCH /api/workspaces/:workspaceId/activate`
 
-Workspace routes require authentication. Current workspace responses use `{ message, data }` for successful operations.
+Workspace routes require authentication and return `{ message, data }`.
 
-## Landing page integration
+## Unsupported dashboard domains
 
-The landing page is presentation-only and has no backend dependency:
+Backend models exist for students, groups, sessions, attendance, and payments, but no routes or controllers expose those operations. Reports and activity-feed APIs are also absent. The dashboard presents clearly labeled not-connected states for these sections until APIs and contracts are implemented.
 
-- Hero, Features, Before/After, Daily Workflow, Audience, Final CTA, and Footer remain static.
-- Journey steps remain static data in `features/landing/data/journey.data.ts`.
-- Journey character assets remain local files under `public/assets`.
-
-No fake API responses or placeholder backend calls should be added to these components.
-
-## Recommended future integration
-
-Future API code should be placed in typed application services under `src/app/core/services`.
-
-Recommended service boundaries:
-
-- `AuthService`: register, login, logout, status
-- `WorkspaceService`: workspace CRUD and status changes
-
-Recommended typed models under `src/app/core/models` should be derived from observed backend contracts rather than invented.
-
-UI components should consume observable/service state and must not call `HttpClient` directly.
-
-## Missing frontend work
-
-No frontend auth models, auth state, HTTP interceptors, route guards, workspace models, or workspace services exist yet.
-
-Before implementing them, confirm and type:
-
-- Exact validation fields for registration and login
-- Cookie and CORS requirements
-- Error response structure
-- Workspace request payload fields
-- Workspace response fields
-- Workspace member and role behavior
-- Protected route behavior
+No backend files were changed for the dashboard work.

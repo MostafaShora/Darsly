@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
@@ -13,6 +13,7 @@ import { AuthService } from '../../../../core/services/auth.service';
 export class SignInComponent {
   private readonly formBuilder = inject(FormBuilder);
   private readonly authService = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
   readonly form = this.formBuilder.nonNullable.group({
@@ -24,6 +25,13 @@ export class SignInComponent {
   readonly showPassword = signal(false);
   readonly apiError = signal('');
   readonly successMessage = signal('');
+  readonly redirectMessage = signal(
+    this.route.snapshot.queryParamMap.get('reason') === 'session'
+      ? 'انتهت جلستك. سجّل الدخول للمتابعة.'
+      : this.route.snapshot.queryParamMap.get('reason') === 'unavailable'
+        ? 'تعذر التحقق من جلستك. تحقق من اتصالك وحاول تسجيل الدخول مرة أخرى.'
+        : '',
+  );
 
   submit(): void {
     this.form.markAllAsTouched();
@@ -36,8 +44,8 @@ export class SignInComponent {
     this.authService.login(this.form.getRawValue()).subscribe({
       next: () => {
         this.isSubmitting.set(false);
-        this.successMessage.set('تم تسجيل الدخول بنجاح. جارٍ نقلك إلى الصفحة الرئيسية.');
-        window.setTimeout(() => void this.router.navigateByUrl('/'), 900);
+        this.successMessage.set('تم تسجيل الدخول بنجاح. جارٍ نقلك إلى لوحة التحكم.');
+        window.setTimeout(() => void this.router.navigateByUrl('/dashboard'), 900);
       },
       error: (error: unknown) => {
         this.isSubmitting.set(false);
