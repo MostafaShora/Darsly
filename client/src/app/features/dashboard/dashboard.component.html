@@ -1,214 +1,324 @@
-<div class="dashboard-app" [attr.dir]="isArabic() ? 'rtl' : 'ltr'" [attr.lang]="language()">
+<div class="min-h-screen bg-[#f5f8f6] text-[#173b32]" dir="rtl" lang="ar">
   @if (isMobileNavigationOpen()) {
     <button
-      class="dashboard-mobile-scrim"
+      class="fixed inset-0 z-40 bg-[#173b32]/35 backdrop-blur-[2px] lg:hidden"
       type="button"
-      [attr.aria-label]="copy().closeMenu"
+      aria-label="إغلاق القائمة"
       (click)="closeMobileNavigation()"
     ></button>
   }
 
-  <aside class="dashboard-sidebar" [class.dashboard-sidebar--open]="isMobileNavigationOpen()">
-    <a class="dashboard-brand" routerLink="/dashboard" [attr.aria-label]="copy().workspace">
-      <img src="/assets/images/logo/Darsly-Logo.png" alt="Darsly" />
-    </a>
-
-    <div class="dashboard-workspace-label">{{ copy().workspace }}</div>
-    <nav class="dashboard-navigation" [attr.aria-label]="copy().navigation">
-      @for (item of navigationItems(); track item.id; let index = $index) {
-        <a
-          class="dashboard-navigation-link"
-          [class.dashboard-navigation-link--active]="item.id === activeSection()"
-          [href]="'#' + item.id"
-          [attr.aria-current]="item.id === activeSection() ? 'location' : null"
-          (click)="setActiveSection(item.id)"
-        >
-          <span class="dashboard-navigation-index" aria-hidden="true">{{ index + 1 }}</span>
-          <span>{{ item.label }}</span>
-        </a>
-      }
-    </nav>
-
-    <div class="dashboard-sidebar-footer">
-      @if (signOutError()) {
-        <p class="dashboard-signout-error" role="alert">{{ signOutError() }}</p>
-      }
-      <button
-        class="dashboard-signout"
-        type="button"
-        [disabled]="isSigningOut()"
-        [attr.aria-busy]="isSigningOut()"
-        (click)="signOut()"
+  <div class="mx-auto min-h-screen max-w-[1680px] lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+    <aside
+      id="dashboard-sidebar"
+      aria-label="قائمة لوحة التحكم"
+      class="fixed inset-y-0 end-0 z-50 flex h-dvh w-[min(86vw,292px)] flex-col border-s border-[#e5ece7] bg-white px-5 py-5 shadow-2xl shadow-[#173b32]/10 transition-transform duration-300 motion-reduce:transition-none lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:w-[260px] lg:translate-x-0 lg:visible lg:shadow-none"
+      [class.translate-x-0]="isMobileNavigationOpen()"
+      [class.translate-x-full]="!isMobileNavigationOpen()"
+      [class.visible]="isMobileNavigationOpen()"
+      [class.invisible]="!isMobileNavigationOpen()"
+    >
+      <a
+        class="flex h-[72px] shrink-0 items-center rounded-xl px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        routerLink="/dashboard"
+        aria-label="لوحة تحكم دارسلي"
       >
-        <span aria-hidden="true">↪</span>
-        {{ isSigningOut() ? copy().signingOut : copy().signOut }}
-      </button>
-    </div>
-  </aside>
-
-  <div class="dashboard-main">
-    <header class="dashboard-topbar">
-      <div class="dashboard-topbar-start">
-        <button
-          class="dashboard-menu-toggle"
-          type="button"
-          [attr.aria-expanded]="isMobileNavigationOpen()"
-          [attr.aria-label]="isMobileNavigationOpen() ? copy().closeMenu : copy().menu"
-          (click)="isMobileNavigationOpen.update((open) => !open)"
-        >
-          <span aria-hidden="true">☰</span>
-        </button>
-        <div class="dashboard-page-label">
-          <span>{{ copy().workspace }}</span>
-          <strong>{{ copy().pageTitle }}</strong>
-        </div>
-      </div>
-
-      <div class="dashboard-topbar-end">
-        <time class="dashboard-date" [attr.aria-label]="copy().dateLabel">{{ today() }}</time>
-        <button
-          class="dashboard-language-toggle"
-          type="button"
-          [attr.aria-label]="copy().language"
-          (click)="toggleLanguage()"
-        >
-          <span aria-hidden="true">文</span>
-          {{ copy().language }}
-        </button>
-        <div class="dashboard-user-chip">
-          <span class="dashboard-avatar" aria-hidden="true">{{ teacherInitials() }}</span>
-          <span class="dashboard-user-copy">
-            <strong>{{ teacherName() }}</strong>
-            <small>{{ copy().account }}</small>
-          </span>
-        </div>
-      </div>
-    </header>
-
-    <main id="overview" class="dashboard-content">
-      <section
-        class="dashboard-welcome dashboard-enter"
-        aria-labelledby="dashboard-welcome-heading"
-      >
-        <div class="dashboard-welcome-copy">
-          <span class="dashboard-eyebrow">
-            <span class="dashboard-eyebrow-dot" aria-hidden="true"></span>
-            {{ copy().workspace }}
-          </span>
-          <h1 id="dashboard-welcome-heading">
-            {{ copy().welcome }} <span>{{ teacherName() }}</span>
-          </h1>
-          <p>{{ copy().welcomeDescription }}</p>
-          <div class="dashboard-welcome-meta">
-            <span class="dashboard-authenticated">
-              <span aria-hidden="true">✓</span>
-              {{ copy().signedIn }}
-            </span>
-            <span class="dashboard-email" dir="ltr">{{ teacherEmail() }}</span>
-          </div>
-        </div>
         <img
-          class="dashboard-welcome-character"
-          src="/assets/teacher-3d.png"
-          [alt]="copy().characterAlt"
-          fetchpriority="high"
+          class="h-14 w-[142px] object-contain object-right"
+          src="/assets/images/logo/Darsly-Logo.png"
+          alt="دارسلي"
         />
-      </section>
+      </a>
 
-      <section
-        class="dashboard-overview-grid dashboard-stagger"
-        [attr.aria-label]="copy().overview"
-      >
-        @for (card of overviewCards(); track card.id; let index = $index) {
+      <div class="mb-3 mt-8 px-2 text-[11px] font-extrabold tracking-wide text-[#71847a]">
+        مساحة عمل المدرّس
+      </div>
+      <nav class="grid gap-1" aria-label="التنقل الرئيسي">
+        @for (item of navigationItems; track item.id) {
           <a
-            class="dashboard-overview-card"
-            [href]="'#' + card.id"
-            (click)="setActiveSection(card.id)"
-            [attr.aria-label]="copy().goTo + ' ' + card.label + '. ' + copy().notConnected"
+            class="group flex min-h-11 items-center gap-3 rounded-xl border border-transparent px-3 text-[13px] font-bold text-[#5d7468] transition-colors hover:border-[#e1eee5] hover:bg-[#f5faf6] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            [class.border-[#dceee2]]="activeSection() === item.id"
+            [class.bg-[#edf8f1]]="activeSection() === item.id"
+            [class.text-[#087b59]]="activeSection() === item.id"
+            [href]="item.href"
+            [attr.aria-current]="activeSection() === item.id ? 'location' : null"
+            (click)="setActiveSection(item.id)"
           >
-            <div class="dashboard-overview-card-top">
-              <span class="dashboard-card-index" aria-hidden="true">0{{ index + 1 }}</span>
-              <span class="dashboard-status-dot" aria-hidden="true"></span>
-            </div>
-            <strong>{{ card.label }}</strong>
-            <span class="dashboard-overview-value" aria-hidden="true">—</span>
-            <small>{{ copy().notConnected }}</small>
+            <svg
+              [lucideIcon]="item.icon"
+              [size]="19"
+              class="shrink-0 text-[#73877b] group-hover:text-[#087b59]"
+              [class.text-[#087b59]]="activeSection() === item.id"
+              aria-hidden="true"
+            ></svg>
+            <span>{{ item.label }}</span>
           </a>
         }
-      </section>
+      </nav>
 
-      <div class="dashboard-primary-panels">
-        <section
-          id="schedule"
-          class="dashboard-panel dashboard-schedule-panel"
-          aria-labelledby="schedule-heading"
+      <div class="mt-auto border-t border-[#edf2ee] pt-4">
+        @if (signOutError()) {
+          <p class="mb-3 rounded-lg bg-[#fff3f1] p-3 text-xs leading-6 text-[#a23e35]" role="alert">
+            {{ signOutError() }}
+          </p>
+        }
+        <button
+          class="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-start text-[13px] font-bold text-[#64796f] transition-colors hover:bg-[#fff7f6] hover:text-[#a23e35] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60"
+          type="button"
+          [disabled]="isSigningOut()"
+          [attr.aria-busy]="isSigningOut()"
+          (click)="signOut()"
         >
-          <div class="dashboard-panel-heading">
-            <div>
-              <h2 id="schedule-heading">{{ copy().schedule }}</h2>
-              <p>{{ copy().scheduleDescription }}</p>
-            </div>
-            <span class="dashboard-panel-date">{{ today() }}</span>
-          </div>
-          <div class="dashboard-empty-state">
-            <img
-              class="dashboard-schedule-character"
-              src="/assets/journey-3.webp"
-              [alt]="copy().scheduleCharacterAlt"
-            />
-            <div>
-              <h3>{{ copy().scheduleEmpty }}</h3>
-              <p>{{ copy().scheduleEmptyDescription }}</p>
-            </div>
-          </div>
-        </section>
-
-        <section
-          class="dashboard-panel dashboard-activity-panel"
-          aria-labelledby="activity-heading"
-        >
-          <div class="dashboard-panel-heading">
-            <div>
-              <h2 id="activity-heading">{{ copy().activity }}</h2>
-              <p>{{ copy().activityEmptyDescription }}</p>
-            </div>
-            <span class="dashboard-panel-mark" aria-hidden="true">↗</span>
-          </div>
-          <div class="dashboard-activity-empty">
-            <span class="dashboard-activity-line" aria-hidden="true"></span>
-            <h3>{{ copy().activityEmpty }}</h3>
-            <p>{{ copy().activityEmptyDescription }}</p>
-          </div>
-        </section>
+          <svg lucideIcon="log-out" [size]="18" aria-hidden="true"></svg>
+          {{ isSigningOut() ? 'جارٍ تسجيل الخروج...' : 'تسجيل الخروج' }}
+        </button>
       </div>
+    </aside>
 
-      <section class="dashboard-sections" aria-labelledby="sections-heading">
-        <div class="dashboard-section-heading">
-          <div>
-            <h2 id="sections-heading">{{ copy().sections }}</h2>
-            <p>{{ copy().sectionsDescription }}</p>
+    <div class="min-w-0">
+      <header
+        class="sticky top-0 z-30 flex min-h-[72px] items-center justify-between gap-3 border-b border-[#e4ece6] bg-white/95 px-4 backdrop-blur-xl sm:px-7 xl:px-10"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <button
+            class="grid size-10 shrink-0 place-items-center rounded-xl border border-[#e2ebe4] bg-white text-[#526b5f] transition-colors hover:border-[#cce5d5] hover:bg-[#f4faf6] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 lg:hidden"
+            type="button"
+            aria-controls="dashboard-sidebar"
+            [attr.aria-expanded]="isMobileNavigationOpen()"
+            [attr.aria-label]="isMobileNavigationOpen() ? 'إغلاق القائمة' : 'فتح القائمة'"
+            (click)="toggleMobileNavigation()"
+          >
+            <svg
+              [lucideIcon]="isMobileNavigationOpen() ? 'x' : 'menu'"
+              [size]="20"
+              aria-hidden="true"
+            ></svg>
+          </button>
+          <div class="min-w-0">
+            <p class="hidden text-[11px] font-semibold text-[#71847a] sm:block">
+              مساحة عمل المدرّس
+            </p>
+            <h1 class="truncate text-sm font-extrabold text-[#1f4135] sm:text-base">
+              {{ activeSectionLabel() }}
+            </h1>
           </div>
         </div>
-        <div class="dashboard-feature-grid">
-          @for (feature of featureCards(); track feature.id) {
-            <article
-              class="dashboard-feature-card"
-              [id]="feature.id"
-              [attr.aria-labelledby]="'feature-heading-' + feature.id"
+
+        <div class="flex shrink-0 items-center gap-3 sm:gap-5">
+          <time
+            class="hidden text-xs font-semibold text-[#63786d] md:block"
+            [attr.datetime]="todayDateIso"
+          >
+            {{ today }}
+          </time>
+          <div class="h-8 w-px bg-[#e7ede8]"></div>
+          <div class="flex min-w-0 items-center gap-2.5">
+            <span
+              class="grid size-9 shrink-0 place-items-center rounded-xl border border-[#d6ebdd] bg-[#eaf6ee] text-xs font-black text-[#087b59]"
+              aria-hidden="true"
             >
-              <div class="dashboard-feature-card-top">
-                <span class="dashboard-feature-mark" aria-hidden="true">{{
-                  feature.label.charAt(0)
-                }}</span>
-                <span class="dashboard-feature-status">{{ copy().notConnected }}</span>
-              </div>
-              <h3 [id]="'feature-heading-' + feature.id">{{ feature.label }}</h3>
-              <p>{{ feature.description }}</p>
-              <span class="dashboard-feature-note">{{ copy().statsDescription }}</span>
-            </article>
-          }
+              {{ teacherInitials() }}
+            </span>
+            <div class="hidden min-w-0 sm:block">
+              <p class="max-w-40 truncate text-xs font-extrabold text-[#29483d]">
+                {{ teacherName() }}
+              </p>
+              <p class="max-w-40 truncate text-[10px] text-[#71847a]" dir="ltr">
+                {{ teacherEmail() }}
+              </p>
+            </div>
+          </div>
         </div>
-      </section>
-    </main>
+      </header>
+
+      <main id="overview" class="mx-auto w-full max-w-[1460px] px-4 py-5 sm:px-7 sm:py-7 xl:px-10">
+        <section
+          class="relative isolate grid min-h-[214px] grid-cols-1 items-center overflow-hidden rounded-2xl border border-[#dcebe1] bg-white px-5 py-6 shadow-sm shadow-[#173b32]/[0.03] sm:grid-cols-[minmax(0,1fr)_190px] sm:px-8 lg:min-h-[230px] lg:grid-cols-[minmax(0,1fr)_230px] lg:px-10"
+          aria-labelledby="welcome-heading"
+        >
+          <div
+            class="pointer-events-none absolute inset-y-0 end-0 -z-10 w-2/3 bg-gradient-to-l from-[#eff8f2] via-[#f7fbf8] to-transparent"
+          ></div>
+          <div class="relative z-10 max-w-2xl pb-44 sm:pb-0">
+            <span
+              class="inline-flex items-center gap-2 rounded-full border border-[#d8eddf] bg-[#f2faf4] px-3 py-1.5 text-[11px] font-extrabold text-[#087b59]"
+            >
+              <svg lucideIcon="sparkles" [size]="15" aria-hidden="true"></svg>
+              مساحة عملك التعليمية
+            </span>
+            <h2
+              id="welcome-heading"
+              class="mt-4 text-[24px] font-black leading-[1.5] text-[#183e32] sm:text-[30px]"
+            >
+              مرحبًا بعودتك،
+              <span class="text-[#07815c]">{{ teacherName() }}</span>
+            </h2>
+            <p class="mt-2 max-w-xl text-xs leading-7 text-[#5f7469] sm:text-sm">
+              ابدأ يومك بنظرة سريعة على أقسام منصتك التعليمية. ستظهر ملخصاتك عند توفر تكامل
+              البيانات.
+            </p>
+          </div>
+          <div
+            class="pointer-events-none absolute inset-y-0 end-0 -z-10 hidden w-[43%] bg-[radial-gradient(ellipse_at_70%_60%,#dff2e5_0%,#f1f8f3_42%,transparent_72%)] sm:block"
+          ></div>
+          <img
+            class="absolute -bottom-2 end-3 h-[168px] w-[126px] object-contain object-bottom sm:static sm:h-[214px] sm:w-full"
+            src="/assets/teacher-3d.png"
+            alt="مدرس يرحب بك"
+            fetchpriority="high"
+          />
+        </section>
+
+        <section class="mt-6" aria-labelledby="summary-heading">
+          <div class="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 id="summary-heading" class="text-sm font-black text-[#25483b]">ملخص المنصة</h2>
+              <p class="mt-1 text-[11px] leading-5 text-[#71847a]">
+                نظرة على الأقسام الأساسية في مساحة عملك
+              </p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+            @for (metric of metricCards; track metric.id) {
+              <article
+                class="min-w-0 rounded-2xl border border-[#e4ece6] bg-white p-4 shadow-sm shadow-[#173b32]/[0.02] transition-colors hover:border-[#cfe4d5] sm:p-5"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <span
+                    class="grid size-10 shrink-0 place-items-center rounded-xl bg-[#eff8f2] text-[#0c805c]"
+                  >
+                    <svg [lucideIcon]="metric.icon" [size]="20" aria-hidden="true"></svg>
+                  </span>
+                  <span
+                    class="rounded-full bg-[#f2f5f3] px-2.5 py-1 text-[9px] font-extrabold text-[#5f7469]"
+                  >
+                    غير متصل
+                  </span>
+                </div>
+                <h3 class="mt-4 text-xs font-extrabold text-[#38554a] sm:text-[13px]">
+                  {{ metric.label }}
+                </h3>
+                <p class="mt-1.5 text-[10px] leading-5 text-[#5f7469] sm:text-[11px]">
+                  لا تتوفر بيانات هذا القسم في لوحة التحكم بعد.
+                </p>
+              </article>
+            }
+          </div>
+        </section>
+
+        <div class="mt-5 grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <section
+            id="schedule"
+            class="scroll-mt-24 rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+            aria-labelledby="schedule-heading"
+          >
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span
+                    class="grid size-9 place-items-center rounded-xl bg-[#eff8f2] text-[#0c805c]"
+                  >
+                    <svg lucideIcon="calendar-clock" [size]="19" aria-hidden="true"></svg>
+                  </span>
+                  <h2 id="schedule-heading" class="text-sm font-black text-[#25483b]">
+                    جدول الحصص
+                  </h2>
+                </div>
+                <p class="mt-2 text-[11px] leading-6 text-[#5f7469]">حصص اليوم والقادمة</p>
+              </div>
+              <time
+                class="hidden rounded-lg border border-[#e5ece7] bg-[#f8faf8] px-3 py-2 text-[10px] font-bold text-[#5f7469] sm:block"
+                [attr.datetime]="todayDateIso"
+              >
+                {{ today }}
+              </time>
+            </div>
+
+            <div
+              class="mt-5 flex min-h-[154px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-6 text-center sm:flex-row sm:text-start"
+            >
+              <span
+                class="grid size-12 shrink-0 place-items-center rounded-2xl border border-[#dcece1] bg-white text-[#14805e]"
+                aria-hidden="true"
+              >
+                <svg lucideIcon="calendar-days" [size]="23"></svg>
+              </span>
+              <div>
+                <h3 class="text-xs font-extrabold text-[#405c50]">جدول الحصص غير متاح بعد</h3>
+                <p class="mt-1 max-w-md text-[11px] leading-6 text-[#5f7469]">
+                  لم يتم ربط واجهة إدارة الحصص والجدول بلوحة التحكم حتى الآن.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section
+            id="activity"
+            class="scroll-mt-24 rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+            aria-labelledby="activity-heading"
+          >
+            <div class="flex items-center gap-2">
+              <span class="grid size-9 place-items-center rounded-xl bg-[#eff8f2] text-[#0c805c]">
+                <svg lucideIcon="activity" [size]="19" aria-hidden="true"></svg>
+              </span>
+              <div>
+                <h2 id="activity-heading" class="text-sm font-black text-[#25483b]">
+                  النشاط الأخير
+                </h2>
+                <p class="mt-1 text-[10px] text-[#5f7469]">آخر التحديثات في حسابك</p>
+              </div>
+            </div>
+            <div
+              class="mt-5 grid min-h-[154px] content-center justify-items-center rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-6 text-center"
+            >
+              <span
+                class="mb-3 grid size-11 place-items-center rounded-full border border-[#dcece1] bg-white text-[#16835f]"
+                aria-hidden="true"
+              >
+                <svg lucideIcon="clock-3" [size]="20"></svg>
+              </span>
+              <h3 class="text-xs font-extrabold text-[#405c50]">سجل النشاط غير متصل</h3>
+              <p class="mt-1 max-w-xs text-[11px] leading-6 text-[#5f7469]">
+                لا توجد واجهة برمجية للنشاط الأخير في المشروع حاليًا.
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <section class="mt-7" aria-labelledby="features-heading">
+          <div class="mb-3">
+            <h2 id="features-heading" class="text-sm font-black text-[#25483b]">أقسام المنصة</h2>
+            <p class="mt-1 text-[11px] leading-5 text-[#5f7469]">
+              انتقل إلى القسم الذي تريد مراجعته
+            </p>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            @for (feature of featureCards; track feature.id) {
+              <article
+                [id]="feature.id"
+                class="scroll-mt-24 rounded-2xl border border-[#e4ece6] bg-white p-5 transition-colors hover:border-[#cfe4d5]"
+                [attr.aria-labelledby]="'feature-heading-' + feature.id"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <h3
+                    [id]="'feature-heading-' + feature.id"
+                    class="text-xs font-black text-[#345347]"
+                  >
+                    {{ feature.label }}
+                  </h3>
+                  <span
+                    class="rounded-full bg-[#f2f5f3] px-2.5 py-1 text-[9px] font-extrabold text-[#5f7469]"
+                  >
+                    غير متصل
+                  </span>
+                </div>
+                <p class="mt-3 text-[11px] leading-6 text-[#5f7469]">{{ feature.description }}</p>
+              </article>
+            }
+          </div>
+        </section>
+      </main>
+    </div>
   </div>
 </div>

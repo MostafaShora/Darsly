@@ -1,10 +1,12 @@
 import { Component, computed, signal } from '@angular/core';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { JOURNEY_STEPS } from '../../data/journey.data';
 
 @Component({
   selector: 'app-teacher-journey',
   standalone: true,
-  templateUrl: './teacher-journey.component.html'
+  imports: [LucideDynamicIcon],
+  templateUrl: './teacher-journey.component.html',
 })
 export class TeacherJourneyComponent {
   readonly steps = JOURNEY_STEPS;
@@ -20,6 +22,8 @@ export class TeacherJourneyComponent {
   }
 
   selectStep(index: number): void {
-    this.activeStep.set(index);
+    if (index >= 0 && index < this.steps.length) {
+      this.activeStep.set(index);
+    }
   }
 }

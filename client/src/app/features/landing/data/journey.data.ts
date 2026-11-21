@@ -1,6 +1,6 @@
-import { JourneyStep } from '../models/journey.model';
+import type { JourneyStep } from '../models/journey.model';
 
-export const JOURNEY_STEPS: JourneyStep[] = [
+export const JOURNEY_STEPS: readonly JourneyStep[] = [
   {
     eyebrow: 'البداية',
     title: 'كل حاجة تبدأ من لوحة تحكم واحدة',
@@ -9,8 +9,9 @@ export const JOURNEY_STEPS: JourneyStep[] = [
     bullets: ['نظرة عامة على الشغل', 'وصول سريع للأقسام الأساسية', 'تنظيم يومك من مكان واحد'],
     metric: '01',
     metricLabel: 'لوحة التحكم',
-    icon: '⌂',
+    icon: 'layout-dashboard',
     image: 'journey-1.webp',
+    imageAlt: 'مدرس مبتسم يرحب بك ويحمل جهازًا لوحيًا',
     visualTitle: 'ابدأ يومك بنظرة واضحة',
   },
   {
@@ -20,8 +21,9 @@ export const JOURNEY_STEPS: JourneyStep[] = [
     bullets: ['إضافة وتعديل بيانات الطلاب', 'الوصول لملف كل طالب', 'تنظيم الطلاب ومتابعتهم'],
     metric: '02',
     metricLabel: 'ملفات الطلاب',
-    icon: '♙',
+    icon: 'users-round',
     image: 'journey-2.webp',
+    imageAlt: 'مدرس يستعرض ملفات الطلاب على شاشة',
     visualTitle: 'كل طالب له ملفه',
   },
   {
@@ -31,8 +33,9 @@ export const JOURNEY_STEPS: JourneyStep[] = [
     bullets: ['إنشاء وإدارة المجموعات', 'تنظيم الحصص والمواعيد', 'متابعة تفاصيل كل مجموعة'],
     metric: '03',
     metricLabel: 'تنظيم الحصص',
-    icon: '▦',
+    icon: 'calendar-days',
     image: 'journey-3.webp',
+    imageAlt: 'مدرس يشرح جدول المجموعات والحصص',
     visualTitle: 'مجموعات ومواعيد منظمة',
   },
   {
@@ -42,8 +45,9 @@ export const JOURNEY_STEPS: JourneyStep[] = [
     bullets: ['تسجيل الحضور والغياب', 'مراجعة سجل الحضور', 'متابعة الطلاب بوضوح'],
     metric: '04',
     metricLabel: 'متابعة الحضور',
-    icon: '✓',
+    icon: 'clipboard-check',
     image: 'journey-4.webp',
+    imageAlt: 'مدرس يسجل حضور الطلاب على جهاز لوحي',
     visualTitle: 'الحضور في متابعة واحدة',
   },
   {
@@ -53,8 +57,9 @@ export const JOURNEY_STEPS: JourneyStep[] = [
     bullets: ['متابعة المدفوعات', 'مراجعة حالة الاشتراك', 'تنظيم الحسابات'],
     metric: '05',
     metricLabel: 'متابعة الحسابات',
-    icon: '＄',
+    icon: 'wallet',
     image: 'journey-5.webp',
+    imageAlt: 'مدرس يراجع إيصالًا ومدفوعات الطلاب',
     visualTitle: 'راجع المدفوعات بسهولة',
   },
   {
@@ -64,8 +69,9 @@ export const JOURNEY_STEPS: JourneyStep[] = [
     bullets: ['تقارير وإحصائيات واضحة', 'مراجعة بيانات الشهر', 'معلومات تساعدك تخطط للشهر الجديد'],
     metric: '06',
     metricLabel: 'ملخص الشهر',
-    icon: '▥',
+    icon: 'chart-no-axes-combined',
     image: 'journey-6.webp',
+    imageAlt: 'مدرس يراجع تقريرًا ومؤشرات أداء تعليمية',
     visualTitle: 'صورة أوضح عن الشهر',
   },
 ];

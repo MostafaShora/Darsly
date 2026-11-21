@@ -1,126 +1,162 @@
 <section
-  class="relative overflow-hidden bg-[#eff8f2] py-[60px] md:py-[88px] md:pb-[100px]"
   id="journey"
+  dir="rtl"
+  class="bg-[#eff8f2] py-14 sm:py-16 lg:py-20"
+  aria-labelledby="journey-heading"
 >
-  <div class="section-wrap journey-wrap">
-    <div class="mb-[27px] text-center md:mb-[42px]">
-      <div class="eyebrow">رحلة المدرس مع Darsly</div>
-      <h2 class="mt-[10px] mb-[10px] text-[27px] font-black text-[#173d32] md:text-[39px]">
+  <div class="mx-auto w-full max-w-[1160px] px-4 sm:px-6 lg:px-8">
+    <header class="mb-7 text-center sm:mb-10">
+      <span
+        class="inline-flex items-center gap-2 rounded-full border border-[#d8eddf] bg-white/80 px-3 py-1.5 text-xs font-extrabold text-[#087b59]"
+      >
+        <span class="size-2 rounded-full bg-[#11b981]" aria-hidden="true"></span>
+        رحلة المدرس مع Darsly
+      </span>
+      <h2
+        id="journey-heading"
+        class="mt-3 text-[26px] font-black leading-[1.5] text-[#173d32] sm:text-3xl lg:text-[39px]"
+      >
         من أول ما تفتح حسابك <span class="text-[#0ca879]">لحد آخر الشهر</span>
       </h2>
-      <p class="text-[13px] leading-[1.9] text-[#65786f] md:text-[14px]">
+      <p class="mx-auto mt-2 max-w-2xl text-sm leading-7 text-[#65786f]">
         اتنقل بين الخطوات وشوف إزاي تقدر تدير شغلك بشكل منظم.
       </p>
-    </div>
-    <div
-      class="relative grid grid-cols-1 gap-[15px] lg:grid-cols-[300px_1fr] lg:gap-[25px]"
-      dir="ltr"
-    >
-      <div
-        class="grid grid-cols-2 gap-[7px] lg:flex lg:flex-col lg:gap-[9px]"
+    </header>
+
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] lg:gap-6">
+      <nav
+        class="grid grid-cols-2 content-start gap-2 lg:grid-cols-1"
         aria-label="خطوات استخدام Darsly"
-        dir="rtl"
       >
         @for (step of steps; track $index) {
           <button
-            class="flex items-center gap-[7px] rounded-[14px] border border-transparent px-[8px] py-[9px] text-right text-[12px] text-[#71867b] transition lg:gap-[12px] lg:px-[14px] lg:py-[12px]"
-            [class.bg-white]="activeStep() === $index"
+            class="flex min-h-[62px] min-w-0 items-center gap-2 rounded-xl border border-transparent bg-white/60 px-2.5 py-2 text-start text-[#71867b] transition-colors hover:border-[#dcefe3] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none lg:gap-3 lg:px-3.5"
             [class.border-[#dcefe3]]="activeStep() === $index"
+            [class.bg-white]="activeStep() === $index"
             [class.text-[#164436]]="activeStep() === $index"
-            [class.shadow-[0_8px_20px_#285b4210]]="activeStep() === $index"
+            [attr.aria-pressed]="activeStep() === $index"
             (click)="selectStep($index)"
           >
             <span
-              class="grid h-[29px] w-[29px] shrink-0 place-items-center rounded-[11px] bg-[#e1f1e7] text-[11px] font-black text-[#0a9c70] lg:h-[36px] lg:w-[36px] lg:text-[13px]"
+              class="grid size-9 shrink-0 place-items-center rounded-xl bg-[#e8f4ec] text-[#0a8c65] transition-colors motion-reduce:transition-none"
               [class.bg-[#0ca879]]="activeStep() === $index"
               [class.text-white]="activeStep() === $index"
-              >{{ $index + 1 }}</span
             >
-            <span class="flex-1"
-              ><small class="block text-[10px] text-[#6c8076] lg:text-[11px]"
-                >الخطوة {{ $index + 1 }}</small
-              ><b class="mt-[2px] block text-[11px] lg:text-[13px]">{{ step.eyebrow }}</b></span
-            >
-            <span class="hidden text-[17px] opacity-45 lg:block">←</span>
+              <svg [lucideIcon]="step.icon" [size]="18" aria-hidden="true"></svg>
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block text-[10px] font-semibold text-[#6c8076] sm:text-[11px]">
+                الخطوة {{ $index + 1 }}
+              </span>
+              <span class="mt-0.5 block text-[11px] font-extrabold leading-5 sm:text-xs">
+                {{ step.eyebrow }}
+              </span>
+            </span>
           </button>
         }
-      </div>
+      </nav>
+
       <article
-        class="min-h-0 rounded-[22px] border border-[#e0eee5] bg-white p-[17px] shadow-[0_18px_50px_#24563b0c] lg:min-h-[390px] lg:p-[24px] lg:px-[27px]"
-        dir="rtl"
+        class="min-w-0 rounded-2xl border border-[#e0eee5] bg-white p-4 shadow-sm shadow-[#24563b]/[0.04] sm:p-6 lg:p-7"
+        aria-live="polite"
+        aria-atomic="true"
       >
-        <div
-          class="flex items-center gap-[9px] border-b border-[#edf3ef] pb-[17px] text-[12px] font-extrabold text-[#55766a]"
+        <header
+          class="flex items-center gap-2 border-b border-[#edf3ef] pb-4 text-xs font-extrabold text-[#55766a]"
         >
-          <span class="live-dot"></span> {{ currentStep().eyebrow }}
-          <span class="mr-auto text-[11px] text-[#66796f]" dir="ltr"
-            >{{ activeStep() + 1 }} / {{ steps.length }}</span
-          >
-        </div>
+          <span class="size-2 rounded-full bg-[#11b981]" aria-hidden="true"></span>
+          <span>{{ currentStep().eyebrow }}</span>
+          <span class="mr-auto text-[11px] font-bold text-[#66796f]" dir="ltr">
+            {{ activeStep() + 1 }} / {{ steps.length }}
+          </span>
+        </header>
+
         <div
-          class="grid grid-cols-1 items-center gap-[25px] py-[18px] md:grid-cols-[1.1fr_0.9fr] lg:py-[24px]"
+          class="grid min-w-0 grid-cols-1 items-center gap-5 py-5 md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-7 lg:py-6"
         >
-          <div>
+          <div class="min-w-0">
             <span
-              class="grid h-[42px] w-[42px] place-items-center rounded-[13px] bg-[#e8f8ef] text-[22px] font-extrabold text-[#0ba477]"
-              >{{ currentStep().icon }}</span
+              class="grid size-11 place-items-center rounded-xl bg-[#e8f8ef] text-[#0ba477]"
+              aria-hidden="true"
             >
-            <h3 class="mt-[13px] mb-[8px] text-[19px] leading-[1.55] text-[#183e32] lg:text-[22px]">
+              <svg [lucideIcon]="currentStep().icon" [size]="22"></svg>
+            </span>
+            <h3 class="mt-3 text-lg font-black leading-[1.6] text-[#183e32] lg:text-[22px]">
               {{ currentStep().title }}
             </h3>
-            <p class="m-0 text-[13px] leading-[1.9] text-[#65786f]">
+            <p class="mt-2 text-[13px] leading-7 text-[#65786f]">
               {{ currentStep().description }}
             </p>
-            <ul class="m-0 mt-[16px] grid list-none gap-[8px] p-0">
+            <ul class="mt-4 grid gap-2.5">
               @for (bullet of currentStep().bullets; track $index) {
-                <li class="flex items-center gap-[8px] text-[12px] text-[#577267]">
+                <li class="flex items-start gap-2.5 text-xs leading-6 text-[#577267]">
                   <span
-                    class="grid h-[17px] w-[17px] place-items-center rounded-full bg-[#e8f8ef] text-[10px] font-black text-[#0ca879]"
-                    >✓</span
-                  >{{ bullet }}
+                    class="mt-2 size-1.5 shrink-0 rounded-full bg-[#0ca879]"
+                    aria-hidden="true"
+                  ></span>
+                  <span>{{ bullet }}</span>
                 </li>
               }
             </ul>
           </div>
-          <div class="stage-character" [attr.data-stage]="activeStep() + 1">
-            <div class="character-halo"></div>
-            <img [src]="'assets/' + currentStep().image" [alt]="currentStep().visualTitle" />
-            <div
-              class="absolute right-[12px] bottom-[12px] left-[12px] rounded-[12px] border border-[#e1eee5] bg-[#ffffffdf] px-[12px] py-[9px] text-center text-[11px] font-extrabold text-[#356052] shadow-[0_8px_20px_#214d3610] backdrop-blur-[10px]"
+
+          <figure
+            class="relative isolate grid min-h-[245px] place-items-center overflow-hidden rounded-xl border border-[#dcefe3] bg-gradient-to-tr from-[#f7fcf8] via-[#f2faf4] to-[#e9f6ee] sm:min-h-[280px]"
+          >
+            <span
+              class="pointer-events-none absolute size-56 rounded-full bg-[#dff2e5]/80 blur-2xl"
+              aria-hidden="true"
+            ></span>
+            <img
+              class="relative z-10 h-[230px] w-full max-w-[340px] object-contain p-2 drop-shadow-[0_12px_12px_#174d3818] motion-safe:transition-transform motion-safe:duration-300 hover:scale-[1.02] sm:h-[270px]"
+              [src]="'/assets/' + currentStep().image"
+              [alt]="currentStep().imageAlt"
+              width="512"
+              height="512"
+              loading="lazy"
+              decoding="async"
+            />
+            <figcaption
+              class="absolute inset-x-3 bottom-3 rounded-lg border border-[#e1eee5] bg-white/95 px-3 py-2 text-center text-[11px] font-extrabold text-[#356052]"
             >
-              <span class="ml-[7px] text-[#0ca879]">✦</span>{{ currentStep().visualTitle }}
-            </div>
-          </div>
+              {{ currentStep().visualTitle }}
+            </figcaption>
+          </figure>
         </div>
-        <div class="flex items-center justify-between border-t border-[#edf3ef] pt-[16px]">
+
+        <footer class="flex items-center justify-between gap-3 border-t border-[#edf3ef] pt-4">
           <button
-            class="grid h-[34px] w-[34px] place-items-center rounded-full border border-[#dcebe1] bg-white text-[17px] text-[#0a986d] disabled:cursor-not-allowed disabled:opacity-30"
+            class="min-h-9 rounded-lg border border-[#dcebe1] px-3 text-xs font-bold text-[#0a7657] transition-colors hover:bg-[#f4faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
+            type="button"
             (click)="previous()"
             [disabled]="activeStep() === 0"
             aria-label="الخطوة السابقة"
           >
-            →
+            السابق
           </button>
-          <div class="flex gap-[7px]">
+          <div class="flex items-center gap-1.5" role="group" aria-label="اختيار خطوة">
             @for (step of steps; track $index) {
               <button
-                class="h-[7px] w-[7px] rounded-[10px] border-0 bg-[#d9e8df] p-0 transition"
-                [class.w-[23px]]="activeStep() === $index"
+                class="size-2 rounded-full bg-[#d9e8df] transition-all hover:bg-[#88c8a6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+                [class.w-6]="activeStep() === $index"
                 [class.bg-[#0ca879]]="activeStep() === $index"
-                (click)="selectStep($index)"
                 [attr.aria-label]="'الانتقال للخطوة ' + ($index + 1)"
+                [attr.aria-pressed]="activeStep() === $index"
+                type="button"
+                (click)="selectStep($index)"
               ></button>
             }
           </div>
           <button
-            class="grid h-[34px] w-[34px] place-items-center rounded-full border border-[#0ca879] bg-[#0ca879] text-[17px] text-white disabled:cursor-not-allowed disabled:opacity-30"
+            class="min-h-9 rounded-lg border border-[#0ca879] bg-[#0ca879] px-3 text-xs font-bold text-white transition-colors hover:border-[#087b59] hover:bg-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:transition-none"
+            type="button"
             (click)="next()"
             [disabled]="activeStep() === steps.length - 1"
             aria-label="الخطوة التالية"
           >
-            ←
+            التالي
           </button>
-        </div>
+        </footer>
       </article>
     </div>
   </div>
