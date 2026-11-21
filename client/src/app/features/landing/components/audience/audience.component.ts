@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-audience',
   standalone: true,
-  templateUrl: './audience.component.html'
+  imports: [LucideDynamicIcon],
+  templateUrl: './audience.component.html',
 })
-export class AudienceComponent {
-}
+export class AudienceComponent {}

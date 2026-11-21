@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-footer',
   standalone: true,
-  templateUrl: './footer.component.html'
+  imports: [LucideDynamicIcon],
+  templateUrl: './footer.component.html',
 })
-export class FooterComponent {
-}
+export class FooterComponent {}

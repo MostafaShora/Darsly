@@ -8,6 +8,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { AuthService } from '../../../../core/services/auth.service';
 
 function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
@@ -20,7 +21,7 @@ function passwordsMatchValidator(control: AbstractControl): ValidationErrors | n
 @Component({
   selector: 'app-sign-up',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [LucideDynamicIcon, ReactiveFormsModule, RouterLink],
   templateUrl: './sign-up.component.html',
 })
 export class SignUpComponent {

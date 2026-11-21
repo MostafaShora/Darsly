@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-features',
   standalone: true,
-  templateUrl: './features.component.html'
+  imports: [LucideDynamicIcon],
+  templateUrl: './features.component.html',
 })
-export class FeaturesComponent {
-}
+export class FeaturesComponent {}

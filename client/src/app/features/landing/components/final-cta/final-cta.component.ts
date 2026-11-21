@@ -1,10 +1,14 @@
 import { Component } from '@angular/core';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-final-cta',
   standalone: true,
-  templateUrl: './final-cta.component.html'
+  imports: [LucideDynamicIcon],
+  templateUrl: './final-cta.component.html',
 })
 export class FinalCtaComponent {
-  scrollToJourney(): void { document.getElementById('journey')?.scrollIntoView({ behavior: 'smooth' }); }
+  scrollToJourney(): void {
+    document.getElementById('journey')?.scrollIntoView({ behavior: 'smooth' });
+  }
 }

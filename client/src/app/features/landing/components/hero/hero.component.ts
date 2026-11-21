@@ -1,10 +1,14 @@
 import { Component } from '@angular/core';
+import { LucideDynamicIcon } from '@lucide/angular';
 
 @Component({
   selector: 'app-hero',
   standalone: true,
-  templateUrl: './hero.component.html'
+  imports: [LucideDynamicIcon],
+  templateUrl: './hero.component.html',
 })
 export class HeroComponent {
-  scrollToJourney(): void { document.getElementById('journey')?.scrollIntoView({ behavior: 'smooth' }); }
+  scrollToJourney(): void {
+    document.getElementById('journey')?.scrollIntoView({ behavior: 'smooth' });
+  }
 }

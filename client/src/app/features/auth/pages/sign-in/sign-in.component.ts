@@ -2,12 +2,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { LucideDynamicIcon } from '@lucide/angular';
 import { AuthService } from '../../../../core/services/auth.service';
 
 @Component({
   selector: 'app-sign-in',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [LucideDynamicIcon, ReactiveFormsModule, RouterLink],
   templateUrl: './sign-in.component.html',
 })
 export class SignInComponent {

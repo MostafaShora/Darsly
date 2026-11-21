@@ -32,7 +32,13 @@
         class="rounded-[13px] border-0 bg-[#0ca879] px-[14px] py-[12px] text-[13px] font-extrabold text-white shadow-[0_10px_22px_#0ca8792c] transition hover:-translate-y-[2px] hover:bg-[#078b65] md:px-[22px] md:py-[14px] md:text-[14px]"
         (click)="scrollToJourney()"
       >
-        شوف Darsly بيشتغل إزاي <span>←</span>
+        شوف Darsly بيشتغل إزاي
+        <svg
+          lucideIcon="arrow-left"
+          [size]="14"
+          class="inline-block align-middle"
+          aria-hidden="true"
+        ></svg>
       </button>
 
       <a class="text-[13px] font-extrabold text-[#547066] hover:text-[#079b70]" href="#features">
@@ -43,8 +49,9 @@
     <div class="mt-[24px] flex items-center gap-[12px] md:mt-[40px]">
       <div
         class="grid h-[40px] w-[40px] shrink-0 place-items-center rounded-[13px] bg-[#e4f7ee] text-[20px] text-[#0b9c70]"
+        aria-hidden="true"
       >
-        ✦
+        <svg lucideIcon="sparkles" [size]="18" aria-hidden="true"></svg>
       </div>
 
       <div>
@@ -67,8 +74,9 @@
     <div class="float-card card-top">
       <span
         class="grid h-[32px] w-[32px] shrink-0 place-items-center rounded-[10px] bg-[#e5f8ee] text-[11px] font-black text-[#0ca879]"
+        aria-hidden="true"
       >
-        ✓
+        <svg lucideIcon="check" [size]="15" aria-hidden="true"></svg>
       </span>
 
       <div>
@@ -89,8 +97,9 @@
     <div class="float-card card-bottom">
       <span
         class="grid h-[32px] w-[32px] shrink-0 place-items-center rounded-[10px] bg-[#fff4dc] text-[11px] font-black text-[#d69b28]"
+        aria-hidden="true"
       >
-        ج
+        <svg lucideIcon="wallet" [size]="15" aria-hidden="true"></svg>
       </span>
 
       <div>
@@ -105,8 +114,8 @@
     <div class="orbit orbit-one"></div>
     <div class="orbit orbit-two"></div>
 
-    <span class="sparkle sparkle-one">✳</span>
-    <span class="sparkle sparkle-two">✦</span>
+    <svg lucideIcon="sparkles" [size]="18" class="sparkle sparkle-one" aria-hidden="true"></svg>
+    <svg lucideIcon="sparkles" [size]="18" class="sparkle sparkle-two" aria-hidden="true"></svg>
   </div>
 
   <!-- Scroll Indicator -->
@@ -114,9 +123,9 @@
     dir="rtl"
     class="absolute bottom-[15px] left-1/2 flex -translate-x-1/2 items-center gap-[9px] whitespace-nowrap text-[11px] text-[#74877e] md:bottom-[20px]"
   >
-    <span
-      class="relative h-[28px] w-[18px] rounded-[20px] border border-[#a9c8b8] after:absolute after:top-[5px] after:left-[6px] after:h-[6px] after:w-[3px] after:rounded-[4px] after:bg-[#0ca879]"
-    ></span>
+    <span class="grid h-[28px] w-[18px] place-items-center text-[#a9c8b8]" aria-hidden="true">
+      <svg lucideIcon="mouse" [size]="18" aria-hidden="true"></svg>
+    </span>
 
     انزل واكتشف التجربة
   </div>
