@@ -6,7 +6,12 @@ export const objectIdSchema = z.string().refine(isValidObjectId, {
 });
 
 export const paginationQueryFields = {
-    page: z.coerce.number().int().min(1).default(1),
+    page: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(Math.floor(Number.MAX_SAFE_INTEGER / 100))
+        .default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
 };
 

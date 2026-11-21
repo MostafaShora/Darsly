@@ -10,11 +10,18 @@ import {
   suspendWorkspaceController,
   activateWorkspaceController,
 } from "../controllers/workspace.controller";
+import guardianRoutes from "./guardian.route";
+import studentRoutes from "./student.route";
+import { requireWorkspaceAccess } from "../middlewares/workspace-access.middleware";
 
 const workspaceRoutes = Router();
 
 // Require authentication for all workspace endpoints
 workspaceRoutes.use(passportAuthenticateJwt);
+
+workspaceRoutes
+  .use("/:workspaceId/students", requireWorkspaceAccess(), studentRoutes)
+  .use("/:workspaceId/guardians", requireWorkspaceAccess(), guardianRoutes);
 
 workspaceRoutes
   .post("/", createWorkspaceController)

@@ -1,8 +1,11 @@
-import { RequestHandler } from "express";
+import { Request, RequestHandler } from "express";
 import { z } from "zod";
-import { RequestValidationException } from "../utils/app-error";
+import {
+    InternalServerException,
+    RequestValidationException,
+} from "../utils/app-error";
 
-type RequestPart = "body" | "query" | "params";
+export type RequestPart = "body" | "query" | "params";
 
 export type RequestValidationSchemas = Partial<
     Record<RequestPart, z.ZodType>
@@ -54,4 +57,18 @@ export const validateRequest = (
 
     req.validated = validated;
     next();
+};
+
+export const getValidatedPart = <T>(
+    req: Request,
+    part: RequestPart
+): T => {
+    if (
+        !req.validated ||
+        !Object.prototype.hasOwnProperty.call(req.validated, part)
+    ) {
+        throw new InternalServerException();
+    }
+
+    return req.validated[part] as T;
 };

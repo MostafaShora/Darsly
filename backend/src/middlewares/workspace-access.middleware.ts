@@ -1,10 +1,15 @@
-import { RequestHandler } from "express";
+import { Request, RequestHandler } from "express";
 import { asyncHandler } from "./asyncHandler.middleware";
 import {
     resolveWorkspaceAccess,
     type WorkspaceAccessOptions,
 } from "../services/workspace-access.service";
-import { BadRequestException, UnauthorizedException } from "../utils/app-error";
+import {
+    BadRequestException,
+    InternalServerException,
+    UnauthorizedException,
+} from "../utils/app-error";
+import { WorkspaceAccessContext } from "../services/workspace-access.service";
 
 export const requireWorkspaceAccess = (
     options: WorkspaceAccessOptions = {}
@@ -25,3 +30,13 @@ export const requireWorkspaceAccess = (
 
         next();
     });
+
+export const getWorkspaceContext = (
+    req: Request
+): WorkspaceAccessContext => {
+    if (!req.workspaceContext) {
+        throw new InternalServerException();
+    }
+
+    return req.workspaceContext;
+};

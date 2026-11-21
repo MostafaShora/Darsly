@@ -2,9 +2,10 @@
 
 ## Scope
 
-Phase 0 adds shared backend primitives and automated regression tests. It does not add
-student or other business APIs, change models, or connect to a database during tests.
-The existing audit remains a record of the pre-Phase-0 baseline.
+Phase 0 established shared backend primitives and automated regression tests. Phase 1
+has since added the workspace-scoped Students and Guardians APIs, documented in
+`BACKEND_PHASE_1_STUDENTS_GUARDIANS.md`. The original audit remains a record of the
+pre-Phase-0 baseline.
 
 ## Workspace authorization
 
@@ -33,10 +34,11 @@ validated value rather than the unparsed input. Zod issues are converted to a sa
 
 Shared schemas in `backend/src/validators/common.validation.ts` define MongoDB
 ObjectId validation and pagination query fields. Pagination defaults to page 1 and
-page size 20, with a maximum page size of 100. `createPaginationMetadata()` returns
+page size 20, with a maximum page size of 100. Page values are bounded to keep
+MongoDB skip offsets within the safe integer range. `createPaginationMetadata()` returns
 `page`, `pageSize`, `totalItems`, and `totalPages` (zero pages for an empty result).
-These conventions are available for future list endpoints; existing workspace
-responses were not changed.
+These conventions are used by the Phase 1 student and guardian list endpoints;
+existing workspace responses were not changed.
 
 ## Error and response conventions
 
@@ -89,7 +91,8 @@ authentication, existing workspace create/list/read/update response contracts,
 suspended-workspace visibility and access denial for workspace-scoped operations,
 membership-derived context, malformed IDs, body/query validation, duplicate-key
 mapping, safe unexpected-error responses, pagination metadata, and date/Decimal128
-serialization.
+serialization. Phase 1 adds coverage for Student and Guardian endpoints and
+workspace-scoped StudentGuardian relationship behavior.
 
 ## Compatibility decisions and verification
 
@@ -107,7 +110,8 @@ serialization.
 Verification performed:
 
 - `tsc --noEmit -p tsconfig.json` — passed.
-- `npm test` — passed, 5 tests.
+- `npm test` — Phase 0 originally passed 5 tests; the expanded suite is verified in
+  `BACKEND_PHASE_1_STUDENTS_GUARDIANS.md`.
 - Type-check of the test file and Express augmentation — passed.
 - No frontend files or database data were changed.
 
@@ -117,8 +121,8 @@ Verification performed:
   stubs the transaction and does not verify a real replica-set deployment.
 - Workspace API responses still serialize Mongoose documents directly. A future DTO
   migration should be separately planned to avoid changing existing response contracts.
-- The new pagination and serialization helpers are conventions for future endpoints;
-  no current business endpoint uses them yet.
-- Future workspace-scoped services must include `workspaceId` in every resource query
-  and verify referenced records belong to the same workspace.
+- Pagination is now used by the Phase 1 student and guardian list endpoints. The
+  Decimal128 serializer remains available for future financial endpoints.
+- Future workspace-scoped services must include the authorized `workspaceId` in every
+  resource query and verify referenced records belong to the same workspace.
 - The JWT/cookie lifetime mismatch remains as noted above.
