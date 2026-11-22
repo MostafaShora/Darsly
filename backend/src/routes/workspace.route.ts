@@ -10,7 +10,10 @@ import {
   suspendWorkspaceController,
   activateWorkspaceController,
 } from "../controllers/workspace.controller";
+import enrollmentRoutes from "./enrollment.route";
 import guardianRoutes from "./guardian.route";
+import studyGroupRoutes from "./study-group.route";
+import subjectRoutes from "./subject.route";
 import studentRoutes from "./student.route";
 import { requireWorkspaceAccess } from "../middlewares/workspace-access.middleware";
 
@@ -21,7 +24,10 @@ workspaceRoutes.use(passportAuthenticateJwt);
 
 workspaceRoutes
   .use("/:workspaceId/students", requireWorkspaceAccess(), studentRoutes)
-  .use("/:workspaceId/guardians", requireWorkspaceAccess(), guardianRoutes);
+  .use("/:workspaceId/guardians", requireWorkspaceAccess(), guardianRoutes)
+  .use("/:workspaceId/subjects", requireWorkspaceAccess(), subjectRoutes)
+  .use("/:workspaceId/groups", requireWorkspaceAccess(), studyGroupRoutes)
+  .use("/:workspaceId/enrollments", requireWorkspaceAccess(), enrollmentRoutes);
 
 workspaceRoutes
   .post("/", createWorkspaceController)

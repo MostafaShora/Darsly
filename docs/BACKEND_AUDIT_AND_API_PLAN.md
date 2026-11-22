@@ -263,6 +263,11 @@ return the agreed 4xx envelope; no hard deletion loses referenced history.
 
 ### Phase 2 — Subjects, groups, and enrollments
 
+**Status update:** Implemented after this audit. The original audit inventory and
+recommendations below remain historical; see
+`BACKEND_PHASE_2_SUBJECTS_GROUPS_ENROLLMENTS.md` for the verified implementation and
+contract.
+
 **Dependencies:** Phase 1 supplies students; Phase 0 supplies access and API
 conventions. Subject management is a prerequisite within this phase because groups
 require `subjectId`.
