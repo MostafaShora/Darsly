@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { listStudentAttendanceController } from "../controllers/attendance.controller";
 import {
   createStudentController,
   createStudentGuardianController,
@@ -10,6 +11,10 @@ import {
   updateStudentGuardianController,
 } from "../controllers/student.controller";
 import { validateRequest } from "../middlewares/validate-request.middleware";
+import {
+  studentAttendanceListQuerySchema,
+  studentAttendanceParamsSchema,
+} from "../validators/attendance.validation";
 import {
   createStudentGuardianSchema,
   createStudentSchema,
@@ -32,6 +37,14 @@ studentRoutes
     "/",
     validateRequest({ body: createStudentSchema }),
     createStudentController,
+  )
+  .get(
+    "/:studentId/attendance",
+    validateRequest({
+      params: studentAttendanceParamsSchema,
+      query: studentAttendanceListQuerySchema,
+    }),
+    listStudentAttendanceController,
   )
   .get(
     "/:studentId/guardians",
