@@ -18,16 +18,20 @@ All endpoints require existing JWT authentication and workspace access.
 
 ### Dashboard summary query
 
-Optional `from`, `to`, and `timezone`.
+Required `timezone`, with optional `from` and `to`.
 
 - `from` and `to` are ISO 8601 timestamps with timezone offsets.
-- Without `from`, the backend uses the first UTC day of the current month.
-- Without `to`, the backend uses the current time.
-- The frontend converts local teacher dates to ISO UTC boundaries.
+- `timezone` must be a valid IANA timezone and is detected from the teacher's
+  browser.
+- If `from` or `to` is omitted, the backend uses the first local day of the
+  current month and the end of the current local day in that timezone.
+- Custom date filters are converted from browser-local midnight boundaries to
+  UTC before being sent.
 
 ### Attendance report query
 
 - `from`, `to`: timezone-offset timestamps.
+- `timezone`: required valid IANA timezone.
 - `studentId`: optional workspace-owned Student ObjectId.
 - `groupId`: optional workspace-owned StudyGroup ObjectId.
 - `status`: optional `present`, `absent`, `late`, or `excused`.
@@ -36,6 +40,7 @@ Optional `from`, `to`, and `timezone`.
 ### Finance report query
 
 - `from`, `to`: timezone-offset timestamps.
+- `timezone`: required valid IANA timezone.
 - `studentId`: optional workspace-owned Student ObjectId.
 - `page`, `pageSize`: existing pagination defaults and limits.
 
@@ -86,11 +91,14 @@ deployment may find existing issued invoices that have no `issuedAt`.
 The report:
 
 - includes an invoice in a past balance only when `issuedAt` is present and
-  `issuedAt <= reporting end`;
+  `issuedAt <= reporting end`, and, for subsequently voided invoices, the
+  `voidAt` timestamp proves the void happened after the reporting end;
 - includes allocations only when `PaymentAllocation.createdAt <= reporting end`;
 - includes Payments only when `receivedAt <= reporting end`;
-- returns `historicalData.available: false` if legacy issued invoices lack
-  `issuedAt`;
+- stores `voidAt` when an invoice is voided, without changing its API DTO;
+- returns historical amounts as `null` and
+  `historicalData.available: false` if issue or void timing is ambiguous,
+  including legacy issued invoices without `issuedAt`;
 - never substitutes Invoice `createdAt` or the current Invoice status for a
   missing issue date.
 
@@ -125,12 +133,16 @@ settlement; it calculates Payments and allocations at the period end.
 
 The Angular Reports page supports:
 
-- Excel-compatible `.xls` export from the currently loaded, filtered report;
-- PDF export through the browser print dialog and save-as-PDF, preserving
-  Arabic RTL layout.
+- a complete filtered HTML table download (`.html`, not a genuine Excel
+  workbook), accumulated from bounded 100-record pages;
+- browser print / save-as-PDF, preserving Arabic RTL layout.
+- exports are limited to 10,000 rows per report collection; larger exports are
+  rejected with a prompt to narrow filters rather than silently truncating.
 
 Exports contain only the currently selected workspace report and active filters.
 The print/PDF window is generated locally and contains no internal Mongo fields.
+Pagination totals are checked between page requests; if totals change while an
+export is being collected, the export is rejected.
 
 ## DTO and serialization
 

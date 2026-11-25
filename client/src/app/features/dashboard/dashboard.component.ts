@@ -76,7 +76,7 @@ const DASHBOARD_FEATURES: readonly DashboardFeature[] = [
   {
     id: 'reports',
     label: 'التقارير والأداء',
-    description: 'عرض تقارير الحضور والمالية وتصديرها إلى Excel أو PDF.',
+    description: 'عرض تقارير الحضور والمالية وتنزيل جدول أو طباعته إلى PDF.',
   },
 ];
 
@@ -145,17 +145,13 @@ export class DashboardComponent {
           this.dashboardError.set('لا تتوفر مساحة عمل نشطة.');
           return;
         }
-        const now = new Date();
-        const from = new Date(
-          now.getFullYear(),
-          now.getMonth(),
-          1,
-          0,
-          0,
-          0,
-        ).toISOString();
-        const to = now.toISOString();
-        this.reportService.getDashboard(workspace._id, from, to).subscribe({
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!timezone) {
+          this.dashboardLoading.set(false);
+          this.dashboardError.set('تعذر تحديد المنطقة الزمنية لهذا الجهاز.');
+          return;
+        }
+        this.reportService.getDashboard(workspace._id, timezone).subscribe({
           next: (summary) => {
             this.summary.set(summary);
             this.dashboardLoading.set(false);

@@ -523,6 +523,7 @@ const changeInvoiceStatus = async (
                     $set: {
                         status,
                         ...(status === "issued" ? { issuedAt: new Date() } : {}),
+                        ...(status === "void" ? { voidAt: new Date() } : {}),
                         updatedAt: new Date(
                             Math.max(
                                 Date.now(),

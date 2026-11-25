@@ -8,12 +8,24 @@ const timestampSchema = z.iso.datetime({ offset: true }).transform(
     (value) => new Date(value)
 );
 
+const timezoneSchema = z.string().trim().min(1).max(100).refine(
+    (value) => {
+        try {
+            new Intl.DateTimeFormat("en-US", { timeZone: value });
+            return true;
+        } catch {
+            return false;
+        }
+    },
+    { message: "timezone must be a valid IANA timezone" }
+);
+
 const reportRangeFields = {
     from: timestampSchema.optional(),
     to: timestampSchema.optional(),
     studentId: objectIdSchema.optional(),
     groupId: objectIdSchema.optional(),
-    timezone: z.string().trim().min(1).max(100).optional(),
+    timezone: timezoneSchema,
 };
 
 export const reportRangeQuerySchema = z

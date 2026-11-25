@@ -13,6 +13,7 @@ export interface InvoiceDocument extends Document {
     totalAmount: Types.Decimal128;
     dueDate: Date | null;
     issuedAt: Date | null;
+    voidAt: Date | null;
     status: "draft" | "issued" | "void";
     description: string;
     notes: string;
@@ -78,6 +79,10 @@ const invoiceSchema = new Schema<InvoiceDocument>(
             default: null,
         },
         issuedAt: {
+            type: Date,
+            default: null,
+        },
+        voidAt: {
             type: Date,
             default: null,
         },

@@ -79,6 +79,14 @@ export interface AttendanceReport {
 
 export interface FinanceReport {
   period: ReportPeriod;
+  paymentMethods: Array<{ method: string; amount: string }>;
+  historicalData: {
+    asOf: string;
+    available: boolean;
+    legacyIssuedInvoiceCount: number;
+    ambiguousVoidedInvoiceCount: number;
+    limitation: string | null;
+  };
   summary: {
     issuedInvoiceCount: number;
     issuedInvoiceTotal: string;
@@ -86,15 +94,8 @@ export interface FinanceReport {
     allocatedInPeriod: string;
     currentOutstanding: string;
     unallocatedPayments: string;
-    historicalOutstanding: string;
-    historicalUnallocatedPayments: string;
-  };
-  paymentMethods: Array<{ method: string; amount: string }>;
-  historicalData: {
-    asOf: string;
-    available: boolean;
-    legacyIssuedInvoiceCount: number;
-    limitation: string | null;
+    historicalOutstanding: string | null;
+    historicalUnallocatedPayments: string | null;
   };
   invoices: ReportCollection<{ id: string; invoiceNumber: string; studentId: string; issuedAt: string | null; totalAmount: string; status: string }>;
   payments: ReportCollection<{ id: string; studentId: string; amount: string; method: string; receivedAt: string }>;
@@ -121,10 +122,8 @@ export class ReportService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = `${environment.apiBaseUrl}/workspaces`;
 
-  getDashboard(workspaceId: string, from?: string, to?: string): Observable<DashboardSummary> {
-    let params = new HttpParams();
-    if (from) params = params.set('from', from);
-    if (to) params = params.set('to', to);
+  getDashboard(workspaceId: string, timezone: string): Observable<DashboardSummary> {
+    const params = new HttpParams().set('timezone', timezone);
     return this.http
       .get<ApiResponse<DashboardSummary>>(
         `${this.baseUrl}/${workspaceId}/dashboard/summary`,
@@ -140,6 +139,7 @@ export class ReportService {
       to?: string;
       studentId?: string;
       groupId?: string;
+      timezone: string;
       status?: string;
       page?: number;
       pageSize?: number;
@@ -159,7 +159,7 @@ export class ReportService {
 
   getFinance(
     workspaceId: string,
-    query: { from?: string; to?: string; studentId?: string; page?: number; pageSize?: number },
+    query: { from?: string; to?: string; studentId?: string; timezone: string; page?: number; pageSize?: number },
   ): Observable<FinanceReport> {
     let params = new HttpParams();
     Object.entries(query).forEach(([key, value]) => {

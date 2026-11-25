@@ -74,23 +74,84 @@ export interface DashboardSummary {
     };
 }
 
-const getRange = (query: ReportRangeQuery): ReportRange => {
-    if (query.from && query.to) {
-        return { from: query.from, to: query.to };
+const getZonedDateParts = (date: Date, timezone: string) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(date);
+    const value = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(parts.find((part) => part.type === type)?.value);
+    return { year: value("year"), month: value("month"), day: value("day") };
+};
+
+const localMidnightToUtc = (
+    year: number,
+    month: number,
+    day: number,
+    timezone: string
+): Date => {
+    const target = Date.UTC(year, month - 1, day);
+    let result = target;
+    const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+    });
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+        const parts = formatter.formatToParts(new Date(result));
+        const value = (type: Intl.DateTimeFormatPartTypes) =>
+            Number(parts.find((part) => part.type === type)?.value);
+        const representedLocalTime = Date.UTC(
+            value("year"),
+            value("month") - 1,
+            value("day"),
+            value("hour"),
+            value("minute"),
+            value("second")
+        );
+        const next = target - (representedLocalTime - result);
+        if (next === result) break;
+        result = next;
     }
 
-    const now = new Date();
+    return new Date(result);
+};
+
+export const getReportRange = (
+    query: ReportRangeQuery,
+    now = new Date()
+): ReportRange => {
+    const localNow = getZonedDateParts(now, query.timezone);
+    const monthStart = localMidnightToUtc(
+        localNow.year,
+        localNow.month,
+        1,
+        query.timezone
+    );
+    const nextDay = new Date(Date.UTC(
+        localNow.year,
+        localNow.month - 1,
+        localNow.day + 1
+    ));
+    const endOfLocalDay = new Date(
+        localMidnightToUtc(
+            nextDay.getUTCFullYear(),
+            nextDay.getUTCMonth() + 1,
+            nextDay.getUTCDate(),
+            query.timezone
+        ).getTime() - 1
+    );
     return {
-        from: query.from ?? new Date(Date.UTC(
-            now.getUTCFullYear(),
-            now.getUTCMonth(),
-            1,
-            0,
-            0,
-            0,
-            0
-        )),
-        to: query.to ?? now,
+        from: query.from ?? monthStart,
+        to: query.to ?? endOfLocalDay,
     };
 };
 
@@ -179,7 +240,7 @@ export const getDashboardSummaryService = async (
     workspaceId: Types.ObjectId,
     query: ReportRangeQuery
 ): Promise<DashboardSummary> => {
-    const range = getRange(query);
+    const range = getReportRange(query);
     const [
         totalStudents,
         activeStudents,
@@ -352,7 +413,7 @@ export const getAttendanceReportService = async (
 ) => {
     await validateStudentFilter(workspaceId, query.studentId);
     await validateGroupFilter(workspaceId, query.groupId);
-    const range = getRange(query);
+    const range = getReportRange(query);
 
     const sessionFilter: Record<string, unknown> = {
         workspaceId,
@@ -460,7 +521,7 @@ export const getFinanceReportService = async (
     query: FinanceReportQuery
 ) => {
     await validateStudentFilter(workspaceId, query.studentId);
-    const range = getRange(query);
+    const range = getReportRange(query);
     const invoiceFilter: Record<string, unknown> = {
         workspaceId,
         status: "issued",
@@ -473,11 +534,17 @@ export const getFinanceReportService = async (
     };
     if (query.studentId) paymentFilter.studentId = query.studentId;
 
-    const [issuedInvoices, currentPayments, allocations] = await Promise.all([
-        InvoiceModel.find(invoiceFilter),
+    const [invoiceRecords, currentPayments, allocations] = await Promise.all([
+        InvoiceModel.find({
+            ...invoiceFilter,
+            status: { $in: ["issued", "void"] },
+        }),
         PaymentModel.find(paymentFilter),
         getValidAllocations(workspaceId),
     ]);
+    const issuedInvoices = invoiceRecords.filter(
+        (invoice) => invoice.status === "issued"
+    );
     const scopedAllocations = query.studentId
         ? allocations.filter((allocation) =>
             issuedInvoices.some((invoice) =>
@@ -489,14 +556,11 @@ export const getFinanceReportService = async (
           )
         : allocations;
 
-    const filteredIssuedInvoices = query.studentId
-        ? issuedInvoices
-        : issuedInvoices;
     const periodPayments = currentPayments.filter((payment) =>
         payment.receivedAt >= range.from && payment.receivedAt <= range.to
     );
 
-    const issuedInPeriod = filteredIssuedInvoices.filter((invoice) => {
+    const issuedInPeriod = invoiceRecords.filter((invoice) => {
         const issuedAt = (invoice as InvoiceDocument & { issuedAt?: Date }).issuedAt;
         return issuedAt &&
             issuedAt >= range.from &&
@@ -504,12 +568,12 @@ export const getFinanceReportService = async (
     });
 
     const issuedInvoiceTotal = sumDecimalStrings(
-        filteredIssuedInvoices.map((invoice) => invoice.totalAmount.toString())
+        issuedInvoices.map((invoice) => invoice.totalAmount.toString())
     );
     const totalAllocatedToIssued = sumDecimalStrings(
         scopedAllocations
             .filter((allocation) =>
-                filteredIssuedInvoices.some((invoice) =>
+                issuedInvoices.some((invoice) =>
                     invoice._id.equals(allocation.invoiceId)
                 )
             )
@@ -531,9 +595,12 @@ export const getFinanceReportService = async (
         allocatedAcrossAll
     );
 
-    const historicalInvoices = filteredIssuedInvoices.filter((invoice) => {
+    const historicalInvoices = invoiceRecords.filter((invoice) => {
         const issuedAt = (invoice as InvoiceDocument & { issuedAt?: Date }).issuedAt;
-        return issuedAt && issuedAt <= range.to;
+        if (!issuedAt || issuedAt > range.to) return false;
+        if (invoice.status !== "void") return true;
+        const voidAt = (invoice as InvoiceDocument & { voidAt?: Date }).voidAt;
+        return !voidAt || voidAt > range.to;
     });
     const historicalPayments = currentPayments.filter(
         (payment) => payment.receivedAt <= range.to
@@ -567,9 +634,15 @@ export const getFinanceReportService = async (
         historicalPaymentTotal,
         historicalAllocatedPayments
     );
-    const legacyIssuedCount = filteredIssuedInvoices.filter((invoice) =>
+    const legacyIssuedCount = issuedInvoices.filter((invoice) =>
         !(invoice as InvoiceDocument & { issuedAt?: Date }).issuedAt
     ).length;
+    const ambiguousVoidedCount = invoiceRecords.filter((invoice) =>
+        invoice.status === "void" &&
+        !(invoice as InvoiceDocument & { voidAt?: Date }).voidAt
+    ).length;
+    const historicalAvailable =
+        legacyIssuedCount === 0 && ambiguousVoidedCount === 0;
 
     const collectedInPeriod = sumDecimalStrings(
         periodPayments.map((payment) => payment.amount.toString())
@@ -598,6 +671,7 @@ export const getFinanceReportService = async (
         .sort((left, right) =>
             (left as InvoiceDocument & { issuedAt?: Date }).issuedAt!.getTime()
             - (right as InvoiceDocument & { issuedAt?: Date }).issuedAt!.getTime()
+            || left._id.toString().localeCompare(right._id.toString())
         )
         .map((invoice) => ({
             id: invoice._id.toString(),
@@ -608,7 +682,10 @@ export const getFinanceReportService = async (
             status: invoice.status,
         }));
     const paymentItems = periodPayments
-        .sort((left, right) => right.receivedAt.getTime() - left.receivedAt.getTime())
+        .sort((left, right) =>
+            right.receivedAt.getTime() - left.receivedAt.getTime()
+            || right._id.toString().localeCompare(left._id.toString())
+        )
         .map((payment) => ({
             id: payment._id.toString(),
             studentId: payment.studentId.toString(),
@@ -617,7 +694,10 @@ export const getFinanceReportService = async (
             receivedAt: payment.receivedAt.toISOString(),
         }));
     const allocationItems = periodAllocations
-        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+        .sort((left, right) =>
+            right.createdAt.getTime() - left.createdAt.getTime()
+            || right._id.toString().localeCompare(left._id.toString())
+        )
         .map((allocation) => ({
             id: allocation._id.toString(),
             paymentId: allocation.paymentId.toString(),
@@ -644,18 +724,23 @@ export const getFinanceReportService = async (
             allocatedInPeriod,
             currentOutstanding: normalize(currentOutstanding),
             unallocatedPayments: normalize(unallocatedPayments),
-            historicalOutstanding: normalize(historicalOutstanding),
-            historicalUnallocatedPayments: normalize(historicalUnallocated),
+            historicalOutstanding: historicalAvailable
+                ? normalize(historicalOutstanding)
+                : null,
+            historicalUnallocatedPayments: historicalAvailable
+                ? normalize(historicalUnallocated)
+                : null,
         },
         paymentMethods: Array.from(paymentMethods.entries()).map(
             ([method, amount]) => ({ method, amount })
         ),
         historicalData: {
             asOf: range.to.toISOString(),
-            available: legacyIssuedCount === 0,
+            available: historicalAvailable,
             legacyIssuedInvoiceCount: legacyIssuedCount,
-            limitation: legacyIssuedCount > 0
-                ? "Historical invoice outstanding excludes issued invoices without an issuedAt timestamp."
+            ambiguousVoidedInvoiceCount: ambiguousVoidedCount,
+            limitation: !historicalAvailable
+                ? "Historical balances are unavailable because some invoices lack an issue or void timestamp."
                 : null,
         },
         invoices: {

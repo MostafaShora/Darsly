@@ -13,7 +13,9 @@ import {
     getAttendanceReportService,
     getDashboardSummaryService,
     getFinanceReportService,
+    getReportRange,
 } from "../src/services/report.service";
+import { reportRangeQuerySchema } from "../src/validators/report.validation";
 
 const workspaceId = new Types.ObjectId();
 
@@ -81,7 +83,9 @@ test("dashboard uses active enrollment capacity and keeps unlimited groups unran
         makeQuery([]) as never
     );
 
-    const summary = await getDashboardSummaryService(workspaceId, {});
+    const summary = await getDashboardSummaryService(workspaceId, {
+        timezone: "UTC",
+    });
     assert.equal(summary.students.total, 11);
     assert.equal(summary.groups.activeEnrollments, 10);
     assert.equal(summary.groups.pausedEnrollments, 3);
@@ -145,6 +149,7 @@ test("attendance report applies formula, excludes excused, and handles zero deno
         to: new Date("2026-01-31T23:59:59.000Z"),
         studentId: student._id.toString(),
         groupId: group._id.toString(),
+        timezone: "UTC",
         page: 1,
         pageSize: 20,
     });
@@ -161,6 +166,7 @@ test("attendance report returns null for zero denominator", async (t) => {
     t.mock.method(SessionModel, "find", () => makeQuery([]) as never);
 
     const report = await getAttendanceReportService(workspaceId, {
+        timezone: "UTC",
         page: 1,
         pageSize: 20,
     });
@@ -230,6 +236,7 @@ test("finance report separates collected, allocated, outstanding, and unallocate
         from: new Date("2026-11-01T00:00:00.000Z"),
         to: new Date("2026-11-30T23:59:59.000Z"),
         studentId: student._id.toString(),
+        timezone: "UTC",
         page: 1,
         pageSize: 20,
     });
@@ -268,9 +275,95 @@ test("historical finance marks legacy issued invoices without issuedAt as unavai
     const report = await getFinanceReportService(workspaceId, {
         from: new Date("2026-11-01T00:00:00.000Z"),
         to: new Date("2026-11-30T23:59:59.000Z"),
+        timezone: "UTC",
         page: 1,
         pageSize: 20,
     });
     assert.equal(report.historicalData.available, false);
     assert.equal(report.historicalData.legacyIssuedInvoiceCount, 1);
+    assert.equal(report.summary.historicalOutstanding, null);
+    assert.equal(report.summary.historicalUnallocatedPayments, null);
+});
+
+test("report defaults use the current month in the requested IANA timezone", () => {
+    const range = getReportRange(
+        { timezone: "America/Los_Angeles" },
+        new Date("2026-04-01T02:00:00.000Z")
+    );
+    assert.equal(range.from.toISOString(), "2026-03-01T08:00:00.000Z");
+    assert.equal(range.to.toISOString(), "2026-04-01T06:59:59.999Z");
+    assert.equal(
+        reportRangeQuerySchema.safeParse({ timezone: "Not/A_Timezone" }).success,
+        false
+    );
+});
+
+test("historical finance uses issue, payment, and allocation dates independently", async (t) => {
+    const studentId = new Types.ObjectId();
+    const makeInvoice = (
+        invoiceNumber: string,
+        issuedAt: string,
+        amount: string,
+        status: "issued" | "void" = "issued",
+        voidAt?: string,
+    ) => ({
+        _id: new Types.ObjectId(),
+        workspaceId,
+        invoiceNumber,
+        studentId,
+        enrollmentId: new Types.ObjectId(),
+        groupId: new Types.ObjectId(),
+        status,
+        issuedAt: new Date(issuedAt),
+        voidAt: voidAt ? new Date(voidAt) : null,
+        totalAmount: Types.Decimal128.fromString(amount),
+    });
+    const before = makeInvoice("INV-BEFORE", "2026-10-31T10:00:00.000Z", "100");
+    const during = makeInvoice("INV-DURING", "2026-11-15T10:00:00.000Z", "200");
+    const after = makeInvoice("INV-AFTER", "2026-12-01T10:00:00.000Z", "300");
+    const voidedLater = makeInvoice(
+        "INV-VOID-LATER",
+        "2026-11-10T10:00:00.000Z",
+        "75",
+        "void",
+        "2026-12-05T10:00:00.000Z",
+    );
+    const voidedDuring = makeInvoice(
+        "INV-VOID-DURING",
+        "2026-11-05T10:00:00.000Z",
+        "50",
+        "void",
+        "2026-11-18T10:00:00.000Z",
+    );
+    const payments = [
+        { _id: new Types.ObjectId(), workspaceId, studentId, amount: Types.Decimal128.fromString("100"), method: "cash", status: "completed", receivedAt: new Date("2026-10-20T10:00:00.000Z") },
+        { _id: new Types.ObjectId(), workspaceId, studentId, amount: Types.Decimal128.fromString("60"), method: "cash", status: "completed", receivedAt: new Date("2026-11-25T10:00:00.000Z") },
+        { _id: new Types.ObjectId(), workspaceId, studentId, amount: Types.Decimal128.fromString("70"), method: "cash", status: "completed", receivedAt: new Date("2026-12-05T10:00:00.000Z") },
+    ];
+    const allocations = [
+        { _id: new Types.ObjectId(), workspaceId, paymentId: payments[0]._id, invoiceId: before._id, amount: Types.Decimal128.fromString("40"), createdAt: new Date("2026-11-20T10:00:00.000Z") },
+        { _id: new Types.ObjectId(), workspaceId, paymentId: payments[0]._id, invoiceId: before._id, amount: Types.Decimal128.fromString("10"), createdAt: new Date("2026-12-02T10:00:00.000Z") },
+        { _id: new Types.ObjectId(), workspaceId, paymentId: payments[1]._id, invoiceId: during._id, amount: Types.Decimal128.fromString("20"), createdAt: new Date("2026-12-03T10:00:00.000Z") },
+    ];
+
+    t.mock.method(StudentModel, "exists", () => makeQuery({ _id: studentId }) as never);
+    t.mock.method(InvoiceModel, "find", () => makeQuery([before, during, after, voidedLater, voidedDuring]) as never);
+    t.mock.method(PaymentModel, "find", () => makeQuery(payments) as never);
+    t.mock.method(PaymentAllocationModel, "find", () => makeQuery(allocations) as never);
+
+    const report = await getFinanceReportService(workspaceId, {
+        from: new Date("2026-11-01T00:00:00.000Z"),
+        to: new Date("2026-11-30T23:59:59.999Z"),
+        studentId: studentId.toString(),
+        timezone: "UTC",
+        page: 1,
+        pageSize: 20,
+    });
+    assert.equal(report.summary.issuedInvoiceCount, 3);
+    assert.equal(report.summary.issuedInvoiceTotal, "325");
+    assert.equal(report.summary.collectedInPeriod, "60");
+    assert.equal(report.summary.allocatedInPeriod, "40");
+    assert.equal(report.summary.historicalOutstanding, "335");
+    assert.equal(report.summary.historicalUnallocatedPayments, "120");
+    assert.equal(report.historicalData.available, true);
 });

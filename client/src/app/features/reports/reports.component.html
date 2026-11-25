@@ -14,11 +14,13 @@
           [class.bg-[#087b59]]="activeTab() === 'attendance'"
           [class.text-white]="activeTab() === 'attendance'"
           [class.bg-[#f2f6f3]]="activeTab() !== 'attendance'"
+          [disabled]="exporting()"
           (click)="setTab('attendance')">تقرير الحضور</button>
         <button type="button" class="min-h-11 rounded-xl px-4 text-xs font-extrabold"
           [class.bg-[#087b59]]="activeTab() === 'finance'"
           [class.text-white]="activeTab() === 'finance'"
           [class.bg-[#f2f6f3]]="activeTab() !== 'finance'"
+          [disabled]="exporting()"
           (click)="setTab('finance')">التقرير المالي</button>
       </div>
 
@@ -41,8 +43,8 @@
       </form>
 
       <div class="mt-5 flex gap-2">
-        <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold" (click)="exportExcel()">تصدير Excel</button>
-        <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold" (click)="exportPdf()">تصدير PDF</button>
+        <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold" [disabled]="exporting()" (click)="exportExcel()">{{ exporting() ? 'جارٍ التصدير...' : 'تنزيل جدول HTML' }}</button>
+        <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold" [disabled]="exporting()" (click)="exportPdf()">{{ exporting() ? 'جارٍ الإعداد...' : 'طباعة / حفظ PDF' }}</button>
       </div>
     </section>
 
@@ -82,7 +84,7 @@
       @if (!report.historicalData.available) {
         <div class="mt-5 rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-4 text-xs leading-6 text-[#7a6231]">
           {{ report.historicalData.limitation }}
-          لا يُعرض رصيد تاريخي كمعلومة مؤكدة للسجلات القديمة غير المزودة بتوقيت الإصدار.
+          لا تُعرض الأرصدة التاريخية كقيم مؤكدة عند غياب تواريخ الإصدار أو الإبطال.
         </div>
       }
 
@@ -91,7 +93,7 @@
           <thead class="bg-[#f8faf8]"><tr><th class="p-3">المبلغ</th><th class="p-3">الطريقة</th><th class="p-3">تاريخ الاستلام</th></tr></thead>
           <tbody>
             @for (payment of report.payments.items; track payment.id) {
-              <tr class="border-t border-[#edf2ee]"><td class="p-3">{{ formatMoney(payment.amount) }} ج.م</td><td class="p-3">{{ payment.method }}</td><td class="p-3">{{ payment.receivedAt.slice(0, 10) }}</td></tr>
+              <tr class="border-t border-[#edf2ee]"><td class="p-3">{{ formatMoney(payment.amount) }} ج.م</td><td class="p-3">{{ payment.method }}</td><td class="p-3">{{ formatReportDate(payment.receivedAt) }}</td></tr>
             } @empty {
               <tr><td colspan="3" class="p-8 text-center text-[#71847a]">لا توجد مدفوعات في الفترة المحددة.</td></tr>
             }

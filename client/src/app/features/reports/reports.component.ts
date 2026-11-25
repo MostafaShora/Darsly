@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import {
   AttendanceReport,
   FinanceReport,
@@ -21,6 +22,7 @@ export class ReportsComponent {
 
   readonly activeTab = signal<'attendance' | 'finance'>('attendance');
   readonly loading = signal(false);
+  readonly exporting = signal(false);
   readonly error = signal('');
   readonly attendance = signal<AttendanceReport | null>(null);
   readonly finance = signal<FinanceReport | null>(null);
@@ -60,6 +62,12 @@ export class ReportsComponent {
     const to = this.localDateToIso(this.filters.controls.to.value, true);
     const studentId = this.filters.controls.studentId.value?.trim() || undefined;
     const groupId = this.filters.controls.groupId.value?.trim() || undefined;
+    const timezone = this.getTimezone();
+    if (!timezone) {
+      this.error.set('تعذر تحديد المنطقة الزمنية لهذا الجهاز.');
+      this.loading.set(false);
+      return;
+    }
 
     if (this.activeTab() === 'attendance') {
       this.reportService.getAttendance(this.workspaceId, {
@@ -67,6 +75,7 @@ export class ReportsComponent {
         to,
         studentId,
         groupId,
+        timezone,
         page: 1,
         pageSize: 100,
       }).subscribe({
@@ -84,6 +93,7 @@ export class ReportsComponent {
         from,
         to,
         studentId,
+        timezone,
         page: 1,
         pageSize: 100,
       }).subscribe({
@@ -99,23 +109,93 @@ export class ReportsComponent {
     }
   }
 
-  exportExcel(): void {
+  async exportExcel(): Promise<void> {
+    if (this.exporting()) return;
+    this.exporting.set(true);
+    this.error.set('');
+    try {
+      const attendance = this.activeTab() === 'attendance'
+        ? await this.fetchAllAttendance()
+        : null;
+      const finance = this.activeTab() === 'finance'
+        ? await this.fetchAllFinance()
+        : null;
+      const html = this.buildExportHtml(attendance, finance);
+      const title = this.activeTab() === 'attendance'
+        ? 'تقرير الحضور'
+        : 'التقرير المالي';
+      this.downloadBlob(
+        new Blob(['\ufeff', html], { type: 'text/html;charset=utf-8' }),
+        `${title}.html`,
+      );
+    } catch (error) {
+      this.error.set(error instanceof Error && error.message === 'export-limit'
+        ? 'التقرير يتجاوز حد التصدير الآمن (10,000 سجل لكل نوع). قلّص الفترة أو المرشحات.'
+        : 'تعذر تصدير التقرير بالكامل. ضيّق الفترة أو المرشحات ثم حاول مجددًا.');
+    } finally {
+      this.exporting.set(false);
+    }
+  }
+
+  async exportPdf(): Promise<void> {
+    if (this.exporting()) return;
+    const popup = window.open('', '_blank');
+    if (!popup) {
+      this.error.set('اسمح بفتح النافذة لإعداد نسخة الطباعة.');
+      return;
+    }
+    this.exporting.set(true);
+    this.error.set('');
+    try {
+      const attendance = this.activeTab() === 'attendance'
+        ? await this.fetchAllAttendance()
+        : null;
+      const finance = this.activeTab() === 'finance'
+        ? await this.fetchAllFinance()
+        : null;
+      const report = attendance ?? finance;
+      if (!report) {
+        popup.close();
+        return;
+      }
+      const title = attendance ? 'تقرير الحضور' : 'التقرير المالي';
+      const period = `${this.formatReportDate(report.period.from)} — ${this.formatReportDate(report.period.to)}`;
+      const body = attendance
+        ? this.attendancePrintRows(attendance)
+        : this.financePrintRows(finance!);
+      popup.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${title}</title><style>
+        body{font-family:Cairo,Arial,sans-serif;padding:24px;color:#173b32}
+        table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #bfcac3;padding:8px;text-align:right;font-size:12px}
+        h1{font-size:20px}p{font-size:12px}
+      </style></head><body><h1>${title}</h1><p>الفترة: ${period}</p>${body}</body></html>`);
+      popup.document.close();
+      popup.focus();
+      popup.print();
+    } catch (error) {
+      popup.close();
+      this.error.set(error instanceof Error && error.message === 'export-limit'
+        ? 'التقرير يتجاوز حد التصدير الآمن (10,000 سجل لكل نوع). قلّص الفترة أو المرشحات.'
+        : 'تعذر إعداد نسخة الطباعة الكاملة. ضيّق الفترة أو المرشحات ثم حاول مجددًا.');
+    } finally {
+      this.exporting.set(false);
+    }
+  }
+
+  private buildExportHtml(
+    attendance: AttendanceReport | null,
+    finance: FinanceReport | null,
+  ): string {
     const title = this.activeTab() === 'attendance'
       ? 'تقرير الحضور'
       : 'التقرير المالي';
-    const rows = this.activeTab() === 'attendance'
-      ? this.attendance()?.items ?? []
-      : this.finance()?.payments.items ?? [];
 
     let table: string;
-    if (this.activeTab() === 'attendance') {
+    if (attendance) {
       table = `<tr><th>الطالب</th><th>المجموعة</th><th>الحصة</th><th>الحالة</th><th>دقائق التأخير</th><th>التوقيت</th></tr>` +
-        rows.map((item) => {
-          const row = item as AttendanceReport['items'][number];
+        attendance.items.map((row) => {
           return `<tr><td>${this.escape(row.studentName)}</td><td>${this.escape(row.groupName)}</td><td>${this.escape(row.sessionTitle)}</td><td>${this.escape(row.status)}</td><td>${row.lateMinutes}</td><td>${this.escape(row.sessionStartsAt)}</td></tr>`;
         }).join('');
     } else {
-      const finance = this.finance();
       table = `<tr><th>نوع السجل</th><th>المعرف</th><th>المبلغ</th><th>التفاصيل</th><th>التوقيت</th></tr>` +
         (finance?.invoices.items ?? []).map((invoice) =>
           `<tr><td>فاتورة</td><td>${this.escape(invoice.invoiceNumber)}</td><td>${this.escape(invoice.totalAmount)}</td><td>${this.escape(invoice.status)}</td><td>${this.escape(invoice.issuedAt ?? '')}</td></tr>`
@@ -128,36 +208,10 @@ export class ReportsComponent {
         ).join('');
     }
 
-    const html = `<html><head><meta charset="UTF-8"></head><body><h2>${title}</h2><table border="1">${table}</table></body></html>`;
-    const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    this.downloadBlob(blob, `${title}.xls`);
+    return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${title}</title></head><body><h2>${title}</h2><table border="1">${table}</table></body></html>`;
   }
 
-  exportPdf(): void {
-    const report = this.activeTab() === 'attendance'
-      ? this.attendance()
-      : this.finance();
-    if (!report) return;
-    const title = this.activeTab() === 'attendance' ? 'تقرير الحضور' : 'التقرير المالي';
-    const period = `${report.period.from.slice(0, 10)} — ${report.period.to.slice(0, 10)}`;
-    const popup = window.open('', '_blank', 'noopener,noreferrer');
-    if (!popup) return;
-    const body = this.activeTab() === 'attendance'
-      ? this.attendancePrintRows()
-      : this.financePrintRows();
-    popup.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${title}</title><style>
-      body{font-family:Cairo,Arial,sans-serif;padding:24px;color:#173b32}
-      table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #bfcac3;padding:8px;text-align:right;font-size:12px}
-      h1{font-size:20px}p{font-size:12px}
-    </style></head><body><h1>${title}</h1><p>الفترة: ${period}</p>${body}</body></html>`);
-    popup.document.close();
-    popup.focus();
-    popup.print();
-  }
-
-  private attendancePrintRows(): string {
-    const report = this.attendance();
-    if (!report) return '';
+  private attendancePrintRows(report: AttendanceReport): string {
     const summary = `<p>الحاضرون: ${report.summary.present} | الغائبون: ${report.summary.absent} | المتأخرون: ${report.summary.late} | المعذورون: ${report.summary.excused} | النسبة: ${this.formatRate(report.summary.attendanceRate)}</p>`;
     const rows = report.items.map((item) =>
       `<tr><td>${this.escape(item.studentName)}</td><td>${this.escape(item.groupName)}</td><td>${this.escape(item.status)}</td><td>${item.lateMinutes}</td></tr>`
@@ -165,9 +219,7 @@ export class ReportsComponent {
     return `${summary}<table><thead><tr><th>الطالب</th><th>المجموعة</th><th>الحالة</th><th>التأخير</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  private financePrintRows(): string {
-    const report = this.finance();
-    if (!report) return '';
+  private financePrintRows(report: FinanceReport): string {
     const summary = `<p>إجمالي الفواتير: ${report.summary.issuedInvoiceTotal} ج.م | المحصّل: ${report.summary.collectedInPeriod} ج.م | المستحق الحالي: ${report.summary.currentOutstanding} ج.م | غير المخصّص: ${report.summary.unallocatedPayments} ج.م</p>`;
     const invoiceRows = report.invoices.items.map((invoice) =>
       `<tr><td>فاتورة</td><td>${this.escape(invoice.invoiceNumber)}</td><td>${this.escape(invoice.totalAmount)}</td><td>${this.escape(invoice.issuedAt ?? '')}</td></tr>`
@@ -193,6 +245,14 @@ export class ReportsComponent {
       : `${new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 1 }).format(value)}٪`;
   }
 
+  formatReportDate(value: string): string {
+    return new Intl.DateTimeFormat('ar-EG', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(value));
+  }
+
   private toDateInput(date: Date): string {
     return [
       date.getFullYear(),
@@ -205,6 +265,125 @@ export class ReportsComponent {
     if (!value) return undefined;
     const time = endOfDay ? 'T23:59:59.999' : 'T00:00:00.000';
     return new Date(`${value}${time}`).toISOString();
+  }
+
+  private getTimezone(): string | undefined {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  }
+
+  private getReportFilters() {
+    const timezone = this.getTimezone();
+    if (!timezone) throw new Error('timezone-unavailable');
+    return {
+      from: this.localDateToIso(this.filters.controls.from.value),
+      to: this.localDateToIso(this.filters.controls.to.value, true),
+      studentId: this.filters.controls.studentId.value?.trim() || undefined,
+      groupId: this.filters.controls.groupId.value?.trim() || undefined,
+      timezone,
+    };
+  }
+
+  private async fetchAllAttendance(): Promise<AttendanceReport> {
+    const filters = this.getReportFilters();
+    const pageSize = 100;
+    const first = await firstValueFrom(this.reportService.getAttendance(
+      this.workspaceId,
+      { ...filters, page: 1, pageSize },
+    ));
+    const totalItems = first.pagination.totalItems;
+    if (totalItems > 10_000) throw new Error('export-limit');
+    const items = [...first.items];
+    const seenIds = new Set(items.map((item) => item.id));
+    if (seenIds.size !== items.length) throw new Error('report-changed');
+
+    for (let page = 2; page <= first.pagination.totalPages; page += 1) {
+      const response = await firstValueFrom(this.reportService.getAttendance(
+        this.workspaceId,
+        { ...filters, page, pageSize },
+      ));
+      if (response.pagination.totalItems !== totalItems) {
+        throw new Error('report-changed');
+      }
+      if (response.items.some((item) => seenIds.has(item.id))) {
+        throw new Error('report-changed');
+      }
+      response.items.forEach((item) => seenIds.add(item.id));
+      items.push(...response.items);
+    }
+    if (items.length !== totalItems) throw new Error('report-changed');
+    return { ...first, items };
+  }
+
+  private async fetchAllFinance(): Promise<FinanceReport> {
+    const filters = this.getReportFilters();
+    const pageSize = 100;
+    const first = await firstValueFrom(this.reportService.getFinance(
+      this.workspaceId,
+      { from: filters.from, to: filters.to, studentId: filters.studentId, timezone: filters.timezone, page: 1, pageSize },
+    ));
+    const collections = {
+      invoices: [...first.invoices.items],
+      payments: [...first.payments.items],
+      allocations: [...first.allocations.items],
+    };
+    const seenIds = {
+      invoices: new Set(collections.invoices.map((item) => item.id)),
+      payments: new Set(collections.payments.map((item) => item.id)),
+      allocations: new Set(collections.allocations.map((item) => item.id)),
+    };
+    const totals = {
+      invoices: first.invoices.pagination.totalItems,
+      payments: first.payments.pagination.totalItems,
+      allocations: first.allocations.pagination.totalItems,
+    };
+    if (Object.values(totals).some((total) => total > 10_000)) {
+      throw new Error('export-limit');
+    }
+    const totalPages = Math.max(
+      first.invoices.pagination.totalPages,
+      first.payments.pagination.totalPages,
+      first.allocations.pagination.totalPages,
+    );
+
+    for (let page = 2; page <= totalPages; page += 1) {
+      const response = await firstValueFrom(this.reportService.getFinance(
+        this.workspaceId,
+        { from: filters.from, to: filters.to, studentId: filters.studentId, timezone: filters.timezone, page, pageSize },
+      ));
+      if (
+        response.invoices.pagination.totalItems !== totals.invoices ||
+        response.payments.pagination.totalItems !== totals.payments ||
+        response.allocations.pagination.totalItems !== totals.allocations
+      ) {
+        throw new Error('report-changed');
+      }
+      if (
+        response.invoices.items.some((item) => seenIds.invoices.has(item.id)) ||
+        response.payments.items.some((item) => seenIds.payments.has(item.id)) ||
+        response.allocations.items.some((item) => seenIds.allocations.has(item.id))
+      ) {
+        throw new Error('report-changed');
+      }
+      response.invoices.items.forEach((item) => seenIds.invoices.add(item.id));
+      response.payments.items.forEach((item) => seenIds.payments.add(item.id));
+      response.allocations.items.forEach((item) => seenIds.allocations.add(item.id));
+      collections.invoices.push(...response.invoices.items);
+      collections.payments.push(...response.payments.items);
+      collections.allocations.push(...response.allocations.items);
+    }
+    if (
+      collections.invoices.length !== totals.invoices ||
+      collections.payments.length !== totals.payments ||
+      collections.allocations.length !== totals.allocations
+    ) {
+      throw new Error('report-changed');
+    }
+    return {
+      ...first,
+      invoices: { ...first.invoices, items: collections.invoices },
+      payments: { ...first.payments, items: collections.payments },
+      allocations: { ...first.allocations, items: collections.allocations },
+    };
   }
 
   private escape(value: string): string {
