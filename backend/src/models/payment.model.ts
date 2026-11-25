@@ -1,5 +1,6 @@
 
 import mongoose, { Schema, Types, Document } from "mongoose";
+import { compareDecimalStrings } from "../utils/money";
 
 export interface PaymentDocument extends Document {
     workspaceId: Types.ObjectId;
@@ -36,7 +37,11 @@ const paymentSchema = new Schema<PaymentDocument>(
         amount: {
             type: Schema.Types.Decimal128,
             required: true,
-            min: 0,
+            validate: {
+                validator: (value: Types.Decimal128) =>
+                    compareDecimalStrings(value.toString(), "0") > 0,
+                message: "Payment amount must be greater than zero",
+            },
         },
 
         method: {

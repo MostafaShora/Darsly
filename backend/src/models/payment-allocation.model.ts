@@ -42,10 +42,9 @@ const paymentAllocationSchema = new Schema<PaymentAllocationDocument>(
     }
 );
 
-// Prevent duplicate allocations for the same payment and invoice.
+// Support immutable, incremental allocations for the same payment and invoice.
 paymentAllocationSchema.index(
-    { workspaceId: 1, paymentId: 1, invoiceId: 1 },
-    { unique: true }
+    { workspaceId: 1, paymentId: 1, invoiceId: 1 }
 );
 
 // Find allocations associated with an invoice.

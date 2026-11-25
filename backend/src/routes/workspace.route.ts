@@ -17,6 +17,8 @@ import studyGroupRoutes from "./study-group.route";
 import subjectRoutes from "./subject.route";
 import studentRoutes from "./student.route";
 import { requireWorkspaceAccess } from "../middlewares/workspace-access.middleware";
+import invoiceRoutes from "./invoice.route";
+import paymentRoutes from "./payment.route";
 
 const workspaceRoutes = Router();
 
@@ -27,6 +29,8 @@ workspaceRoutes
   .use("/:workspaceId/students", requireWorkspaceAccess(), studentRoutes)
   .use("/:workspaceId/guardians", requireWorkspaceAccess(), guardianRoutes)
   .use("/:workspaceId/sessions", requireWorkspaceAccess(), sessionRoutes)
+  .use("/:workspaceId/invoices", requireWorkspaceAccess(), invoiceRoutes)
+  .use("/:workspaceId/payments", requireWorkspaceAccess(), paymentRoutes)
   .use("/:workspaceId/subjects", requireWorkspaceAccess(), subjectRoutes)
   .use("/:workspaceId/groups", requireWorkspaceAccess(), studyGroupRoutes)
   .use("/:workspaceId/enrollments", requireWorkspaceAccess(), enrollmentRoutes);
