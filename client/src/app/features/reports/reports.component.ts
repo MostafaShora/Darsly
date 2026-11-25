@@ -9,6 +9,30 @@ import {
 } from '../../core/services/report.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 
+export const formatReportDateForTimezone = (
+  value: string,
+  timezone: string,
+  locale = 'ar-EG',
+): string => new Intl.DateTimeFormat(locale, {
+  timeZone: timezone,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date(value));
+
+export const formatReportTimestampForTimezone = (
+  value: string,
+  timezone: string,
+  locale = 'ar-EG',
+): string => new Intl.DateTimeFormat(locale, {
+  timeZone: timezone,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+}).format(new Date(value));
+
 @Component({
   selector: 'app-reports',
   standalone: true,
@@ -188,27 +212,30 @@ export class ReportsComponent {
     const title = this.activeTab() === 'attendance'
       ? 'تقرير الحضور'
       : 'التقرير المالي';
+    const report = attendance ?? finance;
+    if (!report) throw new Error('No report data available for export');
+    const period = `${this.formatReportDate(report.period.from)} — ${this.formatReportDate(report.period.to)}`;
 
     let table: string;
     if (attendance) {
       table = `<tr><th>الطالب</th><th>المجموعة</th><th>الحصة</th><th>الحالة</th><th>دقائق التأخير</th><th>التوقيت</th></tr>` +
         attendance.items.map((row) => {
-          return `<tr><td>${this.escape(row.studentName)}</td><td>${this.escape(row.groupName)}</td><td>${this.escape(row.sessionTitle)}</td><td>${this.escape(row.status)}</td><td>${row.lateMinutes}</td><td>${this.escape(row.sessionStartsAt)}</td></tr>`;
+          return `<tr><td>${this.escape(row.studentName)}</td><td>${this.escape(row.groupName)}</td><td>${this.escape(row.sessionTitle)}</td><td>${this.escape(row.status)}</td><td>${row.lateMinutes}</td><td>${this.escape(this.formatReportTimestamp(row.sessionStartsAt))}</td></tr>`;
         }).join('');
     } else {
       table = `<tr><th>نوع السجل</th><th>المعرف</th><th>المبلغ</th><th>التفاصيل</th><th>التوقيت</th></tr>` +
         (finance?.invoices.items ?? []).map((invoice) =>
-          `<tr><td>فاتورة</td><td>${this.escape(invoice.invoiceNumber)}</td><td>${this.escape(invoice.totalAmount)}</td><td>${this.escape(invoice.status)}</td><td>${this.escape(invoice.issuedAt ?? '')}</td></tr>`
+          `<tr><td>فاتورة</td><td>${this.escape(invoice.invoiceNumber)}</td><td>${this.escape(invoice.totalAmount)}</td><td>${this.escape(invoice.status)}</td><td>${this.escape(invoice.issuedAt ? this.formatReportTimestamp(invoice.issuedAt) : '')}</td></tr>`
         ).join('') +
         (finance?.payments.items ?? []).map((payment) =>
-          `<tr><td>دفعة</td><td>${this.escape(payment.id)}</td><td>${this.escape(payment.amount)}</td><td>${this.escape(payment.method)}</td><td>${this.escape(payment.receivedAt)}</td></tr>`
+          `<tr><td>دفعة</td><td>${this.escape(payment.id)}</td><td>${this.escape(payment.amount)}</td><td>${this.escape(payment.method)}</td><td>${this.escape(this.formatReportTimestamp(payment.receivedAt))}</td></tr>`
         ).join('') +
         (finance?.allocations.items ?? []).map((allocation) =>
-          `<tr><td>تخصيص</td><td>${this.escape(allocation.id)}</td><td>${this.escape(allocation.amount)}</td><td>${this.escape(allocation.invoiceId)}</td><td>${this.escape(allocation.createdAt)}</td></tr>`
+          `<tr><td>تخصيص</td><td>${this.escape(allocation.id)}</td><td>${this.escape(allocation.amount)}</td><td>${this.escape(allocation.invoiceId)}</td><td>${this.escape(this.formatReportTimestamp(allocation.createdAt))}</td></tr>`
         ).join('');
     }
 
-    return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${title}</title></head><body><h2>${title}</h2><table border="1">${table}</table></body></html>`;
+    return `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="UTF-8"><title>${title}</title></head><body><h2>${title}</h2><p>الفترة: ${period}</p><table border="1">${table}</table></body></html>`;
   }
 
   private attendancePrintRows(report: AttendanceReport): string {
@@ -222,13 +249,13 @@ export class ReportsComponent {
   private financePrintRows(report: FinanceReport): string {
     const summary = `<p>إجمالي الفواتير: ${report.summary.issuedInvoiceTotal} ج.م | المحصّل: ${report.summary.collectedInPeriod} ج.م | المستحق الحالي: ${report.summary.currentOutstanding} ج.م | غير المخصّص: ${report.summary.unallocatedPayments} ج.م</p>`;
     const invoiceRows = report.invoices.items.map((invoice) =>
-      `<tr><td>فاتورة</td><td>${this.escape(invoice.invoiceNumber)}</td><td>${this.escape(invoice.totalAmount)}</td><td>${this.escape(invoice.issuedAt ?? '')}</td></tr>`
+      `<tr><td>فاتورة</td><td>${this.escape(invoice.invoiceNumber)}</td><td>${this.escape(invoice.totalAmount)}</td><td>${this.escape(invoice.issuedAt ? this.formatReportTimestamp(invoice.issuedAt) : '')}</td></tr>`
     ).join('');
     const paymentRows = report.payments.items.map((payment) =>
-      `<tr><td>دفعة</td><td>${this.escape(payment.amount)}</td><td>${this.escape(payment.method)}</td><td>${this.escape(payment.receivedAt)}</td></tr>`
+      `<tr><td>دفعة</td><td>${this.escape(payment.amount)}</td><td>${this.escape(payment.method)}</td><td>${this.escape(this.formatReportTimestamp(payment.receivedAt))}</td></tr>`
     ).join('');
     const allocationRows = report.allocations.items.map((allocation) =>
-      `<tr><td>تخصيص</td><td>${this.escape(allocation.amount)}</td><td>${this.escape(allocation.invoiceId)}</td><td>${this.escape(allocation.createdAt)}</td></tr>`
+      `<tr><td>تخصيص</td><td>${this.escape(allocation.amount)}</td><td>${this.escape(allocation.invoiceId)}</td><td>${this.escape(this.formatReportTimestamp(allocation.createdAt))}</td></tr>`
     ).join('');
     return `${summary}<table><thead><tr><th>النوع</th><th>المبلغ/الرقم</th><th>تفاصيل</th><th>التوقيت</th></tr></thead><tbody>${invoiceRows}${paymentRows}${allocationRows}</tbody></table>`;
   }
@@ -246,11 +273,15 @@ export class ReportsComponent {
   }
 
   formatReportDate(value: string): string {
-    return new Intl.DateTimeFormat('ar-EG', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(value));
+    const timezone = this.getTimezone();
+    if (!timezone) throw new Error('Unable to determine report timezone');
+    return formatReportDateForTimezone(value, timezone);
+  }
+
+  private formatReportTimestamp(value: string): string {
+    const timezone = this.getTimezone();
+    if (!timezone) throw new Error('Unable to determine report timezone');
+    return formatReportTimestampForTimezone(value, timezone);
   }
 
   private toDateInput(date: Date): string {

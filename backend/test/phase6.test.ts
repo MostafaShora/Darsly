@@ -9,6 +9,7 @@ import PaymentModel from "../src/models/payment.model";
 import SessionModel from "../src/models/session.model";
 import StudentModel from "../src/models/student.model";
 import StudyGroupModel from "../src/models/study-group.model";
+import { NotFoundException } from "../src/utils/app-error";
 import {
     getAttendanceReportService,
     getDashboardSummaryService,
@@ -122,27 +123,39 @@ test("attendance report applies formula, excludes excused, and handles zero deno
         { _id: new Types.ObjectId(), workspaceId, sessionId: session._id, studentId: student._id, status: "excused", lateMinutes: 0, recordedAt: new Date("2026-01-10T10:10:00.000Z") },
     ];
 
-    t.mock.method(StudentModel, "exists", () =>
-        makeQuery({ _id: student._id }) as never
-    );
-    t.mock.method(StudyGroupModel, "exists", () =>
-        makeQuery({ _id: group._id }) as never
-    );
-    t.mock.method(SessionModel, "find", () =>
-        makeQuery([session]) as never
-    );
-    t.mock.method(AttendanceRecordModel, "find", () =>
-        makeQuery(records) as never
-    );
+    const studentChecks: Array<Record<string, unknown>> = [];
+    const groupChecks: Array<Record<string, unknown>> = [];
+    const sessionFilters: Array<Record<string, unknown>> = [];
+    const attendanceFilters: Array<Record<string, unknown>> = [];
+    t.mock.method(StudentModel, "exists", ((filter: Record<string, unknown>) => {
+        studentChecks.push(filter);
+        return makeQuery({ _id: student._id });
+    }) as never);
+    t.mock.method(StudyGroupModel, "exists", ((filter: Record<string, unknown>) => {
+        groupChecks.push(filter);
+        return makeQuery({ _id: group._id });
+    }) as never);
+    t.mock.method(SessionModel, "find", ((filter: Record<string, unknown>) => {
+        sessionFilters.push(filter);
+        return makeQuery([session]);
+    }) as never);
+    t.mock.method(AttendanceRecordModel, "find", ((filter: Record<string, unknown>) => {
+        attendanceFilters.push(filter);
+        return makeQuery(records);
+    }) as never);
     t.mock.method(AttendanceRecordModel, "countDocuments", () =>
         makeQuery(records.length) as never
     );
-    t.mock.method(StudentModel, "find", () =>
-        makeQuery([student]) as never
-    );
-    t.mock.method(StudyGroupModel, "find", () =>
-        makeQuery([group]) as never
-    );
+    const studentFilters: Array<Record<string, unknown>> = [];
+    const groupFilters: Array<Record<string, unknown>> = [];
+    t.mock.method(StudentModel, "find", ((filter: Record<string, unknown>) => {
+        studentFilters.push(filter);
+        return makeQuery([student]);
+    }) as never);
+    t.mock.method(StudyGroupModel, "find", ((filter: Record<string, unknown>) => {
+        groupFilters.push(filter);
+        return makeQuery([group]);
+    }) as never);
 
     const report = await getAttendanceReportService(workspaceId, {
         from: new Date("2026-01-01T00:00:00.000Z"),
@@ -158,6 +171,12 @@ test("attendance report applies formula, excludes excused, and handles zero deno
     assert.equal(report.summary.absent, 1);
     assert.equal(report.summary.excused, 1);
     assert.equal(report.summary.attendanceRate, 66.66666666666666);
+    assert.ok(studentChecks.every((filter) => filter.workspaceId === workspaceId));
+    assert.ok(groupChecks.every((filter) => filter.workspaceId === workspaceId));
+    assert.ok(sessionFilters.every((filter) => filter.workspaceId === workspaceId));
+    assert.ok(attendanceFilters.every((filter) => filter.workspaceId === workspaceId));
+    assert.ok(studentFilters.every((filter) => filter.workspaceId === workspaceId));
+    assert.ok(groupFilters.every((filter) => filter.workspaceId === workspaceId));
 });
 
 test("attendance report returns null for zero denominator", async (t) => {
@@ -171,6 +190,43 @@ test("attendance report returns null for zero denominator", async (t) => {
         pageSize: 20,
     });
     assert.equal(report.summary.attendanceRate, null);
+});
+
+test("attendance filters cannot resolve Student or Group IDs outside the workspace", async (t) => {
+    const foreignStudentId = new Types.ObjectId();
+    const foreignGroupId = new Types.ObjectId();
+    let studentFilter: Record<string, unknown> | undefined;
+    let groupFilter: Record<string, unknown> | undefined;
+    t.mock.method(StudentModel, "exists", ((filter: Record<string, unknown>) => {
+        studentFilter = filter;
+        return makeQuery(null);
+    }) as never);
+    t.mock.method(StudyGroupModel, "exists", ((filter: Record<string, unknown>) => {
+        groupFilter = filter;
+        return makeQuery(null);
+    }) as never);
+
+    await assert.rejects(
+        getAttendanceReportService(workspaceId, {
+            studentId: foreignStudentId.toString(),
+            timezone: "UTC",
+            page: 1,
+            pageSize: 20,
+        }),
+        (error: unknown) => error instanceof NotFoundException
+    );
+    assert.equal(studentFilter?.workspaceId, workspaceId);
+
+    await assert.rejects(
+        getAttendanceReportService(workspaceId, {
+            groupId: foreignGroupId.toString(),
+            timezone: "UTC",
+            page: 1,
+            pageSize: 20,
+        }),
+        (error: unknown) => error instanceof NotFoundException
+    );
+    assert.equal(groupFilter?.workspaceId, workspaceId);
 });
 
 test("finance report separates collected, allocated, outstanding, and unallocated amounts", async (t) => {
@@ -213,24 +269,26 @@ test("finance report separates collected, allocated, outstanding, and unallocate
         createdAt: new Date("2026-11-05T10:00:00.000Z"),
     };
 
-    t.mock.method(StudentModel, "exists", () =>
-        makeQuery({ _id: student._id }) as never
-    );
-    t.mock.method(InvoiceModel, "find", () =>
-        makeQuery([invoice]) as never
-    );
-    t.mock.method(PaymentModel, "find", () =>
-        makeQuery([payment]) as never
-    );
-    t.mock.method(PaymentAllocationModel, "find", () =>
-        makeQuery([allocation]) as never
-    );
-    t.mock.method(InvoiceModel, "find", () =>
-        makeQuery([invoice]) as never
-    );
-    t.mock.method(PaymentModel, "find", () =>
-        makeQuery([payment]) as never
-    );
+    let studentFilter: Record<string, unknown> | undefined;
+    const invoiceFilters: Array<Record<string, unknown>> = [];
+    const paymentFilters: Array<Record<string, unknown>> = [];
+    let allocationFilter: Record<string, unknown> | undefined;
+    t.mock.method(StudentModel, "exists", ((filter: Record<string, unknown>) => {
+        studentFilter = filter;
+        return makeQuery({ _id: student._id });
+    }) as never);
+    t.mock.method(InvoiceModel, "find", ((filter: Record<string, unknown>) => {
+        invoiceFilters.push(filter);
+        return makeQuery([invoice]);
+    }) as never);
+    t.mock.method(PaymentModel, "find", ((filter: Record<string, unknown>) => {
+        paymentFilters.push(filter);
+        return makeQuery([payment]);
+    }) as never);
+    t.mock.method(PaymentAllocationModel, "find", ((filter: Record<string, unknown>) => {
+        allocationFilter = filter;
+        return makeQuery([allocation]);
+    }) as never);
 
     const report = await getFinanceReportService(workspaceId, {
         from: new Date("2026-11-01T00:00:00.000Z"),
@@ -247,9 +305,13 @@ test("finance report separates collected, allocated, outstanding, and unallocate
     assert.equal(report.summary.collectedInPeriod, "500");
     assert.equal(report.summary.allocatedInPeriod, "300");
     assert.equal(report.summary.unallocatedPayments, "200");
+    assert.equal(studentFilter?.workspaceId, workspaceId);
+    assert.ok(invoiceFilters.every((filter) => filter.workspaceId === workspaceId));
+    assert.ok(paymentFilters.every((filter) => filter.workspaceId === workspaceId));
+    assert.equal(allocationFilter?.workspaceId, workspaceId);
 });
 
-test("historical finance marks legacy issued invoices without issuedAt as unavailable", async (t) => {
+test("historical finance hides balances for legacy invoices missing issue or void timestamps", async (t) => {
     const student = {
         _id: new Types.ObjectId(),
         workspaceId,
@@ -266,9 +328,25 @@ test("historical finance marks legacy issued invoices without issuedAt as unavai
         issuedAt: undefined,
         totalAmount: Types.Decimal128.fromString("1000.00"),
     };
+    const voidedWithoutVoidAt = {
+        ...legacyInvoice,
+        _id: new Types.ObjectId(),
+        invoiceNumber: "INV-VOID-NO-TIME",
+        issuedAt: new Date("2026-10-10T10:00:00.000Z"),
+        status: "void",
+    };
+    const voidedWithoutIssueOrVoidAt = {
+        ...legacyInvoice,
+        _id: new Types.ObjectId(),
+        invoiceNumber: "INV-VOID-LEGACY",
+        voidAt: new Date("2026-11-20T10:00:00.000Z"),
+        status: "void",
+    };
 
     t.mock.method(StudentModel, "exists", () => makeQuery({ _id: student._id }) as never);
-    t.mock.method(InvoiceModel, "find", () => makeQuery([legacyInvoice]) as never);
+    t.mock.method(InvoiceModel, "find", () =>
+        makeQuery([legacyInvoice, voidedWithoutVoidAt, voidedWithoutIssueOrVoidAt]) as never
+    );
     t.mock.method(PaymentModel, "find", () => makeQuery([]) as never);
     t.mock.method(PaymentAllocationModel, "find", () => makeQuery([]) as never);
 
@@ -281,6 +359,7 @@ test("historical finance marks legacy issued invoices without issuedAt as unavai
     });
     assert.equal(report.historicalData.available, false);
     assert.equal(report.historicalData.legacyIssuedInvoiceCount, 1);
+    assert.equal(report.historicalData.ambiguousVoidedInvoiceCount, 2);
     assert.equal(report.summary.historicalOutstanding, null);
     assert.equal(report.summary.historicalUnallocatedPayments, null);
 });

@@ -639,7 +639,10 @@ export const getFinanceReportService = async (
     ).length;
     const ambiguousVoidedCount = invoiceRecords.filter((invoice) =>
         invoice.status === "void" &&
-        !(invoice as InvoiceDocument & { voidAt?: Date }).voidAt
+        (
+            !(invoice as InvoiceDocument & { issuedAt?: Date }).issuedAt ||
+            !(invoice as InvoiceDocument & { voidAt?: Date }).voidAt
+        )
     ).length;
     const historicalAvailable =
         legacyIssuedCount === 0 && ambiguousVoidedCount === 0;
