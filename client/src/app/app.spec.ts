@@ -67,6 +67,7 @@ import { AttendanceComponent } from './features/attendance/attendance.component'
 import { InvoicesComponent } from './features/finance/invoices.component';
 import { PaymentsComponent } from './features/finance/payments.component';
 import { WorkspaceOnboardingComponent } from './features/workspace/workspace-onboarding.component';
+import { WorkspaceSelectorComponent } from './features/workspace/workspace-selector.component';
 import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { formatMoneyExact, isPositiveDecimalString } from './core/utils/finance';
 
@@ -789,6 +790,7 @@ describe('App', () => {
     let availabilityResponse: Observable<WorkspaceAvailability>;
     const workspaceServiceMock = {
       getWorkspaceAvailability: vi.fn<WorkspaceService['getWorkspaceAvailability']>(),
+      watchWorkspaceAvailability: vi.fn<WorkspaceService['watchWorkspaceAvailability']>(),
     };
     const reportServiceMock = {
       getDashboard: vi.fn<ReportService['getDashboard']>(),
@@ -800,6 +802,7 @@ describe('App', () => {
       workspaceServiceMock.getWorkspaceAvailability
         .mockReset()
         .mockImplementation(() => availabilityResponse);
+      workspaceServiceMock.watchWorkspaceAvailability.mockReset();
       reportServiceMock.getDashboard.mockReset().mockReturnValue(of(dashboardSummary));
       await TestBed.configureTestingModule({
         imports: [DashboardComponent],
@@ -869,6 +872,45 @@ describe('App', () => {
       expect(component.workspaceAvailability()?.kind).toBe('suspended');
       expect(component.summary()).toBeNull();
       expect(fixture.nativeElement.textContent).toContain('مساحة العمل معلّقة');
+    });
+
+    it('clears dashboard data on Workspace switch and ignores a late response from the previous Workspace', () => {
+      const workspaceChanges = new RxSubject<WorkspaceAvailability>();
+      const previousResponse = new RxSubject<DashboardSummary>();
+      const currentResponse = new RxSubject<DashboardSummary>();
+      const nextWorkspace: Workspace = {
+        ...activeWorkspace,
+        _id: 'workspace-dashboard-next',
+        name: 'مساحة لوحة التحكم الثانية',
+        slug: 'workspace-dashboard-next',
+      };
+      workspaceServiceMock.watchWorkspaceAvailability.mockReturnValue(workspaceChanges);
+      reportServiceMock.getDashboard
+        .mockReset()
+        .mockReturnValueOnce(previousResponse)
+        .mockReturnValueOnce(currentResponse);
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      workspaceChanges.next({ kind: 'active', workspace: activeWorkspace });
+      workspaceChanges.next({ kind: 'active', workspace: nextWorkspace });
+      expect(component.summary()).toBeNull();
+      expect(reportServiceMock.getDashboard).toHaveBeenNthCalledWith(
+        1,
+        activeWorkspace._id,
+        expect.any(String),
+      );
+      expect(reportServiceMock.getDashboard).toHaveBeenNthCalledWith(
+        2,
+        nextWorkspace._id,
+        expect.any(String),
+      );
+
+      previousResponse.next(dashboardSummary);
+      expect(component.summary()).toBeNull();
+      currentResponse.next(dashboardSummary);
+      expect(component.summary()).toEqual(dashboardSummary);
     });
 
     it('shows Workspace loading failures and retries with the active Workspace', () => {
@@ -970,9 +1012,23 @@ describe('App', () => {
       updateStudentGuardian: vi.fn<PeopleService['updateStudentGuardian']>(),
       unlinkGuardian: vi.fn<PeopleService['unlinkGuardian']>(),
     };
+    const workspaceServiceMock = {
+      getActiveWorkspace: vi.fn<WorkspaceService['getActiveWorkspace']>(),
+      watchActiveWorkspace: vi.fn<WorkspaceService['watchActiveWorkspace']>(),
+      workspaceAccessState: signal<WorkspaceAccessState | null>({
+        workspaces: [workspace],
+        activeWorkspace: workspace,
+        suspendedWorkspaces: [],
+      }),
+      selectedWorkspaceId: signal<string | null>(workspace._id),
+      selectWorkspace: vi.fn<WorkspaceService['selectWorkspace']>(),
+    };
 
     beforeEach(async () => {
       TestBed.resetTestingModule();
+      workspaceServiceMock.getActiveWorkspace.mockReset().mockReturnValue(of(workspace));
+      workspaceServiceMock.watchActiveWorkspace.mockReset().mockReturnValue(of(workspace));
+      workspaceServiceMock.selectWorkspace.mockReset().mockReturnValue(true);
       peopleMock.listStudents.mockReset().mockReturnValue(of(pageResult([student])));
       peopleMock.getStudent.mockReset().mockReturnValue(of(student));
       peopleMock.createStudent.mockReset().mockReturnValue(of(student));
@@ -996,10 +1052,7 @@ describe('App', () => {
             { path: 'guardians/:guardianId', component: GuardiansComponent },
             { path: 'guardians', component: GuardiansComponent },
           ]),
-          {
-            provide: WorkspaceService,
-            useValue: { getActiveWorkspace: () => of(workspace) },
-          },
+          { provide: WorkspaceService, useValue: workspaceServiceMock },
           { provide: PeopleService, useValue: peopleMock },
         ],
       }).compileComponents();
@@ -1033,6 +1086,46 @@ describe('App', () => {
         workspace._id,
         expect.objectContaining({ page: 2, search: 'نور', status: 'inactive' }),
       );
+    });
+
+    it('clears and reloads student data on Workspace switch while ignoring the previous response', () => {
+      const previousResponse = new RxSubject<PageResult<Student>>();
+      const currentResponse = new RxSubject<PageResult<Student>>();
+      const nextWorkspace: Workspace = {
+        ...workspace,
+        _id: 'workspace-2',
+        name: 'مساحة ثانية',
+        slug: 'workspace-2',
+      };
+      const workspaceChanges = new RxSubject<Workspace | null>();
+      peopleMock.listStudents
+        .mockReturnValueOnce(previousResponse)
+        .mockReturnValueOnce(currentResponse);
+      workspaceServiceMock.watchActiveWorkspace.mockReturnValue(
+        workspaceChanges.asObservable(),
+      );
+      const fixture = TestBed.createComponent(StudentsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      workspaceChanges.next(workspace);
+      expect(peopleMock.listStudents).toHaveBeenLastCalledWith(
+        workspace._id,
+        expect.any(Object),
+      );
+      workspaceChanges.next(nextWorkspace);
+      expect(component.students()).toEqual([]);
+      expect(peopleMock.listStudents).toHaveBeenLastCalledWith(
+        nextWorkspace._id,
+        expect.any(Object),
+      );
+
+      previousResponse.next(pageResult([student]));
+      expect(component.students()).toEqual([]);
+
+      const nextStudent = { ...student, id: 'student-workspace-2', name: 'طالب المساحة الثانية' };
+      currentResponse.next(pageResult([nextStudent]));
+      expect(component.students()).toEqual([nextStudent]);
     });
 
     it('shows an explicit empty state and keeps API errors separate from empty results', async () => {
@@ -1470,10 +1563,9 @@ describe('App', () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       httpTesting.expectOne('/api/auth/status').flush(authenticatedResponse);
       await new Promise((resolve) => setTimeout(resolve, 0));
-      httpTesting.expectOne('/api/workspaces/mine').flush({
-        message: 'Workspaces loaded',
-        data: [],
-      });
+      httpTesting.match('/api/workspaces/mine').forEach((request) =>
+        request.flush({ message: 'Workspaces loaded', data: [] }),
+      );
 
       await navigation;
       expect(router.url).toBe('/workspace/onboarding');
@@ -3731,6 +3823,7 @@ describe('App', () => {
     beforeEach(async () => {
       TestBed.resetTestingModule();
       await TestBed.configureTestingModule({
+        imports: [WorkspaceSelectorComponent],
         providers: [provideHttpClient(), provideHttpClientTesting(), WorkspaceService],
       }).compileComponents();
     });
@@ -3816,6 +3909,151 @@ describe('App', () => {
         { kind: 'suspended', workspaces: [suspendedWorkspace] },
         { kind: 'unavailable' },
       ]);
+      httpTesting.verify();
+    });
+
+    it('shows a simple current Workspace label when there is only one active membership', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const onlyWorkspace: Workspace = {
+        _id: 'workspace-only',
+        name: 'مساحة واحدة',
+        slug: 'workspace-only',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      service.getWorkspaceAccessState().subscribe();
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [onlyWorkspace],
+      });
+
+      const fixture = TestBed.createComponent(WorkspaceSelectorComponent);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain(onlyWorkspace.name);
+      expect(fixture.nativeElement.querySelector('select')).toBeNull();
+    });
+
+    it('defaults to the first active membership, permits switching to another active one, and disables suspended options', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const newestWorkspace: Workspace = {
+        _id: 'workspace-newest',
+        name: 'الأحدث',
+        slug: 'workspace-newest',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      const otherWorkspace: Workspace = {
+        ...newestWorkspace,
+        _id: 'workspace-other',
+        name: 'مساحة أخرى',
+        slug: 'workspace-other',
+      };
+      const suspendedWorkspace: Workspace = {
+        ...newestWorkspace,
+        _id: 'workspace-suspended',
+        name: 'مساحة معلّقة',
+        slug: 'workspace-suspended',
+        status: 'suspended',
+      };
+      const selected: Array<Workspace | null> = [];
+
+      service.watchActiveWorkspace().subscribe((workspace) => selected.push(workspace));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [newestWorkspace, suspendedWorkspace, otherWorkspace],
+      });
+      expect(service.workspaceAccessState()?.activeWorkspace).toEqual(newestWorkspace);
+      expect(service.selectWorkspace(suspendedWorkspace._id)).toBe(false);
+
+      const fixture = TestBed.createComponent(WorkspaceSelectorComponent);
+      fixture.detectChanges();
+      const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+      const suspendedOption = select.querySelector(
+        `option[value="${suspendedWorkspace._id}"]`,
+      ) as HTMLOptionElement;
+
+      expect(suspendedOption.disabled).toBe(true);
+      select.value = otherWorkspace._id;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+
+      expect(service.workspaceAccessState()?.activeWorkspace).toEqual(otherWorkspace);
+      expect(service.selectedWorkspaceId()).toBe(otherWorkspace._id);
+      expect(selected.map((workspace) => workspace?._id)).toEqual([
+        newestWorkspace._id,
+        otherWorkspace._id,
+      ]);
+
+      select.value = suspendedWorkspace._id;
+      select.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(service.selectedWorkspaceId()).toBe(otherWorkspace._id);
+      httpTesting.verify();
+    });
+
+    it('keeps selection empty for an empty list and does not invent an active Workspace', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      let accessState: WorkspaceAccessState | undefined;
+      let availability: WorkspaceAvailability | undefined;
+
+      service.getWorkspaceAccessState().subscribe((state) => (accessState = state));
+      httpTesting.expectOne('/api/workspaces/mine').flush({ message: 'ok', data: [] });
+      service.getWorkspaceAvailability().subscribe((state) => (availability = state));
+
+      expect(accessState?.activeWorkspace).toBeNull();
+      expect(service.selectedWorkspaceId()).toBeNull();
+      expect(availability).toEqual({ kind: 'unavailable' });
+      expect(service.selectWorkspace('missing-workspace')).toBe(false);
+      httpTesting.verify();
+    });
+
+    it('does not silently fall back when an explicitly selected Workspace is no longer active', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const initialWorkspace: Workspace = {
+        _id: 'workspace-initial',
+        name: 'المساحة الافتراضية',
+        slug: 'workspace-initial',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      const selectedWorkspace: Workspace = {
+        ...initialWorkspace,
+        _id: 'workspace-selected',
+        name: 'المساحة المختارة',
+        slug: 'workspace-selected',
+      };
+      let state: WorkspaceAccessState | undefined;
+      let availability: WorkspaceAvailability | undefined;
+
+      service.getWorkspaceAccessState().subscribe();
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [initialWorkspace, selectedWorkspace],
+      });
+      expect(service.selectWorkspace(selectedWorkspace._id)).toBe(true);
+
+      service.getWorkspaceAccessState().subscribe((result) => (state = result));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [initialWorkspace],
+      });
+      service.getWorkspaceAvailability().subscribe((result) => (availability = result));
+
+      expect(service.selectedWorkspaceId()).toBe(selectedWorkspace._id);
+      expect(state?.activeWorkspace).toBeNull();
+      expect(availability).toEqual({
+        kind: 'selection-required',
+        activeWorkspaces: [initialWorkspace],
+        selectedWorkspace: null,
+      });
       httpTesting.verify();
     });
 

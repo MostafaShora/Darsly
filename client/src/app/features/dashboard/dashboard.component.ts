@@ -2,6 +2,7 @@ import { Component, DestroyRef, HostListener, computed, inject, signal } from '@
 import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import {
   WorkspaceAvailability,
@@ -9,6 +10,7 @@ import {
 } from '../../core/services/workspace.service';
 import { DashboardSummary, ReportService } from '../../core/services/report.service';
 import { formatMoneyExact } from '../../core/utils/finance';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 type DashboardSection =
   'overview' | 'students' | 'groups' | 'schedule' | 'attendance' | 'payments' | 'reports';
@@ -116,7 +118,7 @@ const DASHBOARD_FEATURES: readonly DashboardFeature[] = [
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [LucideDynamicIcon, RouterLink],
+  imports: [LucideDynamicIcon, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent {
@@ -176,6 +178,7 @@ export class DashboardComponent {
   private readonly workspaceService = inject(WorkspaceService);
   private readonly reportService = inject(ReportService);
   private workspaceRequestId = 0;
+  private workspaceSubscription: Subscription | null = null;
 
   constructor() {
     this.loadDashboard();
@@ -186,23 +189,27 @@ export class DashboardComponent {
   }
 
   private loadDashboard(refreshWorkspace = false): void {
-    const requestId = ++this.workspaceRequestId;
+    const workspaceLoadRequestId = ++this.workspaceRequestId;
+    this.workspaceSubscription?.unsubscribe();
     this.summary.set(null);
     this.dashboardLoading.set(false);
     this.dashboardError.set('');
     this.workspaceLoading.set(true);
     this.workspaceError.set('');
     this.workspaceAvailability.set(null);
-    this.workspaceService
-      .getWorkspaceAvailability(refreshWorkspace)
+    const availability$ =
+      this.workspaceService.watchWorkspaceAvailability?.(refreshWorkspace) ??
+      this.workspaceService.getWorkspaceAvailability(refreshWorkspace);
+    this.workspaceSubscription = availability$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (availability) => {
-          if (requestId !== this.workspaceRequestId) return;
+          const requestId = ++this.workspaceRequestId;
           this.workspaceAvailability.set(availability);
           this.workspaceLoading.set(false);
+          this.summary.set(null);
+          this.dashboardError.set('');
           if (availability.kind !== 'active') {
-            this.summary.set(null);
             this.dashboardLoading.set(false);
             return;
           }
@@ -237,7 +244,7 @@ export class DashboardComponent {
             });
         },
         error: () => {
-          if (requestId !== this.workspaceRequestId) return;
+          if (workspaceLoadRequestId !== this.workspaceRequestId) return;
           this.summary.set(null);
           this.dashboardLoading.set(false);
           this.workspaceLoading.set(false);

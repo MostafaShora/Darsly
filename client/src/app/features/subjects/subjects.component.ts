@@ -13,6 +13,7 @@ import { LearningService } from '../../core/services/learning.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { trimmedMinLength } from '../../core/utils/form-validators';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 const SUBJECT_STATUSES: ReadonlyArray<{ value: SubjectStatus; label: string }> = [
   { value: 'active', label: 'نشطة' },
@@ -22,7 +23,7 @@ const SUBJECT_STATUSES: ReadonlyArray<{ value: SubjectStatus; label: string }> =
 @Component({
   selector: 'app-subjects',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './subjects.component.html',
 })
 export class SubjectsComponent {
@@ -90,15 +91,23 @@ export class SubjectsComponent {
         this.loadSubjects();
       });
 
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           this.workspaceLoading.set(false);
           if (!workspace?._id) {
-            this.error.set('لا توجد مساحة عمل نشطة متاحة.');
+            if (this.workspaceId) this.resetWorkspaceData();
+            this.workspaceId = '';
+            this.hasWorkspace.set(false);
+            this.error.set('اختر مساحة عمل نشطة من القائمة أعلاه.');
             return;
+          }
+          if (this.workspaceId && this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
           }
           this.hasWorkspace.set(true);
           this.workspaceId = workspace._id;
@@ -257,6 +266,19 @@ export class SubjectsComponent {
           this.error.set(getApiErrorMessage(error, 'تعذر تحميل بيانات المادة.'));
         },
       });
+  }
+
+  private resetWorkspaceData(): void {
+    this.listRequest += 1;
+    this.detailRequest += 1;
+    this.subject.set(null);
+    this.subjects.set([]);
+    this.pagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.subjectForm.reset(this.emptySubject());
+    this.loading.set(false);
+    this.detailsLoading.set(false);
+    this.error.set('');
+    this.success.set('');
   }
 
   private emptySubject(): { name: string; description: string; status: SubjectStatus } {

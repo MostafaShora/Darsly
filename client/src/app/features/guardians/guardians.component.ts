@@ -7,13 +7,14 @@ import { RELATIONSHIP_OPTIONS } from '../../core/models/people.constants';
 import { Guardian, GuardianWrite, RelationshipType } from '../../core/models/people.models';
 import { PeopleService } from '../../core/services/people.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { trimmedMinLength, trimmedRequired } from '../../core/utils/form-validators';
 
 @Component({
   selector: 'app-guardians',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './guardians.component.html',
 })
 export class GuardiansComponent {
@@ -76,15 +77,23 @@ export class GuardiansComponent {
         this.loadGuardians();
       });
 
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           this.workspaceLoading.set(false);
           if (!workspace?._id) {
-            this.error.set('لا توجد مساحة عمل نشطة متاحة.');
+            if (this.workspaceId) this.resetWorkspaceData();
+            this.workspaceId = '';
+            this.hasWorkspace.set(false);
+            this.error.set('اختر مساحة عمل نشطة من القائمة أعلاه.');
             return;
+          }
+          if (this.workspaceId && this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
           }
           this.hasWorkspace.set(true);
           this.workspaceId = workspace._id;
@@ -246,6 +255,19 @@ export class GuardiansComponent {
           this.error.set(getApiErrorMessage(error, 'تعذر تحميل بيانات ولي الأمر.'));
         },
       });
+  }
+
+  private resetWorkspaceData(): void {
+    this.listRequest += 1;
+    this.detailRequest += 1;
+    this.guardian.set(null);
+    this.guardians.set([]);
+    this.pagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.guardianForm.reset(this.emptyGuardian());
+    this.loading.set(false);
+    this.detailsLoading.set(false);
+    this.error.set('');
+    this.success.set('');
   }
 
   private emptyGuardian(): {

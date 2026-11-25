@@ -46,6 +46,7 @@
         >الإدارة المالية</a
       >
     </nav>
+    <app-workspace-selector></app-workspace-selector>
   </header>
 
   <main class="mx-auto max-w-[1460px] px-4 py-6 sm:px-7 xl:px-10">
@@ -170,6 +171,11 @@
           إعادة المحاولة
         </button>
       </div>
+    } @else if (workspaceAvailability()?.kind === 'selection-required') {
+      <section class="mt-5 rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-5 text-xs leading-6 text-[#7a6231]" role="status">
+        <h2 class="font-black">اختر مساحة عمل نشطة</h2>
+        <p>لم يتم تحميل التقارير. اختر مساحة نشطة من القائمة أعلاه للمتابعة.</p>
+      </section>
     } @else if (workspaceAvailability()?.kind === 'suspended') {
       <section class="mt-5 rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-5 text-xs leading-6 text-[#7a6231]" role="status">
         <h2 class="font-black">مساحة العمل معلّقة</h2>

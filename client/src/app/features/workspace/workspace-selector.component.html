@@ -1,0 +1,39 @@
+@if (state(); as workspaceState) {
+  @if (simpleMode()) {
+    <span
+      class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#e1ebe4] bg-white px-3 text-xs font-bold text-[#38554a]"
+      aria-label="مساحة العمل الحالية"
+    >
+      <span class="text-[#71847a]">مساحة العمل</span>
+      <span class="max-w-40 truncate">{{ workspaceState.activeWorkspace?.name }}</span>
+    </span>
+  } @else if (workspaceState.workspaces.length > 0) {
+    <label class="inline-flex flex-wrap items-center gap-2 text-xs font-bold text-[#38554a]">
+      <span>مساحة العمل</span>
+      <select
+        class="min-h-10 max-w-56 rounded-xl border border-[#dce8df] bg-white px-3 text-xs font-bold text-[#29483d] hover:border-[#b9d9c4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        [value]="selectedWorkspaceId() ?? ''"
+        aria-label="اختيار مساحة العمل"
+        (change)="selectWorkspace($event)"
+      >
+        @if (!selectedWorkspaceId() || !workspaceState.workspaces.some((workspace) => workspace._id === selectedWorkspaceId())) {
+          <option value="" disabled>اختر مساحة عمل</option>
+        }
+        @for (workspace of workspaceState.workspaces; track workspace._id) {
+          <option [value]="workspace._id" [disabled]="workspace.status !== 'active'">
+            {{ workspace.name }} — {{ workspace.status === 'active' ? 'نشطة' : 'معلّقة' }}
+          </option>
+        }
+      </select>
+      @if (workspaceState.activeWorkspace === null && activeWorkspaces().length > 0) {
+        <span class="basis-full text-[11px] font-medium text-[#8a5b20]" role="status">
+          @if (selectedWorkspace()?.status === 'suspended') {
+            مساحة العمل المحددة معلّقة. اختر مساحة نشطة للمتابعة.
+          } @else {
+            اختر مساحة عمل نشطة لعرض بياناتها.
+          }
+        </span>
+      }
+    </label>
+  }
+}

@@ -24,6 +24,7 @@ import {
   positiveDecimalValidator,
 } from '../../core/utils/finance';
 import { localDateBoundaryToIso, localDateTimeToIso } from '../../core/utils/local-date-time';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 type PaymentView = 'list' | 'create' | 'detail';
 
@@ -50,7 +51,7 @@ const PAYMENT_STATUSES: ReadonlyArray<{ value: PaymentStatus; label: string }> =
 @Component({
   selector: 'app-payments',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './payments.component.html',
 })
 export class PaymentsComponent {
@@ -176,16 +177,23 @@ export class PaymentsComponent {
       else if (studentChanged) this.reloadList();
     });
 
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           if (!workspace?._id) {
-            const message = 'لا توجد مساحة عمل نشطة لإدارة المدفوعات.';
+            if (this.workspaceId) this.resetWorkspaceData();
+            this.workspaceId = '';
+            const message = 'اختر مساحة عمل نشطة من القائمة أعلاه.';
             this.error.set(message);
             if (this.view() === 'detail') this.detailError.set(message);
             return;
+          }
+          if (this.workspaceId && this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
           }
           this.workspaceId = workspace._id;
           this.loadCurrentView();
@@ -573,6 +581,26 @@ export class PaymentsComponent {
     this.selectedInvoice.set(null);
     this.invoiceOptions.set([]);
     this.allocationForm.reset({ invoiceId: '', amount: '' });
+  }
+
+  private resetWorkspaceData(): void {
+    this.listRequest += 1;
+    this.studentSearchRequest += 1;
+    this.studentCache.clear();
+    this.resetPaymentDetail();
+    this.paymentRows.set([]);
+    this.pagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.studentPagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.invoicePagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.paymentForm.reset({
+      studentId: '',
+      amount: '',
+      method: 'cash',
+      receivedAt: '',
+      reference: '',
+      notes: '',
+    });
+    this.filteredStudentId.set('');
   }
 
   private loadAllocations(paymentId: string, requestId: number): void {

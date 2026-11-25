@@ -8,6 +8,7 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { formatFinanceTimestamp, formatMoneyExact } from '../../core/utils/finance';
 import { Payment, PaymentMethod } from '../../core/models/finance.models';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'نقدًا',
@@ -20,7 +21,7 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 @Component({
   selector: 'app-finance-overview',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, WorkspaceSelectorComponent],
   templateUrl: './finance-overview.component.html',
 })
 export class FinanceOverviewComponent {
@@ -35,17 +36,31 @@ export class FinanceOverviewComponent {
   readonly loading = signal(true);
   readonly error = signal('');
 
+  private workspaceId = '';
+  private workspaceRequestId = 0;
+
   constructor() {
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           if (!workspace?._id) {
-            this.error.set('لا توجد مساحة عمل نشطة لعرض البيانات المالية.');
+            this.resetWorkspaceData();
+            this.workspaceId = '';
+            this.error.set('اختر مساحة عمل نشطة من القائمة أعلاه.');
             this.loading.set(false);
             return;
           }
+          if (this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
+          }
+          this.workspaceId = workspace._id;
+          this.error.set('');
+          this.loading.set(true);
+          const requestId = ++this.workspaceRequestId;
           const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
           if (!timezone) {
             this.error.set('تعذر تحديد المنطقة الزمنية لهذا الجهاز.');
@@ -69,12 +84,18 @@ export class FinanceOverviewComponent {
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe({
               next: ({ summary, drafts, payments }) => {
+                if (requestId !== this.workspaceRequestId || this.workspaceId !== workspace._id) {
+                  return;
+                }
                 this.summary.set(summary);
                 this.draftInvoiceCount.set(drafts.pagination.totalItems);
                 this.recentPayments.set(payments.items);
                 this.loading.set(false);
               },
               error: (requestError: unknown) => {
+                if (requestId !== this.workspaceRequestId || this.workspaceId !== workspace._id) {
+                  return;
+                }
                 this.error.set(getApiErrorMessage(requestError, 'تعذر تحميل بيانات المالية.'));
                 this.loading.set(false);
               },
@@ -89,6 +110,15 @@ export class FinanceOverviewComponent {
 
   readonly money = formatMoneyExact;
   readonly timestamp = formatFinanceTimestamp;
+
+  private resetWorkspaceData(): void {
+    this.workspaceRequestId += 1;
+    this.summary.set(null);
+    this.draftInvoiceCount.set(0);
+    this.recentPayments.set([]);
+    this.loading.set(true);
+    this.error.set('');
+  }
 
   paymentMethodLabel(method: PaymentMethod): string {
     return PAYMENT_METHOD_LABELS[method];

@@ -61,7 +61,10 @@ export class WorkspaceOnboardingComponent {
         next: (state) => {
           this.accessState.set(state);
           this.loading.set(false);
-          if (state.activeWorkspace && !this.creationAccepted()) {
+          if (
+            state.workspaces.some((workspace) => workspace.status === 'active') &&
+            !this.creationAccepted()
+          ) {
             void this.router.navigateByUrl('/dashboard');
           }
         },
@@ -81,7 +84,7 @@ export class WorkspaceOnboardingComponent {
       this.verifying() ||
       this.creationAccepted() ||
       !state ||
-      state.activeWorkspace ||
+      state.workspaces.some((workspace) => workspace.status === 'active') ||
       state.suspendedWorkspaces.length > 0
     ) {
       return;

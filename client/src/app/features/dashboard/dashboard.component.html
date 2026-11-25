@@ -55,6 +55,7 @@
           </a>
         }
       </nav>
+      <app-workspace-selector class="mt-4"></app-workspace-selector>
 
       <div class="mt-6 border-t border-[#edf2ee] pt-4">
         <p class="mb-2 px-2 text-[11px] font-extrabold tracking-wide text-[#71847a]">إدارة الملفات</p>
@@ -216,6 +217,10 @@
               >
                 إعادة المحاولة
               </button>
+            </div>
+          } @else if (workspaceAvailability()?.kind === 'selection-required') {
+            <div class="rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-4 text-xs leading-6 text-[#7a6231]" role="status">
+              <p class="font-bold">اختر مساحة عمل نشطة لعرض ملخصاتها.</p>
             </div>
           } @else if (workspaceAvailability()?.kind === 'suspended') {
             <div class="rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-4 text-xs leading-6 text-[#7a6231]" role="status">

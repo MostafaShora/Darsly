@@ -32,6 +32,7 @@ import { PeopleService } from '../../core/services/people.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { trimmedMinLength } from '../../core/utils/form-validators';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 interface GroupListRow {
   group: StudyGroup;
@@ -73,7 +74,7 @@ const decimalPrecision: ValidatorFn = (control): ValidationErrors | null => {
 @Component({
   selector: 'app-groups',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, RouterLink],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './groups.component.html',
 })
 export class GroupsComponent {
@@ -224,15 +225,23 @@ export class GroupsComponent {
         this.loadEnrollments();
       });
 
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           this.workspaceLoading.set(false);
           if (!workspace?._id) {
-            this.error.set('لا توجد مساحة عمل نشطة متاحة.');
+            if (this.workspaceId) this.resetWorkspaceData();
+            this.workspaceId = '';
+            this.hasWorkspace.set(false);
+            this.error.set('اختر مساحة عمل نشطة من القائمة أعلاه.');
             return;
+          }
+          if (this.workspaceId && this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
           }
           this.hasWorkspace.set(true);
           this.workspaceId = workspace._id;
@@ -761,6 +770,50 @@ export class GroupsComponent {
           );
         },
       });
+  }
+
+  private resetWorkspaceData(): void {
+    this.listRequest += 1;
+    this.detailRequest += 1;
+    this.subjectOptionsRequest += 1;
+    this.studentOptionsRequest += 1;
+    this.rosterRequest += 1;
+    this.activeCountRequest += 1;
+    this.group.set(null);
+    this.subject.set(null);
+    this.groupRows.set([]);
+    this.subjects.set([]);
+    this.studentOptions.set([]);
+    this.enrollments.set([]);
+    this.selectedFilterSubject.set(null);
+    this.selectedFormSubject.set(null);
+    this.selectedStudent.set(null);
+    this.activeEnrollmentCount.set(null);
+    this.subjectFilterId.setValue('', { emitEvent: false });
+    this.pagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.subjectPagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.studentPagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.enrollmentPagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.groupForm.reset(this.emptyGroup());
+    this.enrollmentForm.reset({
+      studentId: '',
+      enrolledAt: '',
+      notes: '',
+      status: 'active',
+    });
+    this.enrollmentFormOpen.set(false);
+    this.loading.set(false);
+    this.detailsLoading.set(false);
+    this.subjectsLoading.set(false);
+    this.studentsLoading.set(false);
+    this.rosterLoading.set(false);
+    this.activeCountLoading.set(false);
+    this.error.set('');
+    this.subjectOptionsError.set('');
+    this.studentOptionsError.set('');
+    this.rosterError.set('');
+    this.activeCountError.set('');
+    this.success.set('');
   }
 
   private writeError(error: unknown, fallback: string): string {

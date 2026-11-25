@@ -17,6 +17,7 @@ import {
 import { LearningService } from '../../core/services/learning.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 import {
   localDateBoundaryToIso,
   localDateTimeToIso,
@@ -63,7 +64,7 @@ const sessionDateRangeValidator: ValidatorFn = (control) => {
 @Component({
   selector: 'app-sessions',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './sessions.component.html',
 })
 export class SessionsComponent {
@@ -150,15 +151,23 @@ export class SessionsComponent {
         );
       });
 
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           this.workspaceLoading.set(false);
           if (!workspace?._id) {
-            this.error.set('لا توجد مساحة عمل نشطة متاحة.');
+            if (this.workspaceId) this.resetWorkspaceData();
+            this.workspaceId = '';
+            this.hasWorkspace.set(false);
+            this.error.set('اختر مساحة عمل نشطة من القائمة أعلاه.');
             return;
+          }
+          if (this.workspaceId && this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
           }
           this.hasWorkspace.set(true);
           this.workspaceId = workspace._id;
@@ -558,6 +567,29 @@ export class SessionsComponent {
       }
     }
     return getApiErrorMessage(error, fallback);
+  }
+
+  private resetWorkspaceData(): void {
+    this.listRequest += 1;
+    this.detailRequest += 1;
+    this.groupOptionsRequest += 1;
+    this.groupCache.clear();
+    this.session.set(null);
+    this.group.set(null);
+    this.rows.set([]);
+    this.groups.set([]);
+    this.selectedFilterGroup.set(null);
+    this.selectedFormGroup.set(null);
+    this.filters.controls.groupId.setValue('', { emitEvent: false });
+    this.pagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.groupPagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.sessionForm.reset(this.emptySessionForm());
+    this.loading.set(false);
+    this.detailsLoading.set(false);
+    this.groupsLoading.set(false);
+    this.error.set('');
+    this.groupOptionsError.set('');
+    this.success.set('');
   }
 
   private emptySessionForm(): {

@@ -2,7 +2,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { Workspace } from '../../core/models/workspace.models';
 import { AttendanceReport, FinanceReport, ReportCollection, ReportService } from '../../core/services/report.service';
 import {
@@ -10,6 +10,7 @@ import {
   WorkspaceService,
 } from '../../core/services/workspace.service';
 import { formatMoneyExact } from '../../core/utils/finance';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 type ReportFilters = {
   from?: string;
@@ -69,7 +70,7 @@ export const formatReportTimestampForTimezone = (
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './reports.component.html',
 })
 export class ReportsComponent {
@@ -81,6 +82,7 @@ export class ReportsComponent {
   private filterRevision = 0;
   private attendanceRequestId = 0;
   private workspaceRequestId = 0;
+  private workspaceSubscription: Subscription | null = null;
   private readonly financeRequestIds = {
     payments: 0,
     invoices: 0,
@@ -119,6 +121,7 @@ export class ReportsComponent {
 
   private loadWorkspace(refresh = false): void {
     const requestId = ++this.workspaceRequestId;
+    this.workspaceSubscription?.unsubscribe();
     this.workspaceId = '';
     this.workspaceAvailability.set(null);
     this.workspaceLoading.set(true);
@@ -127,8 +130,10 @@ export class ReportsComponent {
     this.invalidateRequests();
     this.clearReportData();
 
-    this.workspaceService
-      .getWorkspaceAvailability(refresh)
+    const availability$ =
+      this.workspaceService.watchWorkspaceAvailability?.(refresh) ??
+      this.workspaceService.getWorkspaceAvailability(refresh);
+    this.workspaceSubscription = availability$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (availability) => {

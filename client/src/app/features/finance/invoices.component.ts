@@ -26,6 +26,7 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { formatFinanceTimestamp, formatMoneyExact } from '../../core/utils/finance';
 import { localDateTimeToIso } from '../../core/utils/local-date-time';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 type InvoiceView = 'list' | 'create' | 'detail';
 
@@ -56,7 +57,7 @@ const periodRangeValidator: ValidatorFn = (control) => {
 @Component({
   selector: 'app-invoices',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './invoices.component.html',
 })
 export class InvoicesComponent {
@@ -166,16 +167,23 @@ export class InvoicesComponent {
       else if (studentChanged) this.reloadList();
     });
 
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           if (!workspace?._id) {
-            const message = 'لا توجد مساحة عمل نشطة لإدارة الفواتير.';
+            if (this.workspaceId) this.resetWorkspaceData();
+            this.workspaceId = '';
+            const message = 'اختر مساحة عمل نشطة من القائمة أعلاه.';
             this.error.set(message);
             if (this.view() === 'detail') this.detailError.set(message);
             return;
+          }
+          if (this.workspaceId && this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
           }
           this.workspaceId = workspace._id;
           this.loadCurrentView();
@@ -634,6 +642,16 @@ export class InvoicesComponent {
       description: '',
       notes: '',
     });
+  }
+
+  private resetWorkspaceData(): void {
+    this.listRequest += 1;
+    this.studentCache.clear();
+    this.groupCache.clear();
+    this.resetInvoiceDetail();
+    this.invoiceRows.set([]);
+    this.pagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.filteredStudentId.set('');
   }
 
   private runInvoiceAction(action: 'issue' | 'void', invoiceId: string): void {

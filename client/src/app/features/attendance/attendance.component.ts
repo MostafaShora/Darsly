@@ -24,6 +24,7 @@ import { PeopleService } from '../../core/services/people.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { localDateBoundaryToIso } from '../sessions/sessions.component';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 type AttendanceMode = 'overview' | 'session' | 'student';
 
@@ -92,7 +93,7 @@ const distinct = (values: string[]): string[] => [...new Set(values)];
 @Component({
   selector: 'app-attendance',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './attendance.component.html',
 })
 export class AttendanceComponent {
@@ -215,15 +216,23 @@ export class AttendanceComponent {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.now.set(Date.now()));
 
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           this.workspaceLoading.set(false);
           if (!workspace?._id) {
+            if (this.workspaceId) this.resetWorkspaceData();
+            this.workspaceId = '';
             this.hasWorkspace.set(false);
+            this.error.set('اختر مساحة عمل نشطة من القائمة أعلاه.');
             return;
+          }
+          if (this.workspaceId && this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
           }
           this.workspaceId = workspace._id;
           this.hasWorkspace.set(true);
@@ -425,6 +434,29 @@ export class AttendanceComponent {
     this.attendancePagination.set(emptyPagination());
     this.historyPagination.set(emptyPagination());
     this.rosterPagination.set(emptyPagination());
+  }
+
+  private resetWorkspaceData(): void {
+    this.clearRouteData();
+    this.groupCache.clear();
+    this.studentCache.clear();
+    this.sessionCache.clear();
+    this.overviewLoading.set(false);
+    this.detailsLoading.set(false);
+    this.attendanceLoading.set(false);
+    this.historyLoading.set(false);
+    this.rosterLoading.set(false);
+    this.recordForm.reset({
+      studentId: '',
+      status: 'present',
+      lateMinutes: null,
+      notes: '',
+    });
+    this.editForm.reset({
+      status: 'present',
+      lateMinutes: null,
+      notes: '',
+    });
   }
 
   private loadCurrentRoute(): void {

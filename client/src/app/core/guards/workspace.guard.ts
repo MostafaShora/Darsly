@@ -9,7 +9,9 @@ export const workspaceGuard: CanActivateFn = () => {
 
   return workspaceService.getWorkspaceAccessState().pipe(
     map((state) =>
-      state.activeWorkspace ? true : router.createUrlTree(['/workspace/onboarding']),
+      state.workspaces.some((workspace) => workspace.status === 'active')
+        ? true
+        : router.createUrlTree(['/workspace/onboarding']),
     ),
     catchError(() => of(router.createUrlTree(['/workspace/onboarding']))),
   );

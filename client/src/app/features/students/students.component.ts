@@ -16,11 +16,12 @@ import { trimmedMinLength } from '../../core/utils/form-validators';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { PeopleService } from '../../core/services/people.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
+import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 
 @Component({
   selector: 'app-students',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './students.component.html',
 })
 export class StudentsComponent {
@@ -124,15 +125,23 @@ export class StudentsComponent {
       .pipe(debounceTime(250), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadGuardianOptions(1));
 
-    this.workspaceService
-      .getActiveWorkspace()
+    const activeWorkspace$ =
+      this.workspaceService.watchActiveWorkspace?.() ??
+      this.workspaceService.getActiveWorkspace();
+    activeWorkspace$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (workspace) => {
           this.workspaceLoading.set(false);
           if (!workspace?._id) {
-            this.error.set('لا توجد مساحة عمل نشطة متاحة.');
+            if (this.workspaceId) this.resetWorkspaceData();
+            this.workspaceId = '';
+            this.hasWorkspace.set(false);
+            this.error.set('اختر مساحة عمل نشطة من القائمة أعلاه.');
             return;
+          }
+          if (this.workspaceId && this.workspaceId !== workspace._id) {
+            this.resetWorkspaceData();
           }
           this.hasWorkspace.set(true);
           this.workspaceId = workspace._id;
@@ -507,6 +516,40 @@ export class StudentsComponent {
           }
         },
       });
+  }
+
+  private resetWorkspaceData(): void {
+    this.listRequest += 1;
+    this.detailRequest += 1;
+    this.guardianRequest += 1;
+    this.guardianOptionsRequest += 1;
+    this.students.set([]);
+    this.student.set(null);
+    this.guardians.set([]);
+    this.guardianOptions.set([]);
+    this.selectedLink.set(null);
+    this.pagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.guardianPagination.set({ page: 1, pageSize: 20, totalItems: 0, totalPages: 0 });
+    this.studentForm.reset(this.emptyStudent());
+    this.linkForm.reset({
+      guardianId: '',
+      relationship: 'other',
+      isPrimary: false,
+      receivesNotifications: true,
+    });
+    this.linkEditForm.reset({
+      relationship: 'other',
+      isPrimary: false,
+      receivesNotifications: true,
+    });
+    this.linkFormOpen.set(false);
+    this.linkEditOpen.set(false);
+    this.loading.set(false);
+    this.detailsLoading.set(false);
+    this.guardiansLoading.set(false);
+    this.guardianLinksLoading.set(false);
+    this.error.set('');
+    this.success.set('');
   }
 
   private emptyStudent(): {
