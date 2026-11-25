@@ -2,6 +2,7 @@ export type SubjectStatus = 'active' | 'archived';
 export type StudyGroupStatus = 'active' | 'inactive' | 'archived';
 export type EnrollmentStatus = 'active' | 'paused' | 'completed' | 'cancelled';
 export type NewEnrollmentStatus = Extract<EnrollmentStatus, 'active' | 'paused'>;
+export type SessionStatus = 'scheduled' | 'completed' | 'cancelled';
 
 export interface PageQuery {
   page: number;
@@ -104,5 +105,42 @@ export interface EnrollmentWrite {
 export interface EnrollmentUpdate {
   status?: EnrollmentStatus;
   endedAt?: string | null;
+  notes?: string;
+}
+
+export interface Session {
+  id: string;
+  groupId: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  status: SessionStatus;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SessionQuery {
+  page: number;
+  pageSize: number;
+  groupId?: string;
+  from?: string;
+  to?: string;
+  status?: SessionStatus;
+}
+
+export interface SessionWrite {
+  groupId: string;
+  startsAt: string;
+  endsAt: string;
+  title?: string;
+  notes?: string;
+}
+
+export interface SessionUpdate {
+  startsAt?: string;
+  endsAt?: string;
+  title?: string;
+  status?: SessionStatus;
   notes?: string;
 }

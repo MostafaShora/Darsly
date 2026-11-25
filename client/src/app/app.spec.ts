@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Type } from '@angular/core';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { of, throwError } from 'rxjs';
+import { of, Subject as RxSubject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AppComponent } from './app';
 import { appConfig } from './app.config';
@@ -15,7 +15,7 @@ import {
   Student,
   StudentGuardianLink,
 } from './core/models/people.models';
-import { Enrollment, StudyGroup, Subject } from './core/models/learning.models';
+import { Enrollment, Session, StudyGroup, Subject } from './core/models/learning.models';
 import { LearningService } from './core/services/learning.service';
 import { PeopleService } from './core/services/people.service';
 import { AttendanceReport, FinanceReport, ReportService } from './core/services/report.service';
@@ -28,6 +28,7 @@ import {
   ReportsComponent,
 } from './features/reports/reports.component';
 import { StudentsComponent } from './features/students/students.component';
+import { SessionsComponent, localDateBoundaryToIso, localDateTimeToIso, utcDateTimeToLocalInput } from './features/sessions/sessions.component';
 import { SubjectsComponent } from './features/subjects/subjects.component';
 
 describe('App', () => {
@@ -814,7 +815,7 @@ describe('App', () => {
     fixture.detectChanges();
     const router = TestBed.inject(Router);
 
-    for (const path of ['/students', '/guardians', '/subjects', '/groups']) {
+    for (const path of ['/students', '/guardians', '/subjects', '/groups', '/sessions']) {
       const navigation = router.navigateByUrl(path);
       await new Promise((resolve) => setTimeout(resolve, 0));
       const request = TestBed.inject(HttpTestingController).expectOne('/api/auth/status');
@@ -859,10 +860,11 @@ describe('App', () => {
     expect(dashboard.querySelector('[dir="rtl"][lang="ar"]')).toBeTruthy();
     expect(dashboard.querySelector('button[aria-label="English"]')).toBeNull();
     expect(dashboard.querySelector('svg')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات"] a[href="/students"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات"] a[href="/guardians"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات"] a[href="/subjects"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات"] a[href="/groups"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/students"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/guardians"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/subjects"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/groups"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/sessions"]')).toBeTruthy();
 
     const navigationLinks = dashboard.querySelectorAll<HTMLAnchorElement>(
       'nav[aria-label="التنقل الرئيسي"] a',
@@ -1090,6 +1092,7 @@ describe('App', () => {
       );
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('غير محدودة');
       expect((fixture.nativeElement as HTMLElement).textContent).toContain(subject.name);
+      expect(fixture.nativeElement.querySelector('a[href="/sessions"]')).toBeTruthy();
     });
 
     it('creates groups using the selected subject and an unlimited capacity', async () => {
@@ -1217,6 +1220,349 @@ describe('App', () => {
         'workspace-learning',
         enrollment.id,
         { status: 'active', endedAt: null },
+      );
+    });
+  });
+
+  describe('Sessions workflows', () => {
+    const workspace: Workspace = {
+      _id: 'workspace-sessions',
+      name: 'مساحة الجلسات',
+      slug: 'sessions',
+      status: 'active',
+      currency: 'EGP',
+      description: '',
+    };
+    const group: StudyGroup = {
+      id: 'group-sessions-1',
+      subjectId: 'subject-sessions-1',
+      name: 'مجموعة الرياضيات',
+      description: '',
+      monthlyFee: '20.00',
+      capacity: null,
+      status: 'inactive',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const session: Session = {
+      id: 'session-1',
+      groupId: group.id,
+      title: 'مراجعة',
+      startsAt: '2026-01-10T08:00:00.000Z',
+      endsAt: '2026-01-10T09:00:00.000Z',
+      status: 'scheduled',
+      notes: '',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const pageResult = <T>(
+      items: T[],
+      totalItems = items.length,
+      page = 1,
+    ): PageResult<T> => ({
+      items,
+      pagination: {
+        page,
+        pageSize: 20,
+        totalItems,
+        totalPages: totalItems ? Math.ceil(totalItems / 20) : 0,
+      },
+    });
+    const learningMock = {
+      listGroups: vi.fn<LearningService['listGroups']>(),
+      getGroup: vi.fn<LearningService['getGroup']>(),
+      listSessions: vi.fn<LearningService['listSessions']>(),
+      getSession: vi.fn<LearningService['getSession']>(),
+      createSession: vi.fn<LearningService['createSession']>(),
+      updateSession: vi.fn<LearningService['updateSession']>(),
+    };
+
+    async function configure(routeParams: Record<string, string> = {}): Promise<void> {
+      await TestBed.configureTestingModule({
+        imports: [SessionsComponent],
+        providers: [
+          provideRouter([]),
+          {
+            provide: ActivatedRoute,
+            useValue: { paramMap: of(convertToParamMap(routeParams)) },
+          },
+          { provide: WorkspaceService, useValue: { getActiveWorkspace: () => of(workspace) } },
+          { provide: LearningService, useValue: learningMock },
+        ],
+      }).compileComponents();
+    }
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule();
+      learningMock.listGroups.mockReset().mockReturnValue(of(pageResult([group])));
+      learningMock.getGroup.mockReset().mockReturnValue(of(group));
+      learningMock.listSessions.mockReset().mockReturnValue(of(pageResult([session], 41)));
+      learningMock.getSession.mockReset().mockReturnValue(of(session));
+      learningMock.createSession.mockReset().mockReturnValue(of(session));
+      learningMock.updateSession.mockReset().mockReturnValue(of(session));
+      await Promise.resolve();
+    });
+
+    afterEach(() => {
+      TestBed.resetTestingModule();
+      vi.restoreAllMocks();
+    });
+
+    it('uses the workspace-scoped sessions API contracts and credentials', async () => {
+      TestBed.resetTestingModule();
+      await TestBed.configureTestingModule({
+        providers: [provideHttpClient(), provideHttpClientTesting()],
+      }).compileComponents();
+      const service = TestBed.inject(LearningService);
+      const http = TestBed.inject(HttpTestingController);
+
+      service
+        .listSessions('workspace-sessions', {
+          page: 2,
+          pageSize: 20,
+          groupId: group.id,
+          from: '2026-01-10T00:00:00.000Z',
+          to: '2026-01-10T23:59:59.999Z',
+          status: 'completed',
+        })
+        .subscribe();
+      const listRequest = http.expectOne(
+        (request) => request.url.endsWith('/workspaces/workspace-sessions/sessions'),
+      );
+      expect(listRequest.request.method).toBe('GET');
+      expect(listRequest.request.withCredentials).toBe(true);
+      expect(listRequest.request.params.get('groupId')).toBe(group.id);
+      expect(listRequest.request.params.get('from')).toBe('2026-01-10T00:00:00.000Z');
+      expect(listRequest.request.params.get('to')).toBe('2026-01-10T23:59:59.999Z');
+      expect(listRequest.request.params.get('status')).toBe('completed');
+      expect(listRequest.request.params.get('page')).toBe('2');
+      listRequest.flush({ message: 'Sessions retrieved', data: pageResult([]) });
+
+      service
+        .createSession('workspace-sessions', {
+          groupId: group.id,
+          startsAt: session.startsAt,
+          endsAt: session.endsAt,
+        })
+        .subscribe();
+      const createRequest = http.expectOne(
+        (request) =>
+          request.method === 'POST' &&
+          request.url.endsWith('/workspaces/workspace-sessions/sessions'),
+      );
+      expect(createRequest.request.withCredentials).toBe(true);
+      expect(createRequest.request.body).toEqual({
+        groupId: group.id,
+        startsAt: session.startsAt,
+        endsAt: session.endsAt,
+      });
+      createRequest.flush({ message: 'Session created', data: session });
+
+      service.updateSession('workspace-sessions', session.id, { status: 'cancelled' }).subscribe();
+      const updateRequest = http.expectOne(
+        (request) =>
+          request.method === 'PATCH' &&
+          request.url.endsWith(`/workspaces/workspace-sessions/sessions/${session.id}`),
+      );
+      expect(updateRequest.request.withCredentials).toBe(true);
+      expect(updateRequest.request.body).toEqual({ status: 'cancelled' });
+      updateRequest.flush({ message: 'Session updated', data: { ...session, status: 'cancelled' } });
+      http.verify();
+    });
+
+    it('treats /sessions/new as create mode and sends local times as UTC to the active workspace', async () => {
+      await configure({ sessionId: 'new' });
+      const fixture = TestBed.createComponent(SessionsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      const start = new Date(2026, 0, 10, 10, 15, 0, 0);
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      const localStart = utcDateTimeToLocalInput(start.toISOString());
+      const localEnd = utcDateTimeToLocalInput(end.toISOString());
+
+      expect(component.isCreating()).toBe(true);
+      expect(learningMock.getSession).not.toHaveBeenCalled();
+      expect(localStart).not.toBeNull();
+      expect(localEnd).not.toBeNull();
+      component.selectFormGroup(group);
+      component.sessionForm.patchValue({
+        title: 'مراجعة الفصل',
+        startsAt: localStart ?? '',
+        endsAt: localEnd ?? '',
+      });
+      component.submitSession();
+
+      expect(learningMock.createSession).toHaveBeenCalledWith('workspace-sessions', {
+        groupId: group.id,
+        title: 'مراجعة الفصل',
+        startsAt: start.toISOString(),
+        endsAt: end.toISOString(),
+      });
+      expect(learningMock.updateSession).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid and reversed local date-times without submitting', async () => {
+      await configure({ sessionId: 'new' });
+      const fixture = TestBed.createComponent(SessionsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(localDateTimeToIso('2026-02-31T10:00:00.000')).toBeNull();
+      component.selectFormGroup(group);
+      component.sessionForm.patchValue({
+        startsAt: '2026-01-10T11:00:00.000',
+        endsAt: '2026-01-10T10:00:00.000',
+      });
+      component.submitSession();
+
+      expect(learningMock.createSession).not.toHaveBeenCalled();
+      expect(component.error()).toContain('وقت النهاية بعد وقت البداية');
+    });
+
+    it('filters session pages by workspace, group, inclusive local dates, and status', async () => {
+      await configure();
+      const fixture = TestBed.createComponent(SessionsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.filters.setValue({
+        groupId: group.id,
+        from: '2026-01-10',
+        to: '2026-01-10',
+        status: 'completed',
+      });
+      component.applyFilters();
+
+      expect(learningMock.listSessions).toHaveBeenLastCalledWith('workspace-sessions', {
+        page: 1,
+        pageSize: 20,
+        groupId: group.id,
+        from: localDateBoundaryToIso('2026-01-10'),
+        to: localDateBoundaryToIso('2026-01-10', true),
+        status: 'completed',
+      });
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(group.name);
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('مراجعة');
+
+      component.changePage(2);
+      expect(learningMock.listSessions).toHaveBeenLastCalledWith(
+        'workspace-sessions',
+        expect.objectContaining({ page: 2, groupId: group.id }),
+      );
+    });
+
+    it('shows loading, empty, and list API error states', async () => {
+      const response = new RxSubject<PageResult<Session>>();
+      learningMock.listSessions.mockReturnValue(response);
+      await configure();
+      const loadingFixture = TestBed.createComponent(SessionsComponent);
+      loadingFixture.detectChanges();
+      expect((loadingFixture.nativeElement as HTMLElement).textContent).toContain(
+        'جارٍ تحميل الجلسات',
+      );
+
+      response.next(pageResult([]));
+      response.complete();
+      loadingFixture.detectChanges();
+      expect((loadingFixture.nativeElement as HTMLElement).textContent).toContain(
+        'لا توجد جلسات مسجلة بعد',
+      );
+
+      TestBed.resetTestingModule();
+      learningMock.listSessions.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, statusText: 'Server Error' })),
+      );
+      await configure();
+      const failedFixture = TestBed.createComponent(SessionsComponent);
+      failedFixture.detectChanges();
+      expect((failedFixture.nativeElement as HTMLElement).textContent).toContain(
+        'تعذر تحميل قائمة الجلسات',
+      );
+    });
+
+    it('shows details with the related group and surfaces detail API failures', async () => {
+      await configure({ sessionId: session.id });
+      const fixture = TestBed.createComponent(SessionsComponent);
+      fixture.detectChanges();
+
+      expect(learningMock.getSession).toHaveBeenCalledWith('workspace-sessions', session.id);
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(group.name);
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('مجدولة');
+
+      TestBed.resetTestingModule();
+      learningMock.getSession.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 404, statusText: 'Not Found' })),
+      );
+      await configure({ sessionId: session.id });
+      const failedFixture = TestBed.createComponent(SessionsComponent);
+      failedFixture.detectChanges();
+
+      expect((failedFixture.nativeElement as HTMLElement).textContent).toContain(
+        'تعذر تحميل بيانات الجلسة',
+      );
+      expect((failedFixture.nativeElement as HTMLElement).textContent).toContain(
+        'تعذر العثور على الجلسة',
+      );
+    });
+
+    it('patches only changed supported fields and does not optimistically change status on error', async () => {
+      await configure({ sessionId: session.id });
+      const fixture = TestBed.createComponent(SessionsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      component.beginEdit();
+      component.sessionForm.controls.title.setValue('عنوان جديد');
+      component.sessionForm.controls.title.markAsDirty();
+      component.sessionForm.controls.status.setValue('completed');
+      component.sessionForm.controls.status.markAsDirty();
+      component.submitSession();
+
+      expect(learningMock.updateSession).toHaveBeenCalledWith(
+        'workspace-sessions',
+        session.id,
+        { title: 'عنوان جديد', status: 'completed' },
+      );
+      expect(component.session()?.status).toBe('scheduled');
+      expect(component.statuses.map((item) => item.value)).toEqual([
+        'scheduled',
+        'completed',
+        'cancelled',
+      ]);
+
+      learningMock.updateSession.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { message: 'An attended session cannot be moved into the future' },
+            }),
+        ),
+      );
+      component.beginEdit();
+      component.sessionForm.controls.startsAt.setValue('2026-01-10T12:00:00.000');
+      component.sessionForm.controls.startsAt.markAsDirty();
+      component.sessionForm.controls.endsAt.setValue('2026-01-10T13:00:00.000');
+      component.sessionForm.controls.endsAt.markAsDirty();
+      component.submitSession();
+      expect(component.session()?.status).toBe('scheduled');
+      expect(component.error()).toContain('لا يمكن نقل بداية جلسة');
+    });
+
+    it('keeps date range conversion in browser-local time and preserves DST gaps as invalid', () => {
+      const localStart = new Date(2026, 2, 8, 0, 0, 0, 0);
+      expect(localDateBoundaryToIso('2026-03-08')).toBe(localStart.toISOString());
+      expect(localDateTimeToIso('2026-03-08T02:30:00.000')).toBe(
+        (() => {
+          const date = new Date(2026, 2, 8, 2, 30, 0, 0);
+          const sameLocalTime =
+            date.getFullYear() === 2026 &&
+            date.getMonth() === 2 &&
+            date.getDate() === 8 &&
+            date.getHours() === 2 &&
+            date.getMinutes() === 30;
+          return sameLocalTime ? date.toISOString() : null;
+        })(),
       );
     });
   });

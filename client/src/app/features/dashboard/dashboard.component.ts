@@ -30,7 +30,15 @@ interface DashboardMetric {
 }
 
 interface DashboardFeature {
-  id: 'students' | 'guardians' | 'subjects' | 'groups' | 'attendance' | 'payments' | 'reports';
+  id:
+    | 'students'
+    | 'guardians'
+    | 'subjects'
+    | 'groups'
+    | 'sessions'
+    | 'attendance'
+    | 'payments'
+    | 'reports';
   label: string;
   description: string;
 }
@@ -77,6 +85,11 @@ const DASHBOARD_FEATURES: readonly DashboardFeature[] = [
     id: 'groups',
     label: 'المجموعات الدراسية',
     description: 'إدارة المجموعات والتسجيلات وسعتها.',
+  },
+  {
+    id: 'sessions',
+    label: 'الجلسات',
+    description: 'إنشاء الجلسات ومراجعة مواعيدها وحالاتها.',
   },
   {
     id: 'attendance',
@@ -134,6 +147,7 @@ export class DashboardComponent {
     { label: 'أولياء الأمور', href: '/guardians' },
     { label: 'المواد الدراسية', href: '/subjects' },
     { label: 'المجموعات', href: '/groups' },
+    { label: 'إدارة الجلسات', href: '/sessions' },
   ];
   readonly metricCards = DASHBOARD_METRICS;
   readonly featureCards = DASHBOARD_FEATURES;

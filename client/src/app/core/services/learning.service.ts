@@ -14,6 +14,10 @@ import {
   StudyGroupQuery,
   StudyGroupUpdate,
   StudyGroupWrite,
+  Session,
+  SessionQuery,
+  SessionUpdate,
+  SessionWrite,
   Subject,
   SubjectQuery,
   SubjectUpdate,
@@ -151,6 +155,52 @@ export class LearningService {
     return this.http
       .patch<ApiEnvelope<Enrollment>>(
         `${this.workspaceUrl(workspaceId)}/enrollments/${encodeURIComponent(enrollmentId)}`,
+        input,
+        { withCredentials: true },
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  listSessions(workspaceId: string, query: SessionQuery): Observable<PageResult<Session>> {
+    let params = this.pageParams(query);
+    if (query.groupId) params = params.set('groupId', query.groupId);
+    if (query.from) params = params.set('from', query.from);
+    if (query.to) params = params.set('to', query.to);
+    if (query.status) params = params.set('status', query.status);
+
+    return this.http
+      .get<ApiEnvelope<PageResult<Session>>>(`${this.workspaceUrl(workspaceId)}/sessions`, {
+        withCredentials: true,
+        params,
+      })
+      .pipe(map((response) => response.data));
+  }
+
+  getSession(workspaceId: string, sessionId: string): Observable<Session> {
+    return this.http
+      .get<ApiEnvelope<Session>>(
+        `${this.workspaceUrl(workspaceId)}/sessions/${encodeURIComponent(sessionId)}`,
+        { withCredentials: true },
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  createSession(workspaceId: string, input: SessionWrite): Observable<Session> {
+    return this.http
+      .post<ApiEnvelope<Session>>(`${this.workspaceUrl(workspaceId)}/sessions`, input, {
+        withCredentials: true,
+      })
+      .pipe(map((response) => response.data));
+  }
+
+  updateSession(
+    workspaceId: string,
+    sessionId: string,
+    input: SessionUpdate,
+  ): Observable<Session> {
+    return this.http
+      .patch<ApiEnvelope<Session>>(
+        `${this.workspaceUrl(workspaceId)}/sessions/${encodeURIComponent(sessionId)}`,
         input,
         { withCredentials: true },
       )

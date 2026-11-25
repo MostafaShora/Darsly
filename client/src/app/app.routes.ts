@@ -35,6 +35,22 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'sessions/:sessionId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/sessions/sessions.component').then(
+        (module) => module.SessionsComponent,
+      ),
+  },
+  {
+    path: 'sessions',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/sessions/sessions.component').then(
+        (module) => module.SessionsComponent,
+      ),
+  },
+  {
     path: 'subjects/:subjectId',
     canActivate: [authGuard],
     loadComponent: () =>

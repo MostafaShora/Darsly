@@ -58,7 +58,7 @@
 
       <div class="mt-6 border-t border-[#edf2ee] pt-4">
         <p class="mb-2 px-2 text-[11px] font-extrabold tracking-wide text-[#71847a]">إدارة الملفات</p>
-        <nav class="grid gap-1" aria-label="إدارة الطلاب والمواد والمجموعات">
+        <nav class="grid gap-1" aria-label="إدارة الطلاب والمواد والمجموعات والجلسات">
           @for (item of managementLinks; track item.href) {
             <a
               class="flex min-h-11 items-center rounded-xl px-3 text-[13px] font-bold text-[#5d7468] transition-colors hover:bg-[#f5faf6] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
@@ -277,10 +277,11 @@
                 <svg lucideIcon="calendar-days" [size]="23"></svg>
               </span>
               <div>
-                <h3 class="text-xs font-extrabold text-[#405c50]">جدول الحصص غير متاح بعد</h3>
+                <h3 class="text-xs font-extrabold text-[#405c50]">إدارة الجلسات متاحة</h3>
                 <p class="mt-1 max-w-md text-[11px] leading-6 text-[#5f7469]">
-                  لم يتم ربط واجهة إدارة الحصص والجدول بلوحة التحكم حتى الآن.
+                  اعرض الجلسات حسب المجموعة والتاريخ، أو أنشئ جلسة جديدة.
                 </p>
+                <a routerLink="/sessions" class="mt-3 inline-flex min-h-9 items-center rounded-lg border border-[#dce8df] px-3 text-[11px] font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">إدارة الجلسات</a>
               </div>
             </div>
           </section>
@@ -346,16 +347,16 @@
                   <span
                     class="rounded-full bg-[#f2f5f3] px-2.5 py-1 text-[9px] font-extrabold text-[#5f7469]"
                   >
-                    {{ feature.id === 'students' || feature.id === 'guardians' || feature.id === 'subjects' || feature.id === 'groups' ? 'متاح للإدارة' : feature.id === 'reports' || feature.id === 'attendance' || feature.id === 'payments' ? 'متاح للتقرير' : 'غير متصل' }}
+                    {{ feature.id === 'students' || feature.id === 'guardians' || feature.id === 'subjects' || feature.id === 'groups' || feature.id === 'sessions' ? 'متاح للإدارة' : feature.id === 'reports' || feature.id === 'attendance' || feature.id === 'payments' ? 'متاح للتقرير' : 'غير متصل' }}
                   </span>
                 </div>
                 <p class="mt-3 text-[11px] leading-6 text-[#5f7469]">{{ feature.description }}</p>
-                @if (feature.id === 'students' || feature.id === 'guardians' || feature.id === 'subjects' || feature.id === 'groups') {
+                @if (feature.id === 'students' || feature.id === 'guardians' || feature.id === 'subjects' || feature.id === 'groups' || feature.id === 'sessions') {
                   <a
                     class="mt-3 inline-flex min-h-9 items-center rounded-lg border border-[#dce8df] px-3 text-[11px] font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
-                    [routerLink]="feature.id === 'students' ? '/students' : feature.id === 'guardians' ? '/guardians' : feature.id === 'subjects' ? '/subjects' : '/groups'"
+                    [routerLink]="feature.id === 'students' ? '/students' : feature.id === 'guardians' ? '/guardians' : feature.id === 'subjects' ? '/subjects' : feature.id === 'groups' ? '/groups' : '/sessions'"
                   >
-                    {{ feature.id === 'students' ? 'إدارة الطلاب' : feature.id === 'guardians' ? 'إدارة أولياء الأمور' : feature.id === 'subjects' ? 'إدارة المواد' : 'إدارة المجموعات' }}
+                    {{ feature.id === 'students' ? 'إدارة الطلاب' : feature.id === 'guardians' ? 'إدارة أولياء الأمور' : feature.id === 'subjects' ? 'إدارة المواد' : feature.id === 'groups' ? 'إدارة المجموعات' : 'إدارة الجلسات' }}
                   </a>
                 }
               </article>
