@@ -1,7 +1,7 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Component, Type } from '@angular/core';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, of, Subject as RxSubject, throwError } from 'rxjs';
@@ -2546,6 +2546,7 @@ describe('App', () => {
       routePath: string,
       params: Record<string, string> = {},
       query: Record<string, string> = {},
+      paramMap$: Observable<ParamMap> = of(convertToParamMap(params)),
     ): Promise<void> {
       TestBed.resetTestingModule();
       await TestBed.configureTestingModule({
@@ -2560,6 +2561,7 @@ describe('App', () => {
                 paramMap: convertToParamMap(params),
                 queryParamMap: convertToParamMap(query),
               },
+              paramMap: paramMap$,
               queryParamMap: of(convertToParamMap(query)),
             },
           },
@@ -2743,6 +2745,58 @@ describe('App', () => {
       expect(component.invoice()?.status).toBe('void');
     });
 
+    it('loads the invoice identified by the route and updates it when the reused route ID changes', async () => {
+      const invoiceA = { ...invoice, id: 'invoice-a', invoiceNumber: 'INV-A' };
+      const invoiceB = { ...invoice, id: 'invoice-b', invoiceNumber: 'INV-B' };
+      const responseA = new RxSubject<Invoice>();
+      const responseB = new RxSubject<Invoice>();
+      const routeParams = new RxSubject<ParamMap>();
+      financeMock.getInvoice.mockReturnValueOnce(responseA).mockReturnValueOnce(responseB);
+      await configure('invoices/:invoiceId', { invoiceId: invoiceA.id }, {}, routeParams);
+      const fixture = TestBed.createComponent(InvoicesComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(financeMock.getInvoice).toHaveBeenNthCalledWith(1, workspace._id, invoiceA.id);
+      expect(component.detailsLoading()).toBe(true);
+
+      routeParams.next(convertToParamMap({ invoiceId: invoiceB.id }));
+      fixture.detectChanges();
+      expect(financeMock.getInvoice).toHaveBeenNthCalledWith(2, workspace._id, invoiceB.id);
+      expect(component.invoice()).toBeNull();
+      expect(component.detailsLoading()).toBe(true);
+
+      responseB.next(invoiceB);
+      fixture.detectChanges();
+      expect(component.invoice()?.id).toBe(invoiceB.id);
+      responseA.next(invoiceA);
+      fixture.detectChanges();
+      expect(component.invoice()?.id).toBe(invoiceB.id);
+    });
+
+    it('clears invoice loading state and reports an error for the latest route request', async () => {
+      const routeParams = new RxSubject<ParamMap>();
+      financeMock.getInvoice
+        .mockReturnValueOnce(of(invoice))
+        .mockReturnValueOnce(
+          throwError(() => new HttpErrorResponse({
+            status: 404,
+            error: { message: 'Invoice not found' },
+          })),
+        );
+      await configure('invoices/:invoiceId', { invoiceId: invoice.id }, {}, routeParams);
+      const fixture = TestBed.createComponent(InvoicesComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      expect(component.invoice()?.id).toBe(invoice.id);
+
+      routeParams.next(convertToParamMap({ invoiceId: 'missing-invoice' }));
+      fixture.detectChanges();
+      expect(component.invoice()).toBeNull();
+      expect(component.detailsLoading()).toBe(false);
+      expect(component.detailError()).toContain('Invoice not found');
+    });
+
     it('updates draft invoices only with fields allowed by the API', async () => {
       await configure('invoices/:invoiceId', { invoiceId: invoice.id });
       const fixture = TestBed.createComponent(InvoicesComponent);
@@ -2823,6 +2877,58 @@ describe('App', () => {
       expect(component.error()).toContain('Allocation exceeds the available payment balance');
       expect(component.success()).toBe('');
       expect(component.payment()?.unallocatedAmount).toBe('50.00');
+    });
+
+    it('loads the payment identified by the route and updates it when the reused route ID changes', async () => {
+      const paymentA = { ...payment, id: 'payment-a' };
+      const paymentB = { ...payment, id: 'payment-b' };
+      const responseA = new RxSubject<Payment>();
+      const responseB = new RxSubject<Payment>();
+      const routeParams = new RxSubject<ParamMap>();
+      financeMock.getPayment.mockReturnValueOnce(responseA).mockReturnValueOnce(responseB);
+      await configure('payments/:paymentId', { paymentId: paymentA.id }, {}, routeParams);
+      const fixture = TestBed.createComponent(PaymentsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(financeMock.getPayment).toHaveBeenNthCalledWith(1, workspace._id, paymentA.id);
+      expect(component.detailsLoading()).toBe(true);
+
+      routeParams.next(convertToParamMap({ paymentId: paymentB.id }));
+      fixture.detectChanges();
+      expect(financeMock.getPayment).toHaveBeenNthCalledWith(2, workspace._id, paymentB.id);
+      expect(component.payment()).toBeNull();
+      expect(component.detailsLoading()).toBe(true);
+
+      responseB.next(paymentB);
+      fixture.detectChanges();
+      expect(component.payment()?.id).toBe(paymentB.id);
+      responseA.next(paymentA);
+      fixture.detectChanges();
+      expect(component.payment()?.id).toBe(paymentB.id);
+    });
+
+    it('clears payment loading state and reports an error for the latest route request', async () => {
+      const routeParams = new RxSubject<ParamMap>();
+      financeMock.getPayment
+        .mockReturnValueOnce(of(payment))
+        .mockReturnValueOnce(
+          throwError(() => new HttpErrorResponse({
+            status: 404,
+            error: { message: 'Payment not found' },
+          })),
+        );
+      await configure('payments/:paymentId', { paymentId: payment.id }, {}, routeParams);
+      const fixture = TestBed.createComponent(PaymentsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      expect(component.payment()?.id).toBe(payment.id);
+
+      routeParams.next(convertToParamMap({ paymentId: 'missing-payment' }));
+      fixture.detectChanges();
+      expect(component.payment()).toBeNull();
+      expect(component.detailsLoading()).toBe(false);
+      expect(component.detailError()).toContain('Payment not found');
     });
 
     it('shows loading and empty states separately from failed list requests', async () => {

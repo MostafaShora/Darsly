@@ -135,6 +135,24 @@ export class InvoicesComponent {
       this.statusFilter.setValue(requestedStatus as InvoiceStatus);
     }
 
+    this.route.paramMap
+      .pipe(
+        map((params) => params.get('invoiceId')),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((routeId) => {
+        if (routeId === this.invoiceId()) return;
+        this.invoiceId.set(routeId);
+        if (this.view() !== 'detail') return;
+        this.resetInvoiceDetail();
+        if (!routeId) {
+          this.detailError.set('لم يتم تحديد معرف الفاتورة.');
+          return;
+        }
+        if (this.workspaceId) this.loadInvoice(routeId);
+      });
+
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const studentId = params.get('studentId') ?? '';
       const statusValue = params.get('status') ?? '';
@@ -289,16 +307,19 @@ export class InvoicesComponent {
       this.success.set('لا توجد تغييرات لحفظها.');
       return;
     }
+    const requestId = this.detailRequest;
     this.submitting.set(true);
     this.financeService.updateInvoice(this.workspaceId, current.id, update).subscribe({
       next: (updated) => {
+        if (requestId !== this.detailRequest) return;
         this.invoice.set(updated);
         this.editing.set(false);
         this.submitting.set(false);
         this.success.set('تم تحديث مسودة الفاتورة.');
-        this.loadInvoiceReferences(updated);
+        this.loadInvoiceReferences(updated, requestId);
       },
       error: (requestError: unknown) => {
+        if (requestId !== this.detailRequest) return;
         this.submitting.set(false);
         this.error.set(getApiErrorMessage(requestError, 'تعذر تحديث مسودة الفاتورة.'));
       },
@@ -517,14 +538,20 @@ export class InvoicesComponent {
     const requestId = ++this.detailRequest;
     this.detailsLoading.set(true);
     this.detailError.set('');
+    this.detailInfoLoading.set(false);
     this.allocationsError.set('');
     this.invoice.set(null);
+    this.student.set(null);
+    this.enrollmentOption.set(null);
+    this.allocations.set([]);
+    this.allocationsLoading.set(false);
+    this.editing.set(false);
     this.financeService.getInvoice(this.workspaceId, invoiceId).subscribe({
       next: (invoice) => {
         if (requestId !== this.detailRequest) return;
         this.invoice.set(invoice);
         this.detailsLoading.set(false);
-        this.loadInvoiceReferences(invoice);
+        this.loadInvoiceReferences(invoice, requestId);
         this.loadInvoiceAllocations(invoice.id, requestId);
       },
       error: (requestError: unknown) => {
@@ -535,7 +562,7 @@ export class InvoicesComponent {
     });
   }
 
-  private loadInvoiceReferences(invoice: Invoice): void {
+  private loadInvoiceReferences(invoice: Invoice, requestId = this.detailRequest): void {
     this.detailInfoLoading.set(true);
     this.detailError.set('');
     forkJoin({
@@ -544,11 +571,13 @@ export class InvoicesComponent {
       group: this.groupFor(invoice.groupId),
     }).subscribe({
       next: ({ student, enrollment, group }) => {
+        if (requestId !== this.detailRequest) return;
         this.student.set(student);
         this.enrollmentOption.set({ enrollment, group });
         this.detailInfoLoading.set(false);
       },
       error: (requestError: unknown) => {
+        if (requestId !== this.detailRequest) return;
         this.detailInfoLoading.set(false);
         this.detailError.set(getApiErrorMessage(requestError, 'تعذر تحميل مراجع الفاتورة.'));
       },
@@ -557,6 +586,7 @@ export class InvoicesComponent {
 
   private loadInvoiceAllocations(invoiceId: string, requestId: number): void {
     this.allocationsLoading.set(true);
+    this.allocations.set([]);
     this.financeService.listInvoiceAllocations(this.workspaceId, invoiceId).subscribe({
       next: (items) => {
         if (requestId !== this.detailRequest) return;
@@ -571,7 +601,43 @@ export class InvoicesComponent {
     });
   }
 
+  private resetInvoiceDetail(): void {
+    this.detailRequest++;
+    this.enrollmentRequest++;
+    this.studentSearchRequest++;
+    this.submitting.set(false);
+    this.invoice.set(null);
+    this.student.set(null);
+    this.enrollmentOption.set(null);
+    this.allocations.set([]);
+    this.studentOptions.set([]);
+    this.enrollmentOptions.set([]);
+    this.detailsLoading.set(false);
+    this.detailInfoLoading.set(false);
+    this.allocationsLoading.set(false);
+    this.studentsLoading.set(false);
+    this.enrollmentsLoading.set(false);
+    this.editing.set(false);
+    this.actionBusy.set('');
+    this.detailError.set('');
+    this.allocationsError.set('');
+    this.studentOptionsError.set('');
+    this.enrollmentsError.set('');
+    this.error.set('');
+    this.success.set('');
+    this.invoiceForm.reset({
+      studentId: '',
+      enrollmentId: '',
+      periodStart: '',
+      periodEnd: '',
+      dueDate: '',
+      description: '',
+      notes: '',
+    });
+  }
+
   private runInvoiceAction(action: 'issue' | 'void', invoiceId: string): void {
+    const requestId = this.detailRequest;
     this.actionBusy.set(action);
     this.error.set('');
     const request: Observable<Invoice> =
@@ -580,14 +646,16 @@ export class InvoicesComponent {
         : this.financeService.voidInvoice(this.workspaceId, invoiceId);
     request.subscribe({
       next: (updated) => {
+        if (requestId !== this.detailRequest) return;
         this.invoice.set(updated);
         this.actionBusy.set('');
         this.success.set(action === 'issue' ? 'تم إصدار الفاتورة.' : 'تم إلغاء الفاتورة.');
         this.editing.set(false);
-        this.loadInvoiceReferences(updated);
+        this.loadInvoiceReferences(updated, requestId);
         this.loadInvoiceAllocations(updated.id, this.detailRequest);
       },
       error: (requestError: unknown) => {
+        if (requestId !== this.detailRequest) return;
         this.actionBusy.set('');
         this.error.set(getApiErrorMessage(requestError, 'تعذر تنفيذ الإجراء على الفاتورة.'));
       },

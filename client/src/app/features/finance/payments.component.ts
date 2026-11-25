@@ -145,6 +145,24 @@ export class PaymentsComponent {
       this.statusFilter.setValue(requestedStatus as PaymentStatus);
     }
 
+    this.route.paramMap
+      .pipe(
+        map((params) => params.get('paymentId')),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((routeId) => {
+        if (routeId === this.paymentId()) return;
+        this.paymentId.set(routeId);
+        if (this.view() !== 'detail') return;
+        this.resetPaymentDetail();
+        if (!routeId) {
+          this.detailError.set('لم يتم تحديد معرف الدفعة.');
+          return;
+        }
+        if (this.workspaceId) this.loadPayment(routeId);
+      });
+
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const studentId = params.get('studentId') ?? '';
       const statusValue = params.get('status') ?? '';
@@ -324,6 +342,7 @@ export class PaymentsComponent {
       this.allocationForm.controls.amount.setErrors({ positiveDecimal: true });
       return;
     }
+    const requestId = this.detailRequest;
     this.allocationSubmitting.set(true);
     this.error.set('');
     this.financeService
@@ -333,22 +352,29 @@ export class PaymentsComponent {
       })
       .subscribe({
         next: () => {
+          if (requestId !== this.detailRequest) return;
           this.allocationSubmitting.set(false);
           this.allocationOpen.set(false);
           this.success.set('تم تخصيص الدفعة وفق تحقق الخادم.');
           this.financeService.getInvoice(this.workspaceId, value.invoiceId).subscribe({
-            next: (invoice) => this.latestAllocatedInvoice.set(invoice),
-            error: (requestError: unknown) =>
-              this.detailError.set(
-                getApiErrorMessage(
-                  requestError,
-                  'تم التخصيص، لكن تعذر تحديث رصيد الفاتورة المعروضة.',
-                ),
-              ),
+            next: (invoice) => {
+              if (this.paymentId() === current.id) this.latestAllocatedInvoice.set(invoice);
+            },
+            error: (requestError: unknown) => {
+              if (this.paymentId() === current.id) {
+                this.detailError.set(
+                  getApiErrorMessage(
+                    requestError,
+                    'تم التخصيص، لكن تعذر تحديث رصيد الفاتورة المعروضة.',
+                  ),
+                );
+              }
+            },
           });
           this.loadPayment(current.id);
         },
         error: (requestError: unknown) => {
+          if (requestId !== this.detailRequest) return;
           this.allocationSubmitting.set(false);
           this.error.set(
             getApiErrorMessage(
@@ -498,6 +524,10 @@ export class PaymentsComponent {
     this.detailsLoading.set(true);
     this.detailError.set('');
     this.allocationsError.set('');
+    this.payment.set(null);
+    this.student.set(null);
+    this.allocations.set([]);
+    this.allocationsLoading.set(false);
     this.financeService.getPayment(this.workspaceId, paymentId).subscribe({
       next: (payment) => {
         if (requestId !== this.detailRequest) return;
@@ -523,8 +553,31 @@ export class PaymentsComponent {
     });
   }
 
+  private resetPaymentDetail(): void {
+    this.detailRequest++;
+    this.invoiceOptionsRequest++;
+    this.payment.set(null);
+    this.student.set(null);
+    this.allocations.set([]);
+    this.latestAllocatedInvoice.set(null);
+    this.detailsLoading.set(false);
+    this.allocationsLoading.set(false);
+    this.invoiceOptionsLoading.set(false);
+    this.allocationOpen.set(false);
+    this.allocationSubmitting.set(false);
+    this.detailError.set('');
+    this.allocationsError.set('');
+    this.invoiceOptionsError.set('');
+    this.error.set('');
+    this.success.set('');
+    this.selectedInvoice.set(null);
+    this.invoiceOptions.set([]);
+    this.allocationForm.reset({ invoiceId: '', amount: '' });
+  }
+
   private loadAllocations(paymentId: string, requestId: number): void {
     this.allocationsLoading.set(true);
+    this.allocations.set([]);
     this.financeService.listPaymentAllocations(this.workspaceId, paymentId).subscribe({
       next: (items) => {
         if (requestId !== this.detailRequest) return;
