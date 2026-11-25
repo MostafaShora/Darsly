@@ -60,9 +60,8 @@ export class ReportsComponent {
   });
 
   constructor() {
-    this.workspaceService.getMyWorkspaces().subscribe({
-      next: (workspaces) => {
-        const workspace = workspaces.find((item) => item.status === 'active') ?? workspaces[0];
+    this.workspaceService.getActiveWorkspace().subscribe({
+      next: (workspace) => {
         if (workspace?._id) {
           this.workspaceId = workspace._id;
           this.load();

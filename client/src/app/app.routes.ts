@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { workspaceGuard } from './core/guards/workspace.guard';
 import { LANDING_ROUTES } from './features/landing/landing.routes';
 
 export const routes: Routes = [
@@ -19,8 +20,16 @@ export const routes: Routes = [
       ),
   },
   {
-    path: 'dashboard',
+    path: 'workspace/onboarding',
     canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/workspace/workspace-onboarding.component').then(
+        (module) => module.WorkspaceOnboardingComponent,
+      ),
+  },
+  {
+    path: 'dashboard',
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/dashboard/dashboard.component').then(
         (module) => module.DashboardComponent,
@@ -28,7 +37,7 @@ export const routes: Routes = [
   },
   {
     path: 'reports',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/reports/reports.component').then(
         (module) => module.ReportsComponent,
@@ -36,7 +45,7 @@ export const routes: Routes = [
   },
   {
     path: 'finance',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/finance/finance-overview.component').then(
         (module) => module.FinanceOverviewComponent,
@@ -44,7 +53,7 @@ export const routes: Routes = [
   },
   {
     path: 'invoices/new',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/finance/invoices.component').then(
         (module) => module.InvoicesComponent,
@@ -52,7 +61,7 @@ export const routes: Routes = [
   },
   {
     path: 'invoices/:invoiceId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/finance/invoices.component').then(
         (module) => module.InvoicesComponent,
@@ -60,7 +69,7 @@ export const routes: Routes = [
   },
   {
     path: 'invoices',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/finance/invoices.component').then(
         (module) => module.InvoicesComponent,
@@ -68,7 +77,7 @@ export const routes: Routes = [
   },
   {
     path: 'payments/new',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/finance/payments.component').then(
         (module) => module.PaymentsComponent,
@@ -76,7 +85,7 @@ export const routes: Routes = [
   },
   {
     path: 'payments/:paymentId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/finance/payments.component').then(
         (module) => module.PaymentsComponent,
@@ -84,7 +93,7 @@ export const routes: Routes = [
   },
   {
     path: 'payments',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/finance/payments.component').then(
         (module) => module.PaymentsComponent,
@@ -92,7 +101,7 @@ export const routes: Routes = [
   },
   {
     path: 'attendance/sessions/:sessionId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/attendance/attendance.component').then(
         (module) => module.AttendanceComponent,
@@ -100,7 +109,7 @@ export const routes: Routes = [
   },
   {
     path: 'attendance/students/:studentId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/attendance/attendance.component').then(
         (module) => module.AttendanceComponent,
@@ -108,7 +117,7 @@ export const routes: Routes = [
   },
   {
     path: 'attendance',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/attendance/attendance.component').then(
         (module) => module.AttendanceComponent,
@@ -116,7 +125,7 @@ export const routes: Routes = [
   },
   {
     path: 'sessions/:sessionId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/sessions/sessions.component').then(
         (module) => module.SessionsComponent,
@@ -124,7 +133,7 @@ export const routes: Routes = [
   },
   {
     path: 'sessions',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/sessions/sessions.component').then(
         (module) => module.SessionsComponent,
@@ -132,7 +141,7 @@ export const routes: Routes = [
   },
   {
     path: 'subjects/:subjectId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/subjects/subjects.component').then(
         (module) => module.SubjectsComponent,
@@ -140,7 +149,7 @@ export const routes: Routes = [
   },
   {
     path: 'subjects',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/subjects/subjects.component').then(
         (module) => module.SubjectsComponent,
@@ -148,7 +157,7 @@ export const routes: Routes = [
   },
   {
     path: 'groups/:groupId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/groups/groups.component').then(
         (module) => module.GroupsComponent,
@@ -156,7 +165,7 @@ export const routes: Routes = [
   },
   {
     path: 'groups',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/groups/groups.component').then(
         (module) => module.GroupsComponent,
@@ -164,7 +173,7 @@ export const routes: Routes = [
   },
   {
     path: 'students/:studentId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/students/students.component').then(
         (module) => module.StudentsComponent,
@@ -172,7 +181,7 @@ export const routes: Routes = [
   },
   {
     path: 'students',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/students/students.component').then(
         (module) => module.StudentsComponent,
@@ -180,7 +189,7 @@ export const routes: Routes = [
   },
   {
     path: 'guardians/:guardianId',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/guardians/guardians.component').then(
         (module) => module.GuardiansComponent,
@@ -188,7 +197,7 @@ export const routes: Routes = [
   },
   {
     path: 'guardians',
-    canActivate: [authGuard],
+    canActivate: [authGuard, workspaceGuard],
     loadComponent: () =>
       import('./features/guardians/guardians.component').then(
         (module) => module.GuardiansComponent,

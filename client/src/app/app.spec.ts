@@ -2,7 +2,7 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { Type } from '@angular/core';
+import { Component, Type } from '@angular/core';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { of, Subject as RxSubject, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -31,7 +31,13 @@ import { FinanceService } from './core/services/finance.service';
 import { LearningService } from './core/services/learning.service';
 import { PeopleService } from './core/services/people.service';
 import { AttendanceReport, FinanceReport, ReportService } from './core/services/report.service';
-import { WorkspaceService } from './core/services/workspace.service';
+import {
+  WorkspaceAccessState,
+  WorkspaceService,
+} from './core/services/workspace.service';
+import { AuthService } from './core/services/auth.service';
+import { authGuard } from './core/guards/auth.guard';
+import { workspaceGuard } from './core/guards/workspace.guard';
 import { GuardiansComponent } from './features/guardians/guardians.component';
 import { GroupsComponent } from './features/groups/groups.component';
 import {
@@ -45,7 +51,22 @@ import { SubjectsComponent } from './features/subjects/subjects.component';
 import { AttendanceComponent } from './features/attendance/attendance.component';
 import { InvoicesComponent } from './features/finance/invoices.component';
 import { PaymentsComponent } from './features/finance/payments.component';
+import { WorkspaceOnboardingComponent } from './features/workspace/workspace-onboarding.component';
 import { formatMoneyExact, isPositiveDecimalString } from './core/utils/finance';
+
+@Component({
+  selector: 'app-dashboard-route-probe',
+  standalone: true,
+  template: '<p>Dashboard destination</p>',
+})
+class DashboardRouteProbe {}
+
+@Component({
+  selector: 'app-workspace-onboarding-route-probe',
+  standalone: true,
+  template: '<p>Workspace onboarding destination</p>',
+})
+class WorkspaceOnboardingRouteProbe {}
 
 describe('App', () => {
   beforeEach(async () => {
@@ -135,7 +156,14 @@ describe('App', () => {
           {
             provide: WorkspaceService,
             useValue: {
-              getMyWorkspaces: () => of([{ _id: 'workspace-1', status: 'active' }]),
+              getActiveWorkspace: () => of({
+                _id: 'workspace-1',
+                name: 'Workspace',
+                slug: 'workspace',
+                status: 'active',
+                currency: 'EGP',
+                description: '',
+              }),
             },
           },
           {
@@ -885,7 +913,54 @@ describe('App', () => {
       },
     });
 
+    const workspaceRequest = TestBed.inject(HttpTestingController).expectOne('/api/workspaces/mine');
+    workspaceRequest.flush({
+      message: 'Workspaces loaded',
+      data: [{
+        _id: 'workspace-dashboard',
+        name: 'مساحة العمل',
+        slug: 'workspace-dashboard',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      }],
+    });
+
     await navigation;
+    fixture.detectChanges();
+    TestBed.inject(HttpTestingController)
+      .expectOne((request) => request.url === '/api/workspaces/workspace-dashboard/dashboard/summary')
+      .flush({
+        message: 'Dashboard loaded',
+        data: {
+          period: { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+          students: { total: 0, active: 0, inactive: 0, archived: 0 },
+          groups: {
+            total: 0,
+            activeEnrollments: 0,
+            pausedEnrollments: 0,
+            cancelledEnrollments: 0,
+            occupancy: [],
+          },
+          sessions: { scheduled: 0, completed: 0, cancelled: 0 },
+          attendance: {
+            present: 0,
+            absent: 0,
+            late: 0,
+            excused: 0,
+            attended: 0,
+            denominator: 0,
+            attendanceRate: null,
+          },
+          finance: {
+            issuedInvoiceCount: 0,
+            issuedInvoiceTotal: '0',
+            currentOutstanding: '0',
+            collectedInPeriod: '0',
+            unallocatedPayments: '0',
+          },
+        },
+      });
     fixture.detectChanges();
     expect(router.url).toBe('/dashboard');
     const dashboard = fixture.nativeElement as HTMLElement;
@@ -2482,6 +2557,332 @@ describe('App', () => {
       expect((paymentFixture.nativeElement as HTMLElement).textContent).not.toContain(
         'لا توجد مدفوعات مسجلة بعد',
       );
+    });
+  });
+
+  describe('Workspace onboarding', () => {
+    const activeWorkspace: Workspace = {
+      _id: 'workspace-1',
+      name: 'مساحة تجريبية',
+      slug: 'workspace',
+      status: 'active',
+      currency: 'EGP',
+      description: '',
+    };
+    const suspendedWorkspace: Workspace = {
+      ...activeWorkspace,
+      _id: 'workspace-suspended',
+      status: 'suspended',
+    };
+    const emptyState: WorkspaceAccessState = {
+      workspaces: [],
+      activeWorkspace: null,
+      suspendedWorkspaces: [],
+    };
+    const stateWith = (workspaces: Workspace[]): WorkspaceAccessState => ({
+      workspaces,
+      activeWorkspace: workspaces.find((workspace) => workspace.status === 'active') ?? null,
+      suspendedWorkspaces: workspaces.filter((workspace) => workspace.status === 'suspended'),
+    });
+    const workspaceServiceMock = {
+      getWorkspaceAccessState: vi.fn<WorkspaceService['getWorkspaceAccessState']>(),
+      createWorkspace: vi.fn<WorkspaceService['createWorkspace']>(),
+      getWorkspace: vi.fn<WorkspaceService['getWorkspace']>(),
+    };
+    const routerMock = {
+      navigateByUrl: vi.fn().mockResolvedValue(true),
+    };
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule();
+      workspaceServiceMock.getWorkspaceAccessState.mockReset().mockReturnValue(of(emptyState));
+      workspaceServiceMock.createWorkspace.mockReset();
+      workspaceServiceMock.getWorkspace.mockReset();
+      routerMock.navigateByUrl.mockReset().mockResolvedValue(true);
+      await TestBed.configureTestingModule({
+        imports: [WorkspaceOnboardingComponent],
+        providers: [
+          { provide: WorkspaceService, useValue: workspaceServiceMock },
+          { provide: Router, useValue: routerMock },
+        ],
+      }).compileComponents();
+    });
+
+    it('sends an authenticated user with an active workspace to the dashboard', () => {
+      workspaceServiceMock.getWorkspaceAccessState.mockReturnValue(of(stateWith([activeWorkspace])));
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/dashboard');
+      expect(fixture.nativeElement.textContent).toContain('توجد مساحة عمل نشطة');
+    });
+
+    it('shows the create form when the workspace list is empty', () => {
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('form')).not.toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('أنشئ مساحة العمل الأولى');
+      expect(routerMock.navigateByUrl).not.toHaveBeenCalled();
+    });
+
+    it('validates a trimmed required name and does not send invalid data', () => {
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.form.patchValue({ name: '   ', description: 'وصف' });
+
+      component.submit();
+
+      expect(component.showNameError()).toContain('مطلوب');
+      expect(workspaceServiceMock.createWorkspace).not.toHaveBeenCalled();
+    });
+
+    it('creates a workspace, refreshes the list, checks access, then navigates', () => {
+      const createdWorkspace = { ...activeWorkspace, _id: 'workspace-created' };
+      workspaceServiceMock.getWorkspaceAccessState
+        .mockReturnValueOnce(of(emptyState))
+        .mockReturnValueOnce(of(stateWith([createdWorkspace])));
+      workspaceServiceMock.createWorkspace.mockReturnValue(of(createdWorkspace));
+      workspaceServiceMock.getWorkspace.mockReturnValue(of(createdWorkspace));
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.form.patchValue({ name: '  أكاديمية النور  ', description: '  وصف  ' });
+
+      component.submit();
+
+      expect(workspaceServiceMock.createWorkspace).toHaveBeenCalledWith({
+        name: 'أكاديمية النور',
+        description: 'وصف',
+      });
+      expect(workspaceServiceMock.getWorkspaceAccessState).toHaveBeenCalledTimes(2);
+      expect(workspaceServiceMock.getWorkspace).toHaveBeenCalledWith('workspace-created');
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('keeps form values and displays server validation errors', () => {
+      workspaceServiceMock.createWorkspace.mockReturnValue(
+        throwError(() => new HttpErrorResponse({
+          status: 422,
+          error: { message: 'Workspace name is invalid' },
+        })),
+      );
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.form.patchValue({ name: 'أكاديمية النور', description: 'وصف محفوظ' });
+
+      component.submit();
+
+      expect(component.creationError()).toContain('Workspace name is invalid');
+      expect(component.form.getRawValue()).toEqual({
+        name: 'أكاديمية النور',
+        description: 'وصف محفوظ',
+      });
+      expect(component.creationAccepted()).toBe(false);
+    });
+
+    it('keeps form values and displays a network error when workspace creation fails', () => {
+      workspaceServiceMock.createWorkspace.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 0 })),
+      );
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.form.patchValue({ name: 'أكاديمية النور', description: 'وصف محفوظ' });
+
+      component.submit();
+
+      expect(component.creationError()).toContain('تعذر الاتصال بالخادم');
+      expect(component.form.getRawValue()).toEqual({
+        name: 'أكاديمية النور',
+        description: 'وصف محفوظ',
+      });
+    });
+
+    it('keeps values and exposes a retry after a network failure loading workspaces', () => {
+      workspaceServiceMock.getWorkspaceAccessState
+        .mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })))
+        .mockReturnValueOnce(of(emptyState));
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.form.patchValue({ name: 'أكاديمية النور', description: 'وصف محفوظ' });
+
+      expect(component.loadError()).toContain('تعذر الاتصال بالخادم');
+      component.loadWorkspaces();
+
+      expect(component.accessState()).toEqual(emptyState);
+      expect(component.form.getRawValue()).toEqual({
+        name: 'أكاديمية النور',
+        description: 'وصف محفوظ',
+      });
+    });
+
+    it('does not offer creation when only suspended workspaces are available', () => {
+      workspaceServiceMock.getWorkspaceAccessState.mockReturnValue(
+        of(stateWith([suspendedWorkspace])),
+      );
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('مساحة العمل معلّقة');
+      expect(fixture.nativeElement.querySelector('form')).toBeNull();
+      expect(workspaceServiceMock.createWorkspace).not.toHaveBeenCalled();
+    });
+
+    it('does not navigate or resubmit if the created workspace is missing from refreshed /mine', () => {
+      const createdWorkspace = { ...activeWorkspace, _id: 'workspace-created' };
+      workspaceServiceMock.getWorkspaceAccessState
+        .mockReturnValueOnce(of(emptyState))
+        .mockReturnValueOnce(of(emptyState));
+      workspaceServiceMock.createWorkspace.mockReturnValue(of(createdWorkspace));
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.form.patchValue({ name: 'أكاديمية النور' });
+
+      component.submit();
+      component.submit();
+
+      expect(component.verificationError()).toContain('لم تظهر كمساحة نشطة');
+      expect(workspaceServiceMock.getWorkspace).not.toHaveBeenCalled();
+      expect(workspaceServiceMock.createWorkspace).toHaveBeenCalledTimes(1);
+      expect(routerMock.navigateByUrl).not.toHaveBeenCalled();
+    });
+
+    it('prevents duplicate create requests while the first request is pending', () => {
+      const pendingRequest = new RxSubject<Workspace>();
+      workspaceServiceMock.createWorkspace.mockReturnValue(pendingRequest);
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.form.patchValue({ name: 'أكاديمية النور' });
+
+      component.submit();
+      component.submit();
+
+      expect(component.submitting()).toBe(true);
+      expect(workspaceServiceMock.createWorkspace).toHaveBeenCalledTimes(1);
+      pendingRequest.complete();
+    });
+  });
+
+  describe('Workspace route guards', () => {
+    const activeWorkspace: Workspace = {
+      _id: 'workspace-guard',
+      name: 'مساحة العمل',
+      slug: 'workspace-guard',
+      status: 'active',
+      currency: 'EGP',
+      description: '',
+    };
+    const authServiceMock = {
+      getStatus: vi.fn(() => of({ user: { id: 'user-1' } })),
+      clearCurrentUser: vi.fn(),
+    };
+    const workspaceServiceMock = {
+      getWorkspaceAccessState: vi.fn<WorkspaceService['getWorkspaceAccessState']>(),
+    };
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule();
+      authServiceMock.getStatus.mockReset().mockReturnValue(of({ user: { id: 'user-1' } }));
+      workspaceServiceMock.getWorkspaceAccessState.mockReset().mockReturnValue(of({
+        workspaces: [activeWorkspace],
+        activeWorkspace,
+        suspendedWorkspaces: [],
+      }));
+      await TestBed.configureTestingModule({
+        imports: [DashboardRouteProbe, WorkspaceOnboardingRouteProbe],
+        providers: [
+          provideRouter([
+            {
+              path: 'dashboard',
+              canActivate: [authGuard, workspaceGuard],
+              component: DashboardRouteProbe,
+            },
+            {
+              path: 'workspace/onboarding',
+              canActivate: [authGuard],
+              component: WorkspaceOnboardingRouteProbe,
+            },
+          ]),
+          { provide: AuthService, useValue: authServiceMock },
+          { provide: WorkspaceService, useValue: workspaceServiceMock },
+        ],
+      }).compileComponents();
+    });
+
+    it('keeps authenticated users with an active workspace on the dashboard', async () => {
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl('/dashboard', DashboardRouteProbe);
+
+      expect(authServiceMock.getStatus).toHaveBeenCalled();
+      expect(workspaceServiceMock.getWorkspaceAccessState).toHaveBeenCalled();
+    });
+
+    it('redirects authenticated users without a workspace to onboarding', async () => {
+      workspaceServiceMock.getWorkspaceAccessState.mockReturnValue(of({
+        workspaces: [],
+        activeWorkspace: null,
+        suspendedWorkspaces: [],
+      }));
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl('/dashboard', WorkspaceOnboardingRouteProbe);
+
+      expect(authServiceMock.getStatus).toHaveBeenCalled();
+      expect(harness.routeNativeElement?.textContent).toContain('Workspace onboarding destination');
+    });
+  });
+
+  describe('WorkspaceService API contracts', () => {
+    beforeEach(async () => {
+      TestBed.resetTestingModule();
+      await TestBed.configureTestingModule({
+        providers: [provideHttpClient(), provideHttpClientTesting(), WorkspaceService],
+      }).compileComponents();
+    });
+
+    it('uses the existing mine, create, and details endpoints with credentials', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      let workspaces: Workspace[] = [];
+      let created: Workspace | undefined;
+      let details: Workspace | undefined;
+      const apiWorkspace: Workspace = {
+        _id: 'workspace-api',
+        name: 'مساحة API',
+        slug: 'workspace-api',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+
+      service.getMyWorkspaces().subscribe((result) => (workspaces = result));
+      const mineRequest = httpTesting.expectOne('/api/workspaces/mine');
+      expect(mineRequest.request.method).toBe('GET');
+      expect(mineRequest.request.withCredentials).toBe(true);
+      mineRequest.flush({ message: 'ok', data: [apiWorkspace] });
+
+      service.createWorkspace({ name: 'مساحة API' }).subscribe((result) => (created = result));
+      const createRequest = httpTesting.expectOne('/api/workspaces');
+      expect(createRequest.request.method).toBe('POST');
+      expect(createRequest.request.body).toEqual({ name: 'مساحة API' });
+      expect(createRequest.request.withCredentials).toBe(true);
+      createRequest.flush({ message: 'created', data: apiWorkspace });
+
+      service.getWorkspace(apiWorkspace._id).subscribe((result) => (details = result));
+      const detailsRequest = httpTesting.expectOne(`/api/workspaces/${apiWorkspace._id}`);
+      expect(detailsRequest.request.method).toBe('GET');
+      expect(detailsRequest.request.withCredentials).toBe(true);
+      detailsRequest.flush({ message: 'ok', data: apiWorkspace });
+
+      expect(workspaces).toEqual([apiWorkspace]);
+      expect(created).toEqual(apiWorkspace);
+      expect(details).toEqual(apiWorkspace);
+      httpTesting.verify();
     });
   });
 });

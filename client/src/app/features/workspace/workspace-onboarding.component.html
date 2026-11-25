@@ -1,0 +1,177 @@
+<main
+  dir="rtl"
+  lang="ar"
+  class="grid min-h-screen place-items-center bg-[#f7faf8] px-4 py-10 text-[#173b32]"
+>
+  <section class="w-full max-w-2xl rounded-3xl border border-[#e1ebe4] bg-white p-6 shadow-sm sm:p-10">
+    <header class="mb-8">
+      <p class="text-sm font-black tracking-wide text-[#087b59]">Darsly</p>
+      <h1 class="mt-3 text-2xl font-black sm:text-3xl">إعداد مساحة العمل</h1>
+      <p class="mt-3 text-sm leading-7 text-[#5f7469]">
+        تحتاج إلى مساحة عمل لإدارة الطلاب والجلسات والحضور والمالية. ستُنشأ المساحة ضمن حسابك الحالي.
+      </p>
+    </header>
+
+    @if (loading()) {
+      <div
+        class="grid min-h-40 place-items-center rounded-2xl border border-[#e4ece6] bg-[#fafcfb] text-sm text-[#5f7469]"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        جارٍ التحقق من مساحات العمل...
+      </div>
+    } @else if (loadError()) {
+      <section
+        class="rounded-2xl border border-[#f1d9d5] bg-[#fff8f7] p-5"
+        aria-labelledby="workspace-load-error"
+      >
+        <h2 id="workspace-load-error" class="font-black text-[#9b493e]">تعذر تحميل مساحات العمل</h2>
+        <p class="mt-2 text-sm leading-6 text-[#80544e]" role="alert">{{ loadError() }}</p>
+        <button
+          type="button"
+          class="mt-5 min-h-11 rounded-xl bg-[#087b59] px-5 text-sm font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          [disabled]="loading()"
+          (click)="loadWorkspaces()"
+        >
+          {{ loading() ? 'جارٍ إعادة المحاولة...' : 'إعادة المحاولة' }}
+        </button>
+      </section>
+    } @else if (accessState()?.activeWorkspace && !creationAccepted()) {
+      <div
+        class="grid min-h-40 place-items-center rounded-2xl border border-[#d1ead9] bg-[#f2faf4] text-sm font-bold text-[#087b59]"
+        aria-live="polite"
+      >
+        توجد مساحة عمل نشطة. جارٍ فتح لوحة التحكم...
+      </div>
+    } @else if (accessState()?.suspendedWorkspaces?.length) {
+      <section
+        class="rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-5"
+        aria-labelledby="workspace-suspended-heading"
+      >
+        <h2 id="workspace-suspended-heading" class="font-black text-[#7a6231]">
+          مساحة العمل معلّقة
+        </h2>
+        <p class="mt-2 text-sm leading-7 text-[#6e5e3b]">
+          لا يمكن فتح لوحة التحكم ما دامت مساحة العمل معلّقة. لا يمكن إنشاء مساحة بديلة من هذه الشاشة.
+          تواصل مع مالك المساحة أو دعم Darsly للمساعدة.
+        </p>
+        <ul class="mt-4 list-inside list-disc space-y-1 text-sm font-bold text-[#5f512f]">
+          @for (workspace of accessState()?.suspendedWorkspaces; track workspace._id) {
+            <li>{{ workspace.name }}</li>
+          }
+        </ul>
+      </section>
+    } @else if (creationAccepted()) {
+      <section class="rounded-2xl border border-[#dce8df] bg-[#fafcfb] p-5">
+        @if (successMessage()) {
+          <p class="text-sm font-bold text-[#087b59]" role="status" aria-live="polite">
+            {{ successMessage() }}
+          </p>
+        }
+        @if (verifying()) {
+          <div class="mt-3 text-sm text-[#5f7469]" aria-live="polite" aria-busy="true">
+            جارٍ التحقق من ظهور المساحة وصلاحية الوصول إليها...
+          </div>
+        } @else if (verificationError()) {
+          <p class="mt-3 text-sm leading-7 text-[#9b493e]" role="alert">
+            {{ verificationError() }}
+          </p>
+          @if (createdWorkspace()?._id) {
+            <button
+              type="button"
+              class="mt-5 min-h-11 rounded-xl bg-[#087b59] px-5 text-sm font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="verifying()"
+              (click)="retryVerification()"
+            >
+              {{ verifying() ? 'جارٍ التحقق...' : 'إعادة التحقق' }}
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="mt-5 min-h-11 rounded-xl bg-[#087b59] px-5 text-sm font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              [disabled]="loading()"
+              (click)="loadWorkspaces()"
+            >
+              {{ loading() ? 'جارٍ تحميل القائمة...' : 'إعادة تحميل مساحات العمل' }}
+            </button>
+          }
+        }
+      </section>
+    } @else {
+      <form
+        class="grid gap-5"
+        [formGroup]="form"
+        (ngSubmit)="submit()"
+        novalidate
+        aria-labelledby="workspace-form-heading"
+      >
+        <h2 id="workspace-form-heading" class="text-lg font-black">أنشئ مساحة العمل الأولى</h2>
+
+        @if (creationError()) {
+          <p
+            class="rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-sm leading-6 text-[#9b493e]"
+            role="alert"
+          >
+            {{ creationError() }}
+          </p>
+        }
+
+        <div>
+          <label for="workspace-name" class="mb-2 block text-sm font-bold text-[#38554a]">
+            اسم مساحة العمل <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="workspace-name"
+            type="text"
+            formControlName="name"
+            autocomplete="organization"
+            maxlength="120"
+            required
+            [attr.aria-invalid]="showNameError() ? 'true' : null"
+            [attr.aria-describedby]="showNameError() ? 'workspace-name-error' : null"
+            class="min-h-12 w-full rounded-xl border border-[#dce8df] px-4 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            placeholder="مثال: أكاديمية النور"
+          />
+          @if (showNameError()) {
+            <p id="workspace-name-error" class="mt-2 text-xs font-bold text-[#9b493e]" role="alert">
+              {{ showNameError() }}
+            </p>
+          }
+        </div>
+
+        <div>
+          <label for="workspace-description" class="mb-2 block text-sm font-bold text-[#38554a]">
+            وصف مختصر <span class="font-normal text-[#71847a]">(اختياري)</span>
+          </label>
+          <textarea
+            id="workspace-description"
+            formControlName="description"
+            maxlength="1000"
+            rows="4"
+            [attr.aria-invalid]="showDescriptionError() ? 'true' : null"
+            [attr.aria-describedby]="showDescriptionError() ? 'workspace-description-error' : null"
+            class="w-full rounded-xl border border-[#dce8df] px-4 py-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            placeholder="أضف وصفًا يساعدك على تمييز مساحة العمل."
+          ></textarea>
+          @if (showDescriptionError()) {
+            <p
+              id="workspace-description-error"
+              class="mt-2 text-xs font-bold text-[#9b493e]"
+              role="alert"
+            >
+              {{ showDescriptionError() }}
+            </p>
+          }
+        </div>
+
+        <button
+          type="submit"
+          class="min-h-12 rounded-xl bg-[#087b59] px-5 text-sm font-extrabold text-white transition-colors hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          [disabled]="submitting() || verifying() || !!createdWorkspace()"
+        >
+          {{ submitting() ? 'جارٍ إنشاء المساحة...' : 'إنشاء مساحة العمل والمتابعة' }}
+        </button>
+      </form>
+    }
+  </section>
+</main>

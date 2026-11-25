@@ -175,9 +175,8 @@ export class DashboardComponent {
   private loadDashboard(): void {
     this.dashboardLoading.set(true);
     this.dashboardError.set('');
-    this.workspaceService.getMyWorkspaces().subscribe({
-      next: (workspaces) => {
-        const workspace = workspaces.find((item) => item.status === 'active') ?? workspaces[0];
+    this.workspaceService.getActiveWorkspace().subscribe({
+      next: (workspace) => {
         if (!workspace?._id) {
           this.dashboardLoading.set(false);
           this.dashboardError.set('لا تتوفر مساحة عمل نشطة.');
