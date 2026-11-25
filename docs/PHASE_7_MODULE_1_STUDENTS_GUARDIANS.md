@@ -63,6 +63,8 @@ From student details, teachers can browse the existing paginated guardian list,
 link an existing guardian, and set the link's `relationship`, `isPrimary`, and
 `receivesNotifications` fields. Existing link fields can be edited. Removing a link
 requires browser confirmation and removes only the relationship, not either profile.
+Guardians already linked to the student are disabled in the picker and duplicate
+submissions are rejected client-side; backend uniqueness remains authoritative.
 The notification field is presented as the existing preference; the UI does not
 send notifications.
 
@@ -82,7 +84,8 @@ connect to a development or production database.
 Coverage includes workspace-scoped API request construction and credential
 preservation, student and guardian list/search/pagination, empty and API-error
 states, create/edit validation and submission, student details, guardian details,
-relationship link/update/removal, active route guards, and dashboard navigation.
+relationship duplicate prevention/link/update/removal, create-route behavior,
+active route guards, and dashboard navigation.
 
 ## Known limitations
 

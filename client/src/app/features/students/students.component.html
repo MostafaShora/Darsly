@@ -606,13 +606,20 @@
                   @for (guardian of guardianOptions(); track guardian.id) {
                     <button
                       type="button"
-                      class="flex min-h-11 w-full items-center justify-between border-b border-[#edf2ee] px-3 text-start text-xs last:border-0 hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-emerald-700"
+                      class="flex min-h-11 w-full items-center justify-between border-b border-[#edf2ee] px-3 text-start text-xs last:border-0 hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                       [class.bg-[#eff8f2]]="linkForm.controls.guardianId.value === guardian.id"
                       [attr.aria-pressed]="linkForm.controls.guardianId.value === guardian.id"
+                      [disabled]="isGuardianLinked(guardian.id)"
                       (click)="selectGuardian(guardian)"
                     >
                       <span class="font-bold">{{ guardian.name }}</span
-                      ><span dir="ltr">{{ guardian.phone }}</span>
+                      ><span>
+                        @if (isGuardianLinked(guardian.id)) {
+                          مرتبط بالفعل
+                        } @else {
+                          <span dir="ltr">{{ guardian.phone }}</span>
+                        }
+                      </span>
                     </button>
                   }
                 </div>

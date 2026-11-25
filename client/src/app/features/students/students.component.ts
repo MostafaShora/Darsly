@@ -293,8 +293,19 @@ export class StudentsComponent {
   }
 
   selectGuardian(guardian: Guardian): void {
+    if (this.isGuardianLinked(guardian.id)) {
+      this.linkForm.controls.guardianId.setValue('');
+      this.linkForm.controls.guardianId.markAsTouched();
+      this.error.set('ولي الأمر مرتبط بالفعل بهذا الطالب.');
+      return;
+    }
+
     this.linkForm.controls.guardianId.setValue(guardian.id);
     this.linkForm.controls.guardianId.markAsTouched();
+  }
+
+  isGuardianLinked(guardianId: string): boolean {
+    return this.guardians().some((link) => link.guardian.id === guardianId);
   }
 
   selectedGuardianName(): string {
@@ -339,6 +350,11 @@ export class StudentsComponent {
     if (this.linkForm.invalid || this.linking()) return;
     const studentId = this.studentId();
     if (!studentId) return;
+    const guardianId = this.linkForm.controls.guardianId.value;
+    if (this.isGuardianLinked(guardianId)) {
+      this.error.set('ولي الأمر مرتبط بالفعل بهذا الطالب.');
+      return;
+    }
 
     this.linking.set(true);
     this.error.set('');
@@ -347,8 +363,13 @@ export class StudentsComponent {
       .linkGuardian(this.workspaceId, studentId, this.linkForm.getRawValue())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
+        next: (link) => {
           this.linking.set(false);
+          this.guardians.update((current) =>
+            current.some((existing) => existing.guardian.id === link.guardian.id)
+              ? current
+              : [...current, link],
+          );
           this.linkFormOpen.set(false);
           this.success.set('تم ربط ولي الأمر بالطالب.');
           this.loadStudentGuardians(studentId);

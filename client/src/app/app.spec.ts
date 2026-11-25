@@ -364,6 +364,12 @@ describe('App', () => {
       createdAt: '2026-01-01T10:00:00.000Z',
       updatedAt: '2026-01-01T10:00:00.000Z',
     };
+    const secondGuardian: Guardian = {
+      ...guardian,
+      id: 'guardian-2',
+      name: 'سارة محمد',
+      phone: '+201111111111',
+    };
     const link: StudentGuardianLink = {
       guardian: {
         id: guardian.id,
@@ -450,17 +456,23 @@ describe('App', () => {
         expect.objectContaining({ page: 1, pageSize: 20 }),
       );
 
+      component.statusFilter.setValue('inactive');
+      expect(peopleMock.listStudents).toHaveBeenLastCalledWith(
+        workspace._id,
+        expect.objectContaining({ page: 1, status: 'inactive' }),
+      );
+
       component.search.setValue('نور');
       await new Promise((resolve) => setTimeout(resolve, 280));
       expect(peopleMock.listStudents).toHaveBeenLastCalledWith(
         workspace._id,
-        expect.objectContaining({ page: 1, search: 'نور' }),
+        expect.objectContaining({ page: 1, search: 'نور', status: 'inactive' }),
       );
 
       component.changePage(2);
       expect(peopleMock.listStudents).toHaveBeenLastCalledWith(
         workspace._id,
-        expect.objectContaining({ page: 2, search: 'نور' }),
+        expect.objectContaining({ page: 2, search: 'نور', status: 'inactive' }),
       );
     });
 
@@ -482,6 +494,7 @@ describe('App', () => {
       const harness = await RouterTestingHarness.create();
       const component = await harness.navigateByUrl('/students/new', StudentsComponent);
 
+      expect(peopleMock.getStudent).not.toHaveBeenCalled();
       component.submitStudent();
       expect(component.studentForm.controls.name.touched).toBe(true);
       expect(peopleMock.createStudent).not.toHaveBeenCalled();
@@ -495,7 +508,7 @@ describe('App', () => {
         status: 'active',
         notes: ' ملاحظة ',
       });
-      vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
       component.submitStudent();
 
       expect(peopleMock.createStudent).toHaveBeenCalledWith(workspace._id, {
@@ -510,6 +523,7 @@ describe('App', () => {
       harness.detectChanges();
       expect(component.student()?.id).toBe(student.id);
       expect(component.success()).toContain('تم حفظ بيانات الطالب بنجاح');
+      expect(navigate).toHaveBeenCalledWith('/students/student-1');
     });
 
     it('loads student details and updates the supported student status and profile fields', async () => {
@@ -534,19 +548,46 @@ describe('App', () => {
 
     it('links, updates, and removes guardian relationships through the supported contract', async () => {
       vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const linkedToSecondGuardian = {
+        ...link,
+        guardian: {
+          ...link.guardian,
+          id: secondGuardian.id,
+          name: secondGuardian.name,
+          phone: secondGuardian.phone,
+        },
+        relationship: 'mother' as const,
+        isPrimary: false,
+      };
+      peopleMock.listGuardians.mockReturnValue(
+        of(pageResult([guardian, secondGuardian])),
+      );
+      peopleMock.linkGuardian.mockReturnValue(of(linkedToSecondGuardian));
+      peopleMock.listStudentGuardians
+        .mockReturnValueOnce(of([link]))
+        .mockReturnValue(of([link, linkedToSecondGuardian]));
       const harness = await RouterTestingHarness.create();
       const component = await harness.navigateByUrl('/students/student-1', StudentsComponent);
 
       component.openLinkForm();
-      component.selectGuardian(guardian);
+      expect(component.isGuardianLinked(guardian.id)).toBe(true);
+      component.linkForm.controls.guardianId.setValue(guardian.id);
+      component.linkSelectedGuardian();
+      expect(peopleMock.linkGuardian).not.toHaveBeenCalled();
+      expect(component.error()).toContain('مرتبط بالفعل');
+
+      component.closeRelationshipForms();
+      component.openLinkForm();
+      component.selectGuardian(secondGuardian);
       component.linkForm.controls.isPrimary.setValue(true);
       component.linkSelectedGuardian();
       expect(peopleMock.linkGuardian).toHaveBeenCalledWith(workspace._id, student.id, {
-        guardianId: guardian.id,
+        guardianId: secondGuardian.id,
         relationship: 'other',
         isPrimary: true,
         receivesNotifications: true,
       });
+      expect(component.guardians().map((item) => item.guardian.id)).toContain(secondGuardian.id);
 
       component.editRelationship(link);
       component.linkEditForm.controls.receivesNotifications.setValue(false);
@@ -581,6 +622,7 @@ describe('App', () => {
       );
 
       const createComponent = await harness.navigateByUrl('/guardians/new', GuardiansComponent);
+      expect(peopleMock.getGuardian).not.toHaveBeenCalled();
       createComponent.submitGuardian();
       expect(createComponent.guardianForm.controls.phone.touched).toBe(true);
       expect(peopleMock.createGuardian).not.toHaveBeenCalled();
@@ -593,7 +635,7 @@ describe('App', () => {
         relationship: 'father',
         notes: '',
       });
-      vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
       createComponent.submitGuardian();
       expect(peopleMock.createGuardian).toHaveBeenCalledWith(workspace._id, {
         name: 'أحمد محمد',
@@ -603,6 +645,7 @@ describe('App', () => {
         relationship: 'father',
         notes: '',
       });
+      expect(navigate).toHaveBeenCalledWith('/guardians/guardian-1');
     });
 
     it('loads and edits guardian details without claiming unsupported linked-student data', async () => {
