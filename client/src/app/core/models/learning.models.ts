@@ -84,6 +84,14 @@ export interface GroupEnrollmentQuery extends PageQuery {
   status?: EnrollmentStatus;
 }
 
+export interface EnrollmentQuery {
+  page: number;
+  pageSize: number;
+  studentId?: string;
+  groupId?: string;
+  status?: EnrollmentStatus;
+}
+
 export interface Enrollment {
   id: string;
   studentId: string;

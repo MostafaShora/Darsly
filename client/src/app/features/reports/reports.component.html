@@ -40,6 +40,11 @@
         class="min-h-10 rounded-xl border border-[#dce8df] px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
         >الجلسات</a
       >
+      <a
+        routerLink="/finance"
+        class="min-h-10 rounded-xl border border-[#dce8df] px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+        >الإدارة المالية</a
+      >
     </nav>
   </header>
 
@@ -211,25 +216,25 @@
       <section class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
           <p class="text-xs">الفواتير الصادرة</p>
-          <strong class="mt-2 block text-lg"
+          <strong class="mt-2 block text-lg" dir="ltr"
             >{{ formatMoney(report.summary.issuedInvoiceTotal) }} ج.م</strong
           >
         </article>
         <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
           <p class="text-xs">المحصل</p>
-          <strong class="mt-2 block text-lg"
+          <strong class="mt-2 block text-lg" dir="ltr"
             >{{ formatMoney(report.summary.collectedInPeriod) }} ج.م</strong
           >
         </article>
         <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
           <p class="text-xs">الرصيد المستحق الحالي</p>
-          <strong class="mt-2 block text-lg"
+          <strong class="mt-2 block text-lg" dir="ltr"
             >{{ formatMoney(report.summary.currentOutstanding) }} ج.م</strong
           >
         </article>
         <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
           <p class="text-xs">مدفوعات غير مخصّصة</p>
-          <strong class="mt-2 block text-lg"
+          <strong class="mt-2 block text-lg" dir="ltr"
             >{{ formatMoney(report.summary.unallocatedPayments) }} ج.م</strong
           >
         </article>
@@ -256,7 +261,7 @@
           <tbody>
             @for (payment of report.payments.items; track payment.id) {
               <tr class="border-t border-[#edf2ee]">
-                <td class="p-3">{{ formatMoney(payment.amount) }} ج.م</td>
+                <td class="p-3" dir="ltr">{{ formatMoney(payment.amount) }} ج.م</td>
                 <td class="p-3">{{ payment.method }}</td>
                 <td class="p-3">{{ formatReportDate(payment.receivedAt) }}</td>
               </tr>

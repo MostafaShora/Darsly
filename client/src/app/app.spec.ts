@@ -22,6 +22,12 @@ import {
   StudyGroup,
   Subject,
 } from './core/models/learning.models';
+import {
+  Invoice,
+  Payment,
+  PaymentAllocation,
+} from './core/models/finance.models';
+import { FinanceService } from './core/services/finance.service';
 import { LearningService } from './core/services/learning.service';
 import { PeopleService } from './core/services/people.service';
 import { AttendanceReport, FinanceReport, ReportService } from './core/services/report.service';
@@ -37,6 +43,9 @@ import { StudentsComponent } from './features/students/students.component';
 import { SessionsComponent, localDateBoundaryToIso, localDateTimeToIso, utcDateTimeToLocalInput } from './features/sessions/sessions.component';
 import { SubjectsComponent } from './features/subjects/subjects.component';
 import { AttendanceComponent } from './features/attendance/attendance.component';
+import { InvoicesComponent } from './features/finance/invoices.component';
+import { PaymentsComponent } from './features/finance/payments.component';
+import { formatMoneyExact, isPositiveDecimalString } from './core/utils/finance';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -546,6 +555,8 @@ describe('App', () => {
       expect(component.student()).toEqual(student);
       expect(component.guardians()).toEqual([link]);
       expect(harness.routeNativeElement?.querySelector('a[href="/attendance/students/student-1"]')).toBeTruthy();
+      expect(harness.routeNativeElement?.querySelector('a[href="/invoices?studentId=student-1"]')).toBeTruthy();
+      expect(harness.routeNativeElement?.querySelector('a[href="/payments?studentId=student-1"]')).toBeTruthy();
       component.beginEdit();
       component.studentForm.controls.name.setValue('نور أحمد محدث');
       component.studentForm.controls.status.setValue('inactive');
@@ -830,6 +841,13 @@ describe('App', () => {
       '/groups',
       '/sessions',
       '/attendance',
+      '/finance',
+      '/invoices',
+      '/invoices/new',
+      '/invoices/invoice-id',
+      '/payments',
+      '/payments/new',
+      '/payments/payment-id',
       '/attendance/sessions/session-1',
       '/attendance/students/student-1',
     ]) {
@@ -877,12 +895,13 @@ describe('App', () => {
     expect(dashboard.querySelector('[dir="rtl"][lang="ar"]')).toBeTruthy();
     expect(dashboard.querySelector('button[aria-label="English"]')).toBeNull();
     expect(dashboard.querySelector('svg')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/students"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/guardians"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/subjects"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/groups"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/sessions"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/attendance"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور والمالية"] a[href="/students"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور والمالية"] a[href="/guardians"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور والمالية"] a[href="/subjects"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور والمالية"] a[href="/groups"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور والمالية"] a[href="/sessions"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور والمالية"] a[href="/finance"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور والمالية"] a[href="/attendance"]')).toBeTruthy();
     expect(dashboard.querySelector('#attendance a[href="/attendance"]')).toBeTruthy();
 
     const navigationLinks = dashboard.querySelectorAll<HTMLAnchorElement>(
@@ -2033,6 +2052,436 @@ describe('App', () => {
           'Attendance service unavailable',
         );
       });
+    });
+  });
+
+  describe('Finance workflows', () => {
+    const workspace: Workspace = {
+      _id: 'workspace-finance',
+      name: 'مساحة المالية',
+      slug: 'finance',
+      status: 'active',
+      currency: 'EGP',
+      description: '',
+    };
+    const student: Student = {
+      id: 'student-finance',
+      name: 'مريم علي',
+      phone: '+201000000000',
+      email: null,
+      schoolName: '',
+      grade: '',
+      status: 'active',
+      notes: '',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const group: StudyGroup = {
+      id: 'group-finance',
+      subjectId: 'subject-finance',
+      name: 'مجموعة الرياضيات',
+      description: '',
+      monthlyFee: '125.50',
+      capacity: null,
+      status: 'active',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const enrollment: Enrollment = {
+      id: 'enrollment-finance',
+      studentId: student.id,
+      groupId: group.id,
+      enrolledAt: '2026-01-01T10:00:00.000Z',
+      endedAt: null,
+      status: 'active',
+      notes: '',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const invoice: Invoice = {
+      id: 'invoice-finance',
+      invoiceNumber: 'INV-00001',
+      studentId: student.id,
+      enrollmentId: enrollment.id,
+      groupId: group.id,
+      periodStart: '2026-03-01',
+      periodEnd: '2026-03-31',
+      totalAmount: '125.50',
+      dueDate: null,
+      issuedAt: null,
+      status: 'draft',
+      paymentStatus: null,
+      allocatedAmount: '0',
+      outstandingAmount: '0',
+      description: '',
+      notes: '',
+      createdAt: '2026-03-01T10:00:00.000Z',
+      updatedAt: '2026-03-01T10:00:00.000Z',
+    };
+    const payment: Payment = {
+      id: 'payment-finance',
+      studentId: student.id,
+      amount: '100.00',
+      method: 'cash',
+      status: 'completed',
+      receivedAt: '2026-03-10T10:00:00.000Z',
+      reference: null,
+      notes: '',
+      allocatedAmount: '50.00',
+      unallocatedAmount: '50.00',
+      allocations: [],
+      createdAt: '2026-03-10T10:00:00.000Z',
+      updatedAt: '2026-03-10T10:00:00.000Z',
+    };
+    const pageResult = <T>(items: T[], totalItems = items.length, page = 1): PageResult<T> => ({
+      items,
+      pagination: {
+        page,
+        pageSize: 20,
+        totalItems,
+        totalPages: totalItems ? Math.ceil(totalItems / 20) : 0,
+      },
+    });
+
+    const financeMock = {
+      listInvoices: vi.fn<FinanceService['listInvoices']>(),
+      getInvoice: vi.fn<FinanceService['getInvoice']>(),
+      createInvoice: vi.fn<FinanceService['createInvoice']>(),
+      updateInvoice: vi.fn<FinanceService['updateInvoice']>(),
+      issueInvoice: vi.fn<FinanceService['issueInvoice']>(),
+      voidInvoice: vi.fn<FinanceService['voidInvoice']>(),
+      listInvoiceAllocations: vi.fn<FinanceService['listInvoiceAllocations']>(),
+      listPayments: vi.fn<FinanceService['listPayments']>(),
+      getPayment: vi.fn<FinanceService['getPayment']>(),
+      createPayment: vi.fn<FinanceService['createPayment']>(),
+      listPaymentAllocations: vi.fn<FinanceService['listPaymentAllocations']>(),
+      createPaymentAllocation: vi.fn<FinanceService['createPaymentAllocation']>(),
+    };
+    const peopleMock = {
+      listStudents: vi.fn<PeopleService['listStudents']>(),
+      getStudent: vi.fn<PeopleService['getStudent']>(),
+    };
+    const learningMock = {
+      listEnrollments: vi.fn<LearningService['listEnrollments']>(),
+      getEnrollment: vi.fn<LearningService['getEnrollment']>(),
+      getGroup: vi.fn<LearningService['getGroup']>(),
+    };
+
+    async function configure(
+      routePath: string,
+      params: Record<string, string> = {},
+      query: Record<string, string> = {},
+    ): Promise<void> {
+      TestBed.resetTestingModule();
+      await TestBed.configureTestingModule({
+        imports: [InvoicesComponent, PaymentsComponent],
+        providers: [
+          provideRouter([]),
+          {
+            provide: ActivatedRoute,
+            useValue: {
+              snapshot: {
+                routeConfig: { path: routePath },
+                paramMap: convertToParamMap(params),
+                queryParamMap: convertToParamMap(query),
+              },
+              queryParamMap: of(convertToParamMap(query)),
+            },
+          },
+          { provide: WorkspaceService, useValue: { getActiveWorkspace: () => of(workspace) } },
+          { provide: FinanceService, useValue: financeMock },
+          { provide: PeopleService, useValue: peopleMock },
+          { provide: LearningService, useValue: learningMock },
+        ],
+      }).compileComponents();
+    }
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule();
+      financeMock.listInvoices.mockReset().mockReturnValue(of(pageResult([invoice])));
+      financeMock.getInvoice.mockReset().mockReturnValue(of(invoice));
+      financeMock.createInvoice.mockReset().mockReturnValue(of(invoice));
+      financeMock.updateInvoice.mockReset().mockReturnValue(of(invoice));
+      financeMock.issueInvoice.mockReset().mockReturnValue(of({ ...invoice, status: 'issued', paymentStatus: 'unpaid', issuedAt: '2026-03-01T10:00:00.000Z' }));
+      financeMock.voidInvoice.mockReset().mockReturnValue(of({ ...invoice, status: 'void' }));
+      financeMock.listInvoiceAllocations.mockReset().mockReturnValue(of([]));
+      financeMock.listPayments.mockReset().mockReturnValue(of(pageResult([payment])));
+      financeMock.getPayment.mockReset().mockReturnValue(of(payment));
+      financeMock.createPayment.mockReset().mockReturnValue(of(payment));
+      financeMock.listPaymentAllocations.mockReset().mockReturnValue(of([]));
+      financeMock.createPaymentAllocation.mockReset().mockReturnValue(of({
+        id: 'allocation-finance',
+        paymentId: payment.id,
+        invoiceId: invoice.id,
+        amount: '50.00',
+        createdAt: '2026-03-10T11:00:00.000Z',
+        updatedAt: '2026-03-10T11:00:00.000Z',
+      } satisfies PaymentAllocation));
+      peopleMock.listStudents.mockReset().mockReturnValue(of(pageResult([student])));
+      peopleMock.getStudent.mockReset().mockReturnValue(of(student));
+      learningMock.listEnrollments.mockReset().mockReturnValue(of(pageResult([enrollment])));
+      learningMock.getEnrollment.mockReset().mockReturnValue(of(enrollment));
+      learningMock.getGroup.mockReset().mockReturnValue(of(group));
+      await Promise.resolve();
+    });
+
+    afterEach(() => TestBed.resetTestingModule());
+
+    it('sends workspace-scoped finance contracts and preserves decimal strings exactly', () => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [provideHttpClient(), provideHttpClientTesting()],
+      });
+      const service = TestBed.inject(FinanceService);
+      const http = TestBed.inject(HttpTestingController);
+      const exactAmount = '12345678901234567890123456789012.34';
+
+      service.listInvoices('workspace-finance', {
+        page: 2,
+        pageSize: 20,
+        studentId: student.id,
+        status: 'issued',
+        from: '2026-03-01',
+        to: '2026-03-31',
+      }).subscribe();
+      const invoiceList = http.expectOne((request) =>
+        request.url.endsWith('/workspaces/workspace-finance/invoices'),
+      );
+      expect(invoiceList.request.method).toBe('GET');
+      expect(invoiceList.request.withCredentials).toBe(true);
+      expect(invoiceList.request.params.get('page')).toBe('2');
+      expect(invoiceList.request.params.get('pageSize')).toBe('20');
+      expect(invoiceList.request.params.get('studentId')).toBe(student.id);
+      expect(invoiceList.request.params.get('status')).toBe('issued');
+      expect(invoiceList.request.params.get('from')).toBe('2026-03-01');
+      invoiceList.flush({ message: 'Invoices listed', data: pageResult([]) });
+
+      service.createPayment('workspace-finance', {
+        studentId: student.id,
+        amount: exactAmount,
+        method: 'bank_transfer',
+      }).subscribe();
+      const paymentRequest = http.expectOne((request) =>
+        request.url.endsWith('/workspaces/workspace-finance/payments'),
+      );
+      expect(paymentRequest.request.method).toBe('POST');
+      expect(paymentRequest.request.withCredentials).toBe(true);
+      expect(paymentRequest.request.body).toEqual({
+        studentId: student.id,
+        amount: exactAmount,
+        method: 'bank_transfer',
+      });
+      paymentRequest.flush({ message: 'Payment created', data: payment });
+
+      service.createPaymentAllocation('workspace-finance', payment.id, {
+        invoiceId: invoice.id,
+        amount: '25.50',
+      }).subscribe();
+      const allocationRequest = http.expectOne(
+        `/api/workspaces/workspace-finance/payments/${payment.id}/allocations`,
+      );
+      expect(allocationRequest.request.method).toBe('POST');
+      expect(allocationRequest.request.body).toEqual({ invoiceId: invoice.id, amount: '25.50' });
+      allocationRequest.flush({ message: 'Allocation created', data: {
+        id: 'allocation-finance',
+        paymentId: payment.id,
+        invoiceId: invoice.id,
+        amount: '25.50',
+        createdAt: payment.receivedAt,
+        updatedAt: payment.receivedAt,
+      } });
+      http.verify();
+    });
+
+    it('does not coerce long monetary decimal strings to binary floating point', () => {
+      const exactAmount = '12345678901234567890123456789012.34';
+      expect(formatMoneyExact(exactAmount)).toBe(exactAmount);
+      expect(formatMoneyExact(null)).toBe('0');
+    });
+
+    it('creates a draft only after selecting the current workspace student and active enrollment', async () => {
+      await configure('invoices/new');
+      const fixture = TestBed.createComponent(InvoicesComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+      component.submitInvoice();
+      expect(component.invoiceForm.controls.studentId.touched).toBe(true);
+      expect(financeMock.createInvoice).not.toHaveBeenCalled();
+
+      component.selectStudent(student);
+      expect(learningMock.listEnrollments).toHaveBeenCalledWith(workspace._id, {
+        page: 1,
+        pageSize: 20,
+        studentId: student.id,
+        status: 'active',
+      });
+      component.selectEnrollment({ enrollment, group });
+      component.invoiceForm.patchValue({
+        periodStart: '2026-03-01',
+        periodEnd: '2026-03-31',
+      });
+      component.submitInvoice();
+
+      expect(financeMock.createInvoice).toHaveBeenCalledWith(workspace._id, {
+        studentId: student.id,
+        enrollmentId: enrollment.id,
+        periodStart: '2026-03-01',
+        periodEnd: '2026-03-31',
+      });
+      expect(financeMock.getInvoice).not.toHaveBeenCalledWith(workspace._id, 'new');
+      expect(navigate).toHaveBeenCalledWith(`/invoices/${invoice.id}`);
+    });
+
+    it('uses only supported invoice filters and exposes issue and void only after server responses', async () => {
+      const issuedInvoice: Invoice = {
+        ...invoice,
+        status: 'issued',
+        paymentStatus: 'unpaid',
+        issuedAt: '2026-03-01T10:00:00.000Z',
+      };
+      financeMock.listInvoices.mockReturnValue(of(pageResult([issuedInvoice])));
+      await configure('invoices', {}, { status: 'issued' });
+      const listFixture = TestBed.createComponent(InvoicesComponent);
+      listFixture.detectChanges();
+      expect(financeMock.listInvoices).toHaveBeenCalledWith(workspace._id, {
+        page: 1,
+        pageSize: 20,
+        status: 'issued',
+      });
+      expect((listFixture.nativeElement as HTMLElement).textContent).toContain(student.name);
+
+      TestBed.resetTestingModule();
+      financeMock.getInvoice.mockReturnValue(of(invoice));
+      await configure('invoices/:invoiceId', { invoiceId: invoice.id });
+      const fixture = TestBed.createComponent(InvoicesComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      const confirmation = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      component.issue();
+      expect(confirmation).toHaveBeenCalled();
+      expect(financeMock.issueInvoice).toHaveBeenCalledWith(workspace._id, invoice.id);
+      expect(component.invoice()?.status).toBe('issued');
+      component.cancelInvoice();
+      expect(financeMock.voidInvoice).toHaveBeenCalledWith(workspace._id, invoice.id);
+      expect(component.invoice()?.status).toBe('void');
+    });
+
+    it('updates draft invoices only with fields allowed by the API', async () => {
+      await configure('invoices/:invoiceId', { invoiceId: invoice.id });
+      const fixture = TestBed.createComponent(InvoicesComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      component.beginEdit();
+      component.invoiceForm.controls.periodEnd.setValue('2026-04-01');
+      component.submitInvoice();
+
+      expect(financeMock.updateInvoice).toHaveBeenCalledWith(workspace._id, invoice.id, {
+        periodEnd: '2026-04-01',
+      });
+    });
+
+    it('rejects invalid payment precision and submits the exact decimal string without a client status', async () => {
+      await configure('payments/new');
+      const fixture = TestBed.createComponent(PaymentsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      component.selectStudent(student);
+      component.paymentForm.patchValue({ amount: '12.345', method: 'cash' });
+      component.submitPayment();
+      expect(financeMock.createPayment).not.toHaveBeenCalled();
+
+      const exactAmount = '12345678901234567890123456789012.34';
+      expect(isPositiveDecimalString(exactAmount)).toBe(true);
+      component.paymentForm.patchValue({ amount: exactAmount, method: 'bank_transfer' });
+      component.submitPayment();
+      expect(financeMock.createPayment).toHaveBeenCalledWith(workspace._id, {
+        studentId: student.id,
+        amount: exactAmount,
+        method: 'bank_transfer',
+      });
+      expect(Object.keys(financeMock.createPayment.mock.calls[0][1])).not.toContain('status');
+      expect(navigate).toHaveBeenCalledWith(`/payments/${payment.id}`);
+    });
+
+    it('keeps allocation errors explicit and does not change the displayed balance optimistically', async () => {
+      const issuedInvoice: Invoice = {
+        ...invoice,
+        status: 'issued',
+        paymentStatus: 'partially_paid',
+        totalAmount: '100.00',
+        allocatedAmount: '60.00',
+        outstandingAmount: '40.00',
+      };
+      financeMock.listInvoices.mockReturnValue(of(pageResult([issuedInvoice])));
+      financeMock.createPaymentAllocation.mockReturnValue(
+        throwError(() => new HttpErrorResponse({
+          status: 409,
+          error: { message: 'Allocation exceeds the available payment balance' },
+        })),
+      );
+      await configure('payments/:paymentId', { paymentId: payment.id });
+      const fixture = TestBed.createComponent(PaymentsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(component.canAllocate()).toBe(true);
+      component.openAllocation();
+      expect(financeMock.listInvoices).toHaveBeenCalledWith(workspace._id, {
+        page: 1,
+        pageSize: 20,
+        studentId: student.id,
+        status: 'issued',
+      });
+      component.selectInvoice(issuedInvoice);
+      component.allocationForm.patchValue({ amount: '60.00' });
+      component.submitAllocation();
+
+      expect(financeMock.createPaymentAllocation).toHaveBeenCalledWith(
+        workspace._id,
+        payment.id,
+        { invoiceId: issuedInvoice.id, amount: '60.00' },
+      );
+      expect(component.error()).toContain('Allocation exceeds the available payment balance');
+      expect(component.success()).toBe('');
+      expect(component.payment()?.unallocatedAmount).toBe('50.00');
+    });
+
+    it('shows loading and empty states separately from failed list requests', async () => {
+      const pendingInvoices = new RxSubject<PageResult<Invoice>>();
+      financeMock.listInvoices.mockReturnValue(pendingInvoices);
+      await configure('invoices');
+      const invoiceFixture = TestBed.createComponent(InvoicesComponent);
+      invoiceFixture.detectChanges();
+      expect((invoiceFixture.nativeElement as HTMLElement).textContent).toContain(
+        'جارٍ تحميل الفواتير',
+      );
+      pendingInvoices.next(pageResult([]));
+      pendingInvoices.complete();
+      invoiceFixture.detectChanges();
+      expect((invoiceFixture.nativeElement as HTMLElement).textContent).toContain(
+        'لا توجد فواتير حتى الآن',
+      );
+
+      TestBed.resetTestingModule();
+      financeMock.listPayments.mockReturnValue(
+        throwError(() => new HttpErrorResponse({
+          status: 500,
+          error: { message: 'Payment list unavailable' },
+        })),
+      );
+      await configure('payments');
+      const paymentFixture = TestBed.createComponent(PaymentsComponent);
+      paymentFixture.detectChanges();
+      expect((paymentFixture.nativeElement as HTMLElement).textContent).toContain(
+        'Payment list unavailable',
+      );
+      expect((paymentFixture.nativeElement as HTMLElement).textContent).not.toContain(
+        'لا توجد مدفوعات مسجلة بعد',
+      );
     });
   });
 });

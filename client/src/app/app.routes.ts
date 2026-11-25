@@ -35,6 +35,62 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'finance',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/finance/finance-overview.component').then(
+        (module) => module.FinanceOverviewComponent,
+      ),
+  },
+  {
+    path: 'invoices/new',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/finance/invoices.component').then(
+        (module) => module.InvoicesComponent,
+      ),
+  },
+  {
+    path: 'invoices/:invoiceId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/finance/invoices.component').then(
+        (module) => module.InvoicesComponent,
+      ),
+  },
+  {
+    path: 'invoices',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/finance/invoices.component').then(
+        (module) => module.InvoicesComponent,
+      ),
+  },
+  {
+    path: 'payments/new',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/finance/payments.component').then(
+        (module) => module.PaymentsComponent,
+      ),
+  },
+  {
+    path: 'payments/:paymentId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/finance/payments.component').then(
+        (module) => module.PaymentsComponent,
+      ),
+  },
+  {
+    path: 'payments',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/finance/payments.component').then(
+        (module) => module.PaymentsComponent,
+      ),
+  },
+  {
     path: 'attendance/sessions/:sessionId',
     canActivate: [authGuard],
     loadComponent: () =>

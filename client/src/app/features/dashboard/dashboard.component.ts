@@ -4,6 +4,7 @@ import { LucideDynamicIcon } from '@lucide/angular';
 import { AuthService } from '../../core/services/auth.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { DashboardSummary, ReportService } from '../../core/services/report.service';
+import { formatMoneyExact } from '../../core/utils/finance';
 
 type DashboardSection =
   'overview' | 'students' | 'groups' | 'schedule' | 'attendance' | 'payments' | 'reports';
@@ -149,6 +150,7 @@ export class DashboardComponent {
     { label: 'المجموعات', href: '/groups' },
     { label: 'إدارة الجلسات', href: '/sessions' },
     { label: 'إدارة الحضور', href: '/attendance' },
+    { label: 'الإدارة المالية', href: '/finance' },
   ];
   readonly metricCards = DASHBOARD_METRICS;
   readonly featureCards = DASHBOARD_FEATURES;
@@ -244,13 +246,7 @@ export class DashboardComponent {
   }
 
   formatMoney(value: string | undefined): string {
-    if (!value) return '0';
-    const number = Number(value);
-    if (!Number.isFinite(number)) return value;
-    return new Intl.NumberFormat('ar-EG', {
-      maximumFractionDigits: 2,
-      minimumFractionDigits: 0,
-    }).format(number);
+    return formatMoneyExact(value);
   }
 
   formatRate(value: number | null | undefined): string {

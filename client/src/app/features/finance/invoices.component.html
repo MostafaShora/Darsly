@@ -1,0 +1,827 @@
+<div class="min-h-screen bg-[#f5f8f6] text-[#173b32]" dir="rtl" lang="ar">
+  <header class="border-b border-[#e4ece6] bg-white">
+    <div
+      class="mx-auto flex min-h-[72px] max-w-[1460px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-7 xl:px-10"
+    >
+      <div>
+        <p class="text-[11px] font-semibold text-[#71847a]">مساحة عمل المدرّس</p>
+        <h1 class="text-base font-black">
+          {{
+            view() === 'list'
+              ? 'الفواتير'
+              : view() === 'create'
+                ? 'إنشاء مسودة فاتورة'
+                : 'تفاصيل الفاتورة'
+          }}
+        </h1>
+      </div>
+      <nav
+        class="flex flex-wrap items-center gap-2 text-xs font-bold"
+        aria-label="التنقل بين الأقسام"
+      >
+        <a
+          routerLink="/finance"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >المالية</a
+        >
+        <a
+          routerLink="/dashboard"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >لوحة التحكم</a
+        >
+        <a
+          routerLink="/payments"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >المدفوعات</a
+        >
+        <a
+          routerLink="/reports"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >التقارير</a
+        >
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1460px] px-4 py-6 sm:px-7 xl:px-10">
+    @if (error()) {
+      <p
+        class="mb-4 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-sm leading-6 text-[#9b493e]"
+        role="alert"
+      >
+        {{ error() }}
+      </p>
+    }
+    @if (success()) {
+      <p
+        class="mb-4 rounded-xl border border-[#d1ead9] bg-[#f2faf4] p-4 text-sm leading-6 text-[#087b59]"
+        role="status"
+        aria-live="polite"
+      >
+        {{ success() }}
+      </p>
+    }
+
+    @if (view() === 'list') {
+      <section
+        class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+        aria-labelledby="invoice-list-title"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="invoice-list-title" class="text-lg font-black">قائمة الفواتير</h2>
+            <p class="mt-1 text-xs leading-6 text-[#71847a]">
+              الفلاتر والفترة تطابق حقول القائمة المتاحة في API. لا يوجد بحث نصي للفواتير.
+            </p>
+          </div>
+          <a
+            routerLink="/invoices/new"
+            class="inline-flex min-h-11 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            >إنشاء مسودة</a
+          >
+        </div>
+
+        @if (filteredStudentId()) {
+          <div class="mt-4 flex flex-wrap items-center gap-2 rounded-xl bg-[#f2faf4] p-3 text-xs">
+            <span
+              >مصفّى حسب الطالب: <b dir="ltr">{{ filteredStudentId() }}</b></span
+            >
+            <a
+              routerLink="/invoices"
+              class="font-bold text-[#087b59] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >إزالة التصفية</a
+            >
+          </div>
+        }
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-3">
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+            >الحالة
+            <select
+              class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              [formControl]="statusFilter"
+            >
+              <option value="">كل الحالات</option>
+              @for (status of statuses; track status.value) {
+                <option [value]="status.value">{{ status.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+            >من تاريخ بداية الفترة
+            <input
+              type="date"
+              class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              [formControl]="fromFilter"
+            />
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+            >إلى تاريخ بداية الفترة
+            <input
+              type="date"
+              class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              [formControl]="toFilter"
+            />
+          </label>
+        </div>
+
+        @if (loading()) {
+          <div
+            class="mt-5 grid min-h-48 place-items-center rounded-xl border border-[#e4ece6] bg-[#fafcfb] text-sm text-[#5f7469]"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            جارٍ تحميل الفواتير...
+          </div>
+        } @else if (error()) {
+          <div
+            class="mt-5 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]"
+            role="alert"
+          >
+            تعذر عرض القائمة. أعد المحاولة بعد معالجة الخطأ الموضح أعلاه.
+          </div>
+        } @else if (invoiceRows().length) {
+          <div class="mt-5 overflow-x-auto">
+            <table class="w-full min-w-[880px] text-right text-sm">
+              <thead class="text-xs text-[#71847a]">
+                <tr>
+                  <th class="p-3">رقم الفاتورة</th>
+                  <th class="p-3">الطالب</th>
+                  <th class="p-3">فترة الفاتورة</th>
+                  <th class="p-3">الإجمالي</th>
+                  <th class="p-3">الحالة</th>
+                  <th class="p-3">الرصيد المستحق</th>
+                  <th class="p-3">التفاصيل</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of invoiceRows(); track row.invoice.id) {
+                  <tr class="border-t border-[#edf2ee]">
+                    <td class="p-3 font-bold" dir="ltr">{{ row.invoice.invoiceNumber }}</td>
+                    <td class="p-3">{{ row.student.name }}</td>
+                    <td class="p-3" dir="ltr">
+                      {{ row.invoice.periodStart }} — {{ row.invoice.periodEnd }}
+                    </td>
+                    <td class="p-3" dir="ltr">{{ money(row.invoice.totalAmount) }} ج.م</td>
+                    <td class="p-3">{{ statusLabel(row.invoice.status) }}</td>
+                    <td class="p-3" dir="ltr">{{ money(row.invoice.outstandingAmount) }} ج.م</td>
+                    <td class="p-3">
+                      <a
+                        [routerLink]="['/invoices', row.invoice.id]"
+                        class="font-bold text-[#087b59] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                        >فتح</a
+                      >
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <p class="text-[#71847a]">
+              النتائج: {{ pagination().totalItems }} — الصفحة {{ pagination().page }} من
+              {{ pagination().totalPages || 1 }}
+            </p>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="min-h-10 rounded-xl border border-[#dce8df] px-4 font-bold disabled:opacity-50"
+                [disabled]="pagination().page <= 1 || loading()"
+                (click)="setInvoicePage(pagination().page - 1)"
+              >
+                السابق
+              </button>
+              <button
+                type="button"
+                class="min-h-10 rounded-xl border border-[#dce8df] px-4 font-bold disabled:opacity-50"
+                [disabled]="pagination().page >= pagination().totalPages || loading()"
+                (click)="setInvoicePage(pagination().page + 1)"
+              >
+                التالي
+              </button>
+            </div>
+          </div>
+        } @else {
+          <div
+            class="mt-5 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-12 text-center"
+          >
+            <h3 class="text-sm font-extrabold">
+              {{
+                statusFilter.value || fromFilter.value || toFilter.value || filteredStudentId()
+                  ? 'لا توجد فواتير مطابقة'
+                  : 'لا توجد فواتير حتى الآن'
+              }}
+            </h3>
+            <p class="mt-2 text-xs leading-6 text-[#71847a]">
+              يمكنك إنشاء مسودة فاتورة لطالب لديه تسجيل مناسب في مساحة العمل.
+            </p>
+            <a
+              routerLink="/invoices/new"
+              class="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >إنشاء مسودة فاتورة</a
+            >
+          </div>
+        }
+      </section>
+    } @else if (view() === 'create') {
+      <section
+        class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+        aria-labelledby="invoice-form-title"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="invoice-form-title" class="text-lg font-black">إنشاء مسودة فاتورة</h2>
+            <p class="mt-1 text-xs leading-6 text-[#71847a]">
+              يحسب الخادم المبلغ وفق التسجيل ورسوم المجموعة والفترة؛ لا يوجد تقدير محلي للمبلغ.
+            </p>
+          </div>
+          <a
+            routerLink="/invoices"
+            class="inline-flex min-h-10 items-center rounded-xl border border-[#dce8df] px-4 text-xs font-bold text-[#51695e] hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+            >العودة للفواتير</a
+          >
+        </div>
+
+        <form class="mt-5 grid gap-5" [formGroup]="invoiceForm" (ngSubmit)="submitInvoice()">
+          <section aria-labelledby="invoice-student-title">
+            <h3 id="invoice-student-title" class="text-sm font-extrabold">1. اختر الطالب</h3>
+            <label class="mt-3 grid gap-1 text-xs font-bold text-[#38554a]"
+              >البحث عن طالب
+              <input
+                type="search"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                [formControl]="studentSearch"
+                placeholder="ابحث بالاسم أو الهاتف أو البريد"
+                autocomplete="off"
+              />
+            </label>
+            @if (studentOptionsError()) {
+              <p class="mt-2 text-xs text-[#9b493e]" role="alert">{{ studentOptionsError() }}</p>
+            }
+            @if (studentsLoading()) {
+              <p class="mt-3 text-xs text-[#71847a]" aria-live="polite">جارٍ تحميل الطلاب...</p>
+            } @else if (studentOptions().length) {
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                @for (option of studentOptions(); track option.id) {
+                  <button
+                    type="button"
+                    class="min-h-12 rounded-xl border px-3 text-right text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                    [class.border-[#087b59]]="invoiceForm.controls.studentId.value === option.id"
+                    [class.bg-[#f2faf4]]="invoiceForm.controls.studentId.value === option.id"
+                    [class.border-[#dce8df]]="invoiceForm.controls.studentId.value !== option.id"
+                    [attr.aria-pressed]="invoiceForm.controls.studentId.value === option.id"
+                    (click)="selectStudent(option)"
+                  >
+                    {{ option.name }}
+                    <span class="text-xs font-normal text-[#71847a]" dir="ltr">{{
+                      option.phone
+                    }}</span>
+                  </button>
+                }
+              </div>
+              <div class="mt-3 flex items-center justify-between text-xs text-[#71847a]">
+                <span
+                  >الصفحة {{ studentPagination().page }} من
+                  {{ studentPagination().totalPages || 1 }}</span
+                >
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="min-h-9 rounded-lg border px-3 disabled:opacity-50"
+                    [disabled]="studentPagination().page <= 1 || studentsLoading()"
+                    (click)="setStudentPage(studentPagination().page - 1)"
+                  >
+                    السابق
+                  </button>
+                  <button
+                    type="button"
+                    class="min-h-9 rounded-lg border px-3 disabled:opacity-50"
+                    [disabled]="
+                      studentPagination().page >= studentPagination().totalPages ||
+                      studentsLoading()
+                    "
+                    (click)="setStudentPage(studentPagination().page + 1)"
+                  >
+                    التالي
+                  </button>
+                </div>
+              </div>
+            } @else if (!studentsLoading() && !studentOptionsError() && !error()) {
+              <p class="mt-3 rounded-xl bg-[#fafcfb] p-4 text-xs text-[#71847a]">
+                لا توجد نتائج طلاب. تحقق من الاسم أو أضف ملف الطالب أولًا.
+              </p>
+            }
+            @if (invoiceForm.controls.studentId.touched && invoiceForm.controls.studentId.invalid) {
+              <p class="mt-2 text-xs text-[#9b493e]">اختر طالبًا قبل المتابعة.</p>
+            }
+          </section>
+
+          <section aria-labelledby="invoice-enrollment-title">
+            <h3 id="invoice-enrollment-title" class="text-sm font-extrabold">
+              2. اختر تسجيلًا في مجموعة
+            </h3>
+            @if (!invoiceForm.controls.studentId.value) {
+              <p class="mt-3 rounded-xl bg-[#fafcfb] p-4 text-xs text-[#71847a]">
+                اختر طالبًا أولًا لعرض تسجيلاته النشطة.
+              </p>
+            } @else if (enrollmentsLoading()) {
+              <p class="mt-3 text-xs text-[#71847a]" aria-live="polite">
+                جارٍ تحميل تسجيلات الطالب...
+              </p>
+            } @else if (enrollmentsError()) {
+              <p class="mt-3 text-xs text-[#9b493e]" role="alert">{{ enrollmentsError() }}</p>
+            } @else if (enrollmentOptions().length) {
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                @for (option of enrollmentOptions(); track option.enrollment.id) {
+                  <button
+                    type="button"
+                    class="rounded-xl border p-3 text-right focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                    [class.border-[#087b59]]="
+                      invoiceForm.controls.enrollmentId.value === option.enrollment.id
+                    "
+                    [class.bg-[#f2faf4]]="
+                      invoiceForm.controls.enrollmentId.value === option.enrollment.id
+                    "
+                    [class.border-[#dce8df]]="
+                      invoiceForm.controls.enrollmentId.value !== option.enrollment.id
+                    "
+                    [attr.aria-pressed]="
+                      invoiceForm.controls.enrollmentId.value === option.enrollment.id
+                    "
+                    (click)="selectEnrollment(option)"
+                  >
+                    <span class="block text-sm font-bold">{{ option.group.name }}</span>
+                    <span class="mt-1 block text-xs text-[#71847a]"
+                      >رسوم المجموعة الشهرية الحالية:
+                      <b dir="ltr">{{ money(option.group.monthlyFee) }} ج.م</b></span
+                    >
+                    <span class="mt-1 block text-[11px] text-[#71847a]"
+                      >حالة التسجيل:
+                      {{
+                        option.enrollment.status === 'active' ? 'نشط' : option.enrollment.status
+                      }}</span
+                    >
+                  </button>
+                }
+              </div>
+              @if (enrollmentPagination().totalPages > 1) {
+                <div class="mt-3 flex items-center justify-between text-xs text-[#71847a]">
+                  <span
+                    >الصفحة {{ enrollmentPagination().page }} من
+                    {{ enrollmentPagination().totalPages }}</span
+                  >
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="min-h-9 rounded-lg border px-3 disabled:opacity-50"
+                      [disabled]="enrollmentPagination().page <= 1 || enrollmentsLoading()"
+                      (click)="setEnrollmentPage(enrollmentPagination().page - 1)"
+                    >
+                      السابق
+                    </button>
+                    <button
+                      type="button"
+                      class="min-h-9 rounded-lg border px-3 disabled:opacity-50"
+                      [disabled]="
+                        enrollmentPagination().page >= enrollmentPagination().totalPages ||
+                        enrollmentsLoading()
+                      "
+                      (click)="setEnrollmentPage(enrollmentPagination().page + 1)"
+                    >
+                      التالي
+                    </button>
+                  </div>
+                </div>
+              }
+            } @else if (!enrollmentsLoading()) {
+              <p class="mt-3 rounded-xl bg-[#fff8f7] p-4 text-xs leading-6 text-[#9b493e]">
+                لا يوجد تسجيل نشط متاح لهذا الطالب. لا يمكن إنشاء فاتورة جديدة دون تسجيل نشط.
+              </p>
+            }
+            @if (
+              invoiceForm.controls.enrollmentId.touched && invoiceForm.controls.enrollmentId.invalid
+            ) {
+              <p class="mt-2 text-xs text-[#9b493e]">اختر تسجيلًا نشطًا.</p>
+            }
+          </section>
+
+          @if (enrollmentOption(); as selected) {
+            <p
+              class="rounded-xl border border-[#dce8df] bg-[#fafcfb] p-3 text-xs leading-6 text-[#51695e]"
+            >
+              القيمة النهائية للفترة ستُحسب بواسطة الخادم عند حفظ المسودة. الرسوم المعروضة هي الرسوم
+              الحالية للمجموعة وقد تتغير لاحقًا.
+            </p>
+          }
+
+          <section class="grid gap-3 sm:grid-cols-2" aria-label="فترة الفاتورة">
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+              >بداية الفترة
+              <input
+                type="date"
+                formControlName="periodStart"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              />
+              @if (
+                invoiceForm.controls.periodStart.touched && invoiceForm.controls.periodStart.invalid
+              ) {
+                <span class="font-normal text-[#9b493e]">أدخل تاريخ البداية.</span>
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+              >نهاية الفترة
+              <input
+                type="date"
+                formControlName="periodEnd"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              />
+              @if (
+                invoiceForm.controls.periodEnd.touched && invoiceForm.controls.periodEnd.invalid
+              ) {
+                <span class="font-normal text-[#9b493e]">أدخل تاريخ النهاية.</span>
+              }
+            </label>
+            @if (invoiceForm.errors?.['invalidPeriodRange']) {
+              <p class="text-xs text-[#9b493e]" role="alert">يجب ألا تسبق نهاية الفترة بدايتها.</p>
+            }
+          </section>
+
+          @if (!editing()) {
+            <section class="grid gap-3 sm:grid-cols-2" aria-label="بيانات إضافية">
+              <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+                >تاريخ الاستحقاق (اختياري، بالتوقيت المحلي)
+                <input
+                  type="datetime-local"
+                  formControlName="dueDate"
+                  class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                />
+              </label>
+              <label class="grid gap-1 text-xs font-bold text-[#38554a] sm:col-span-2"
+                >الوصف (اختياري)
+                <input
+                  type="text"
+                  formControlName="description"
+                  maxlength="500"
+                  class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                />
+              </label>
+              <label class="grid gap-1 text-xs font-bold text-[#38554a] sm:col-span-2"
+                >ملاحظات (اختياري)
+                <textarea
+                  formControlName="notes"
+                  rows="3"
+                  maxlength="2000"
+                  class="rounded-xl border border-[#dce8df] p-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                ></textarea>
+              </label>
+            </section>
+          }
+
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white hover:bg-[#066b4e] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+              [disabled]="submitting() || !workspaceId"
+            >
+              {{
+                submitting()
+                  ? 'جارٍ الحفظ...'
+                  : editing()
+                    ? 'حفظ تعديلات المسودة'
+                    : 'إنشاء مسودة الفاتورة'
+              }}
+            </button>
+            @if (editing()) {
+              <button
+                type="button"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-5 text-xs font-bold"
+                [disabled]="submitting()"
+                (click)="cancelEdit()"
+              >
+                إلغاء التعديل
+              </button>
+            }
+          </div>
+        </form>
+      </section>
+    } @else {
+      @if (detailsLoading()) {
+        <div
+          class="grid min-h-48 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-sm text-[#5f7469]"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          جارٍ تحميل بيانات الفاتورة...
+        </div>
+      } @else if (invoice(); as current) {
+        @if (detailError()) {
+          <p
+            class="mb-4 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-sm text-[#9b493e]"
+            role="alert"
+          >
+            {{ detailError() }}
+          </p>
+        }
+        <section
+          class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+          aria-labelledby="invoice-detail-title"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-bold text-[#71847a]">رقم الفاتورة</p>
+              <h2 id="invoice-detail-title" class="mt-1 text-xl font-black" dir="ltr">
+                {{ current.invoiceNumber }}
+              </h2>
+              <p class="mt-2 text-sm text-[#51695e]">
+                {{ statusLabel(current.status) }} · {{ paymentStatusLabel(current.paymentStatus) }}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a
+                routerLink="/invoices"
+                class="inline-flex min-h-10 items-center rounded-xl border border-[#dce8df] px-4 text-xs font-bold text-[#51695e] hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                >كل الفواتير</a
+              >
+              @if (current.status === 'draft') {
+                <button
+                  type="button"
+                  class="min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                  [disabled]="actionBusy() !== '' || editing()"
+                  (click)="issue()"
+                >
+                  {{ actionBusy() === 'issue' ? 'جارٍ الإصدار...' : 'إصدار الفاتورة' }}
+                </button>
+                <button
+                  type="button"
+                  class="min-h-10 rounded-xl border border-[#edc9c4] px-4 text-xs font-bold text-[#9b493e] disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#9b493e]"
+                  [disabled]="actionBusy() !== '' || editing()"
+                  (click)="cancelInvoice()"
+                >
+                  إلغاء المسودة
+                </button>
+                <button
+                  type="button"
+                  class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-bold disabled:opacity-60"
+                  [disabled]="actionBusy() !== '' || editing() || detailInfoLoading()"
+                  (click)="beginEdit()"
+                >
+                  تعديل المسودة
+                </button>
+              } @else if (current.status === 'issued' && current.paymentStatus === 'unpaid') {
+                <button
+                  type="button"
+                  class="min-h-10 rounded-xl border border-[#edc9c4] px-4 text-xs font-bold text-[#9b493e] disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#9b493e]"
+                  [disabled]="actionBusy() !== ''"
+                  (click)="cancelInvoice()"
+                >
+                  {{ actionBusy() === 'void' ? 'جارٍ الإلغاء...' : 'إلغاء الفاتورة' }}
+                </button>
+              }
+            </div>
+          </div>
+
+          @if (editing()) {
+            <form
+              class="mt-6 border-t border-[#edf2ee] pt-5"
+              [formGroup]="invoiceForm"
+              (ngSubmit)="submitInvoice()"
+            >
+              <h3 class="text-sm font-extrabold">تعديل بيانات المسودة</h3>
+              <p class="mt-1 text-xs leading-6 text-[#71847a]">
+                يسمح API بتعديل الطالب والتسجيل والفترة فقط. الوصف والملاحظات وتاريخ الاستحقاق غير
+                قابلة للتعديل عبر هذا العقد.
+              </p>
+              <div class="mt-4 grid gap-4">
+                <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+                  >البحث عن طالب
+                  <input
+                    type="search"
+                    class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm"
+                    [formControl]="studentSearch"
+                  />
+                </label>
+                @if (studentsLoading()) {
+                  <p class="text-xs text-[#71847a]">جارٍ تحميل الطلاب...</p>
+                }
+                <div class="grid gap-2 sm:grid-cols-2">
+                  @for (option of studentOptions(); track option.id) {
+                    <button
+                      type="button"
+                      class="min-h-11 rounded-xl border p-3 text-right text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                      [class.border-[#087b59]]="invoiceForm.controls.studentId.value === option.id"
+                      [class.bg-[#f2faf4]]="invoiceForm.controls.studentId.value === option.id"
+                      [class.border-[#dce8df]]="invoiceForm.controls.studentId.value !== option.id"
+                      [attr.aria-pressed]="invoiceForm.controls.studentId.value === option.id"
+                      (click)="selectStudent(option)"
+                    >
+                      {{ option.name }}
+                    </button>
+                  }
+                </div>
+                @if (studentOptionsError()) {
+                  <p class="text-xs text-[#9b493e]" role="alert">{{ studentOptionsError() }}</p>
+                }
+                <h4 class="text-xs font-extrabold">التسجيل المرتبط</h4>
+                @if (enrollmentsLoading()) {
+                  <p class="text-xs text-[#71847a]">جارٍ تحميل التسجيلات...</p>
+                }
+                @if (enrollmentsError()) {
+                  <p class="text-xs text-[#9b493e]" role="alert">{{ enrollmentsError() }}</p>
+                }
+                <div class="grid gap-2 sm:grid-cols-2">
+                  @for (option of enrollmentOptions(); track option.enrollment.id) {
+                    <button
+                      type="button"
+                      class="rounded-xl border p-3 text-right focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                      [class.border-[#087b59]]="
+                        invoiceForm.controls.enrollmentId.value === option.enrollment.id
+                      "
+                      [class.bg-[#f2faf4]]="
+                        invoiceForm.controls.enrollmentId.value === option.enrollment.id
+                      "
+                      [class.border-[#dce8df]]="
+                        invoiceForm.controls.enrollmentId.value !== option.enrollment.id
+                      "
+                      [attr.aria-pressed]="
+                        invoiceForm.controls.enrollmentId.value === option.enrollment.id
+                      "
+                      (click)="selectEnrollment(option)"
+                    >
+                      <span class="block text-sm font-bold">{{ option.group.name }}</span>
+                      <span class="mt-1 block text-xs text-[#71847a]"
+                        >حالة التسجيل: {{ option.enrollment.status }}</span
+                      >
+                    </button>
+                  }
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+                    >بداية الفترة<input
+                      type="date"
+                      formControlName="periodStart"
+                      class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm"
+                  /></label>
+                  <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+                    >نهاية الفترة<input
+                      type="date"
+                      formControlName="periodEnd"
+                      class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm"
+                  /></label>
+                </div>
+                @if (invoiceForm.errors?.['invalidPeriodRange']) {
+                  <p class="text-xs text-[#9b493e]" role="alert">
+                    يجب ألا تسبق نهاية الفترة بدايتها.
+                  </p>
+                }
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    class="min-h-11 rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white disabled:opacity-60"
+                    [disabled]="submitting()"
+                  >
+                    {{ submitting() ? 'جارٍ الحفظ...' : 'حفظ التعديلات' }}
+                  </button>
+                  <button
+                    type="button"
+                    class="min-h-11 rounded-xl border border-[#dce8df] px-5 text-xs font-bold"
+                    [disabled]="submitting()"
+                    (click)="cancelEdit()"
+                  >
+                    إلغاء
+                  </button>
+                </div>
+              </div>
+            </form>
+          }
+
+          <div class="mt-6 grid gap-3 border-t border-[#edf2ee] pt-5 sm:grid-cols-2 xl:grid-cols-4">
+            <article class="rounded-xl bg-[#fafcfb] p-4">
+              <h3 class="text-xs text-[#71847a]">الطالب</h3>
+              <p class="mt-2 font-bold">
+                {{
+                  detailInfoLoading() ? 'جارٍ التحميل...' : (student()?.name ?? current.studentId)
+                }}
+              </p>
+            </article>
+            <article class="rounded-xl bg-[#fafcfb] p-4">
+              <h3 class="text-xs text-[#71847a]">المجموعة الحالية</h3>
+              <p class="mt-2 font-bold">
+                {{
+                  detailInfoLoading()
+                    ? 'جارٍ التحميل...'
+                    : (enrollmentOption()?.group?.name ?? current.groupId)
+                }}
+              </p>
+            </article>
+            <article class="rounded-xl bg-[#fafcfb] p-4">
+              <h3 class="text-xs text-[#71847a]">فترة الفاتورة</h3>
+              <p class="mt-2 font-bold" dir="ltr">
+                {{ current.periodStart }} — {{ current.periodEnd }}
+              </p>
+            </article>
+            <article class="rounded-xl bg-[#fafcfb] p-4">
+              <h3 class="text-xs text-[#71847a]">تاريخ الاستحقاق</h3>
+              <p class="mt-2 font-bold">{{ timestamp(current.dueDate) }}</p>
+            </article>
+          </div>
+
+          <section class="mt-5 grid gap-3 sm:grid-cols-3" aria-label="مبالغ الفاتورة">
+            <article class="rounded-xl border border-[#e4ece6] p-4">
+              <h3 class="text-xs text-[#71847a]">الإجمالي المحسوب من الخادم</h3>
+              <p class="mt-2 text-lg font-black" dir="ltr">{{ money(current.totalAmount) }} ج.م</p>
+            </article>
+            <article class="rounded-xl border border-[#e4ece6] p-4">
+              <h3 class="text-xs text-[#71847a]">المخصّص</h3>
+              <p class="mt-2 text-lg font-black" dir="ltr">
+                {{ money(current.allocatedAmount) }} ج.م
+              </p>
+            </article>
+            <article class="rounded-xl border border-[#e4ece6] p-4">
+              <h3 class="text-xs text-[#71847a]">المتبقي</h3>
+              <p class="mt-2 text-lg font-black" dir="ltr">
+                {{ money(current.outstandingAmount) }} ج.م
+              </p>
+            </article>
+          </section>
+          @if (current.description) {
+            <p class="mt-4 text-sm leading-6"><b>الوصف:</b> {{ current.description }}</p>
+          }
+          @if (current.notes) {
+            <p class="mt-2 text-sm leading-6"><b>ملاحظات:</b> {{ current.notes }}</p>
+          }
+          <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[#71847a]">
+            <span>تاريخ الإصدار: {{ timestamp(current.issuedAt) }}</span>
+            <span>تاريخ الإنشاء: {{ timestamp(current.createdAt) }}</span>
+          </div>
+        </section>
+
+        <section
+          class="mt-5 rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+          aria-labelledby="invoice-allocations-title"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <h2 id="invoice-allocations-title" class="text-base font-black">تخصيصات الدفعات</h2>
+              <p class="mt-1 text-xs text-[#71847a]">تعرض القائمة ما أعاده API لهذه الفاتورة.</p>
+            </div>
+            <a
+              [routerLink]="['/payments']"
+              [queryParams]="{ studentId: current.studentId }"
+              class="text-xs font-bold text-[#087b59] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >مدفوعات الطالب</a
+            >
+          </div>
+          @if (allocationsError()) {
+            <p class="mt-4 text-xs text-[#9b493e]" role="alert">{{ allocationsError() }}</p>
+          } @else if (allocationsLoading()) {
+            <p class="mt-4 text-xs text-[#71847a]" aria-live="polite">جارٍ تحميل التخصيصات...</p>
+          } @else if (allocations().length) {
+            <div class="mt-3 overflow-x-auto">
+              <table class="w-full min-w-[500px] text-right text-sm">
+                <thead class="text-xs text-[#71847a]">
+                  <tr>
+                    <th class="p-3">معرّف التخصيص</th>
+                    <th class="p-3">معرّف الدفعة</th>
+                    <th class="p-3">المبلغ</th>
+                    <th class="p-3">تاريخ الإنشاء</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (allocation of allocations(); track allocation.id) {
+                    <tr class="border-t border-[#edf2ee]">
+                      <td class="p-3" dir="ltr">{{ allocation.id }}</td>
+                      <td class="p-3" dir="ltr">
+                        <a
+                          [routerLink]="['/payments', allocation.paymentId]"
+                          class="font-bold text-[#087b59] underline"
+                          >{{ allocation.paymentId }}</a
+                        >
+                      </td>
+                      <td class="p-3" dir="ltr">{{ money(allocation.amount) }} ج.م</td>
+                      <td class="p-3">{{ timestamp(allocation.createdAt) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="mt-4 rounded-xl bg-[#fafcfb] p-4 text-xs text-[#71847a]">
+              لا توجد تخصيصات مرتبطة بهذه الفاتورة.
+            </p>
+          }
+        </section>
+      } @else if (detailError()) {
+        <section
+          class="rounded-2xl border border-[#f1d9d5] bg-[#fff8f7] p-6 text-sm text-[#9b493e]"
+          role="alert"
+        >
+          {{ detailError() }}
+        </section>
+      } @else {
+        <section class="rounded-2xl border border-[#e4ece6] bg-white p-6 text-sm text-[#71847a]">
+          تعذر العثور على الفاتورة المطلوبة.
+        </section>
+      }
+    }
+  </main>
+</div>

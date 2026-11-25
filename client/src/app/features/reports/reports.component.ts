@@ -8,6 +8,7 @@ import {
   ReportService,
 } from '../../core/services/report.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
+import { formatMoneyExact } from '../../core/utils/finance';
 
 export const formatReportDateForTimezone = (
   value: string,
@@ -261,9 +262,7 @@ export class ReportsComponent {
   }
 
   formatMoney(value: string): string {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return value;
-    return new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 2 }).format(number);
+    return formatMoneyExact(value);
   }
 
   formatRate(value: number | null): string {

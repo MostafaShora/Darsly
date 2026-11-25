@@ -1,0 +1,701 @@
+<div class="min-h-screen bg-[#f5f8f6] text-[#173b32]" dir="rtl" lang="ar">
+  <header class="border-b border-[#e4ece6] bg-white">
+    <div
+      class="mx-auto flex min-h-[72px] max-w-[1460px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-7 xl:px-10"
+    >
+      <div>
+        <p class="text-[11px] font-semibold text-[#71847a]">مساحة عمل المدرّس</p>
+        <h1 class="text-base font-black">
+          {{
+            view() === 'list' ? 'المدفوعات' : view() === 'create' ? 'تسجيل دفعة' : 'تفاصيل الدفعة'
+          }}
+        </h1>
+      </div>
+      <nav
+        class="flex flex-wrap items-center gap-2 text-xs font-bold"
+        aria-label="التنقل بين الأقسام"
+      >
+        <a
+          routerLink="/finance"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >المالية</a
+        >
+        <a
+          routerLink="/invoices"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >الفواتير</a
+        >
+        <a
+          routerLink="/dashboard"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >لوحة التحكم</a
+        >
+        <a
+          routerLink="/reports"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >التقارير</a
+        >
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1460px] px-4 py-6 sm:px-7 xl:px-10">
+    @if (error()) {
+      <p
+        class="mb-4 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-sm leading-6 text-[#9b493e]"
+        role="alert"
+      >
+        {{ error() }}
+      </p>
+    }
+    @if (success()) {
+      <p
+        class="mb-4 rounded-xl border border-[#d1ead9] bg-[#f2faf4] p-4 text-sm leading-6 text-[#087b59]"
+        role="status"
+        aria-live="polite"
+      >
+        {{ success() }}
+      </p>
+    }
+
+    @if (view() === 'list') {
+      <section
+        class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+        aria-labelledby="payments-list-title"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="payments-list-title" class="text-lg font-black">قائمة المدفوعات</h2>
+            <p class="mt-1 text-xs leading-6 text-[#71847a]">
+              الترتيب حسب وقت الاستلام. البحث النصي غير متاح في API المدفوعات.
+            </p>
+          </div>
+          <a
+            routerLink="/payments/new"
+            class="inline-flex min-h-11 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            >تسجيل دفعة</a
+          >
+        </div>
+        @if (filteredStudentId()) {
+          <div class="mt-4 flex flex-wrap items-center gap-2 rounded-xl bg-[#f2faf4] p-3 text-xs">
+            <span
+              >مصفّى حسب الطالب: <b dir="ltr">{{ filteredStudentId() }}</b></span
+            >
+            <a
+              routerLink="/payments"
+              class="font-bold text-[#087b59] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >إزالة التصفية</a
+            >
+          </div>
+        }
+        <div class="mt-5 grid gap-3 sm:grid-cols-3">
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+            >الحالة
+            <select
+              class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              [formControl]="statusFilter"
+            >
+              <option value="">كل الحالات</option>
+              @for (status of statuses; track status.value) {
+                <option [value]="status.value">{{ status.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+            >من تاريخ الاستلام
+            <input
+              type="date"
+              class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              [formControl]="fromFilter"
+            />
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+            >إلى تاريخ الاستلام
+            <input
+              type="date"
+              class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              [formControl]="toFilter"
+            />
+          </label>
+        </div>
+        @if (loading()) {
+          <div
+            class="mt-5 grid min-h-48 place-items-center rounded-xl border border-[#e4ece6] bg-[#fafcfb] text-sm text-[#5f7469]"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            جارٍ تحميل المدفوعات...
+          </div>
+        } @else if (error()) {
+          <div
+            class="mt-5 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]"
+            role="alert"
+          >
+            تعذر عرض القائمة. أعد المحاولة بعد معالجة الخطأ الموضح أعلاه.
+          </div>
+        } @else if (paymentRows().length) {
+          <div class="mt-5 overflow-x-auto">
+            <table class="w-full min-w-[900px] text-right text-sm">
+              <thead class="text-xs text-[#71847a]">
+                <tr>
+                  <th class="p-3">الطالب</th>
+                  <th class="p-3">المبلغ</th>
+                  <th class="p-3">الطريقة</th>
+                  <th class="p-3">وقت الاستلام</th>
+                  <th class="p-3">الحالة</th>
+                  <th class="p-3">المتبقي غير المخصّص</th>
+                  <th class="p-3">التفاصيل</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of paymentRows(); track row.payment.id) {
+                  <tr class="border-t border-[#edf2ee]">
+                    <td class="p-3">{{ row.student.name }}</td>
+                    <td class="p-3 font-bold" dir="ltr">{{ money(row.payment.amount) }} ج.م</td>
+                    <td class="p-3">{{ methodLabel(row.payment.method) }}</td>
+                    <td class="p-3">{{ timestamp(row.payment.receivedAt) }}</td>
+                    <td class="p-3">{{ statusLabel(row.payment.status) }}</td>
+                    <td class="p-3" dir="ltr">{{ money(row.payment.unallocatedAmount) }} ج.م</td>
+                    <td class="p-3">
+                      <a
+                        [routerLink]="['/payments', row.payment.id]"
+                        class="font-bold text-[#087b59] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                        >فتح</a
+                      >
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <p class="text-[#71847a]">
+              النتائج: {{ pagination().totalItems }} — الصفحة {{ pagination().page }} من
+              {{ pagination().totalPages || 1 }}
+            </p>
+            <div class="flex gap-2">
+              <button
+                type="button"
+                class="min-h-10 rounded-xl border border-[#dce8df] px-4 font-bold disabled:opacity-50"
+                [disabled]="pagination().page <= 1 || loading()"
+                (click)="setPaymentPage(pagination().page - 1)"
+              >
+                السابق
+              </button>
+              <button
+                type="button"
+                class="min-h-10 rounded-xl border border-[#dce8df] px-4 font-bold disabled:opacity-50"
+                [disabled]="pagination().page >= pagination().totalPages || loading()"
+                (click)="setPaymentPage(pagination().page + 1)"
+              >
+                التالي
+              </button>
+            </div>
+          </div>
+        } @else {
+          <div
+            class="mt-5 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-12 text-center"
+          >
+            <h3 class="text-sm font-extrabold">
+              {{
+                statusFilter.value || fromFilter.value || toFilter.value || filteredStudentId()
+                  ? 'لا توجد مدفوعات مطابقة'
+                  : 'لا توجد مدفوعات مسجلة بعد'
+              }}
+            </h3>
+            <p class="mt-2 text-xs leading-6 text-[#71847a]">
+              يمكن تسجيل دفعة فعلية لطالب في مساحة العمل.
+            </p>
+            <a
+              routerLink="/payments/new"
+              class="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >تسجيل دفعة</a
+            >
+          </div>
+        }
+      </section>
+    } @else if (view() === 'create') {
+      <section
+        class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+        aria-labelledby="payment-form-title"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="payment-form-title" class="text-lg font-black">تسجيل دفعة</h2>
+            <p class="mt-1 text-xs leading-6 text-[#71847a]">
+              تُسجّل الدفعة مكتملة حسب العقد؛ لا يتم تخصيصها تلقائيًا لفاتورة.
+            </p>
+          </div>
+          <a
+            routerLink="/payments"
+            class="inline-flex min-h-10 items-center rounded-xl border border-[#dce8df] px-4 text-xs font-bold text-[#51695e] hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+            >العودة للمدفوعات</a
+          >
+        </div>
+
+        <form class="mt-5 grid gap-5" [formGroup]="paymentForm" (ngSubmit)="submitPayment()">
+          <section aria-labelledby="payment-student-title">
+            <h3 id="payment-student-title" class="text-sm font-extrabold">1. اختر الطالب</h3>
+            <label class="mt-3 grid gap-1 text-xs font-bold text-[#38554a]"
+              >البحث عن طالب
+              <input
+                type="search"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                [formControl]="studentSearch"
+                placeholder="ابحث بالاسم أو الهاتف أو البريد"
+                autocomplete="off"
+              />
+            </label>
+            @if (studentOptionsError()) {
+              <p class="mt-2 text-xs text-[#9b493e]" role="alert">{{ studentOptionsError() }}</p>
+            }
+            @if (studentsLoading()) {
+              <p class="mt-3 text-xs text-[#71847a]" aria-live="polite">جارٍ تحميل الطلاب...</p>
+            } @else if (studentOptions().length) {
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                @for (option of studentOptions(); track option.id) {
+                  <button
+                    type="button"
+                    class="min-h-12 rounded-xl border px-3 text-right text-sm font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                    [class.border-[#087b59]]="paymentForm.controls.studentId.value === option.id"
+                    [class.bg-[#f2faf4]]="paymentForm.controls.studentId.value === option.id"
+                    [class.border-[#dce8df]]="paymentForm.controls.studentId.value !== option.id"
+                    [attr.aria-pressed]="paymentForm.controls.studentId.value === option.id"
+                    (click)="selectStudent(option)"
+                  >
+                    {{ option.name }}
+                    <span class="text-xs font-normal text-[#71847a]" dir="ltr">{{
+                      option.phone
+                    }}</span>
+                  </button>
+                }
+              </div>
+              <div class="mt-3 flex items-center justify-between text-xs text-[#71847a]">
+                <span
+                  >الصفحة {{ studentPagination().page }} من
+                  {{ studentPagination().totalPages || 1 }}</span
+                >
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="min-h-9 rounded-lg border px-3 disabled:opacity-50"
+                    [disabled]="studentPagination().page <= 1 || studentsLoading()"
+                    (click)="setStudentPage(studentPagination().page - 1)"
+                  >
+                    السابق
+                  </button>
+                  <button
+                    type="button"
+                    class="min-h-9 rounded-lg border px-3 disabled:opacity-50"
+                    [disabled]="
+                      studentPagination().page >= studentPagination().totalPages ||
+                      studentsLoading()
+                    "
+                    (click)="setStudentPage(studentPagination().page + 1)"
+                  >
+                    التالي
+                  </button>
+                </div>
+              </div>
+            } @else if (!studentsLoading() && !studentOptionsError() && !error()) {
+              <p class="mt-3 rounded-xl bg-[#fafcfb] p-4 text-xs text-[#71847a]">
+                لا توجد نتائج طلاب. تحقق من الاسم أو أضف ملف الطالب أولًا.
+              </p>
+            }
+            @if (paymentForm.controls.studentId.touched && paymentForm.controls.studentId.invalid) {
+              <p class="mt-2 text-xs text-[#9b493e]">اختر طالبًا قبل المتابعة.</p>
+            }
+          </section>
+
+          <section class="grid gap-3 sm:grid-cols-2" aria-label="بيانات الدفعة">
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+              >المبلغ (ج.م)
+              <input
+                type="text"
+                inputmode="decimal"
+                dir="ltr"
+                formControlName="amount"
+                maxlength="128"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-left text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                placeholder="0.00"
+              />
+              @if (
+                paymentForm.controls.amount.touched &&
+                paymentForm.controls.amount.errors?.['required']
+              ) {
+                <span class="font-normal text-[#9b493e]">أدخل المبلغ.</span>
+              }
+              @if (
+                paymentForm.controls.amount.touched &&
+                (paymentForm.controls.amount.errors?.['pattern'] ||
+                  paymentForm.controls.amount.errors?.['positiveDecimal'] ||
+                  paymentForm.controls.amount.errors?.['maxlength'])
+              ) {
+                <span class="font-normal text-[#9b493e]"
+                  >أدخل مبلغًا موجبًا حتى منزلتين عشريتين وبحد أقصى 34 رقمًا معنويًا.</span
+                >
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+              >طريقة الدفع
+              <select
+                formControlName="method"
+                class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              >
+                @for (method of methods; track method.value) {
+                  <option [value]="method.value">{{ method.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+              >وقت الاستلام (اختياري، بالتوقيت المحلي)
+              <input
+                type="datetime-local"
+                formControlName="receivedAt"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              />
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+              >المرجع (اختياري)
+              <input
+                type="text"
+                formControlName="reference"
+                maxlength="150"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              />
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a] sm:col-span-2"
+              >ملاحظات (اختياري)
+              <textarea
+                formControlName="notes"
+                rows="3"
+                maxlength="2000"
+                class="rounded-xl border border-[#dce8df] p-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              ></textarea>
+            </label>
+          </section>
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="submit"
+              class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white hover:bg-[#066b4e] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+              [disabled]="submitting() || !workspaceId"
+            >
+              {{ submitting() ? 'جارٍ التسجيل...' : 'تسجيل الدفعة' }}
+            </button>
+          </div>
+        </form>
+      </section>
+    } @else {
+      @if (detailsLoading()) {
+        <div
+          class="grid min-h-48 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-sm text-[#5f7469]"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          جارٍ تحميل بيانات الدفعة...
+        </div>
+      } @else if (payment(); as current) {
+        @if (detailError()) {
+          <p
+            class="mb-4 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-sm text-[#9b493e]"
+            role="alert"
+          >
+            {{ detailError() }}
+          </p>
+        }
+        <section
+          class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+          aria-labelledby="payment-detail-title"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-bold text-[#71847a]">معرّف الدفعة</p>
+              <h2 id="payment-detail-title" class="mt-1 text-lg font-black" dir="ltr">
+                {{ current.id }}
+              </h2>
+              <p class="mt-2 text-sm text-[#51695e]">
+                {{ statusLabel(current.status) }} · {{ methodLabel(current.method) }}
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <a
+                routerLink="/payments"
+                class="inline-flex min-h-10 items-center rounded-xl border border-[#dce8df] px-4 text-xs font-bold text-[#51695e] hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                >كل المدفوعات</a
+              >
+              @if (canAllocate()) {
+                <button
+                  type="button"
+                  class="min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                  [disabled]="allocationOpen()"
+                  (click)="openAllocation()"
+                >
+                  تخصيص لفاتورة صادرة
+                </button>
+              }
+            </div>
+          </div>
+          <div class="mt-6 grid gap-3 border-t border-[#edf2ee] pt-5 sm:grid-cols-2 xl:grid-cols-4">
+            <article class="rounded-xl bg-[#fafcfb] p-4">
+              <h3 class="text-xs text-[#71847a]">الطالب</h3>
+              <p class="mt-2 font-bold">{{ student()?.name ?? current.studentId }}</p>
+            </article>
+            <article class="rounded-xl bg-[#fafcfb] p-4">
+              <h3 class="text-xs text-[#71847a]">المبلغ المستلم</h3>
+              <p class="mt-2 text-lg font-black" dir="ltr">{{ money(current.amount) }} ج.م</p>
+            </article>
+            <article class="rounded-xl bg-[#fafcfb] p-4">
+              <h3 class="text-xs text-[#71847a]">المخصّص</h3>
+              <p class="mt-2 text-lg font-black" dir="ltr">
+                {{ money(current.allocatedAmount) }} ج.م
+              </p>
+            </article>
+            <article class="rounded-xl bg-[#fafcfb] p-4">
+              <h3 class="text-xs text-[#71847a]">غير المخصّص</h3>
+              <p class="mt-2 text-lg font-black" dir="ltr">
+                {{ money(current.unallocatedAmount) }} ج.م
+              </p>
+            </article>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[#71847a]">
+            <span>وقت الاستلام: {{ timestamp(current.receivedAt) }}</span>
+            @if (current.reference) {
+              <span>المرجع: {{ current.reference }}</span>
+            }
+          </div>
+          @if (current.notes) {
+            <p class="mt-3 text-sm leading-6"><b>ملاحظات:</b> {{ current.notes }}</p>
+          }
+          <p
+            class="mt-4 rounded-xl border border-[#dce8df] bg-[#fafcfb] p-3 text-xs leading-6 text-[#51695e]"
+          >
+            المبلغ غير المخصّص ليس رصيدًا أو ائتمانًا تلقائيًا؛ لا يطبّق على أي فاتورة حتى تنشئ
+            تخصيصًا صريحًا.
+          </p>
+        </section>
+
+        @if (latestAllocatedInvoice(); as latest) {
+          <section
+            class="mt-4 rounded-xl border border-[#d1ead9] bg-[#f2faf4] p-4 text-sm"
+            role="status"
+            aria-live="polite"
+          >
+            <p class="font-bold">تم تحديث بيانات الفاتورة بعد التخصيص.</p>
+            <p class="mt-1">
+              المتبقي: <b dir="ltr">{{ money(latest.outstandingAmount) }} ج.م</b>
+            </p>
+            <a
+              [routerLink]="['/invoices', latest.id]"
+              class="mt-2 inline-flex font-bold text-[#087b59] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >فتح الفاتورة</a
+            >
+          </section>
+        }
+
+        @if (allocationOpen()) {
+          <section
+            class="mt-5 rounded-2xl border border-[#cfe4d5] bg-white p-5 sm:p-6"
+            aria-labelledby="allocation-title"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="allocation-title" class="text-base font-black">تخصيص مبلغ للفاتورة</h2>
+                <p class="mt-1 text-xs leading-6 text-[#71847a]">
+                  اختر فاتورة صادرة للطالب نفسه. الخادم يتحقق من المبلغ المتبقي للطرفين داخل معاملة
+                  ذرّية.
+                </p>
+              </div>
+              <button
+                type="button"
+                class="min-h-9 rounded-lg border border-[#dce8df] px-3 text-xs font-bold"
+                [disabled]="allocationSubmitting()"
+                (click)="closeAllocation()"
+              >
+                إغلاق
+              </button>
+            </div>
+            @if (invoiceOptionsError()) {
+              <p class="mt-4 text-xs text-[#9b493e]" role="alert">{{ invoiceOptionsError() }}</p>
+            }
+            @if (invoiceOptionsLoading()) {
+              <p class="mt-4 text-xs text-[#71847a]" aria-live="polite">
+                جارٍ تحميل الفواتير الصادرة...
+              </p>
+            } @else if (invoiceOptions().length) {
+              <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                @for (invoice of invoiceOptions(); track invoice.id) {
+                  <button
+                    type="button"
+                    class="rounded-xl border p-3 text-right focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                    [class.border-[#087b59]]="
+                      allocationForm.controls.invoiceId.value === invoice.id
+                    "
+                    [class.bg-[#f2faf4]]="allocationForm.controls.invoiceId.value === invoice.id"
+                    [class.border-[#dce8df]]="
+                      allocationForm.controls.invoiceId.value !== invoice.id
+                    "
+                    [attr.aria-pressed]="allocationForm.controls.invoiceId.value === invoice.id"
+                    (click)="selectInvoice(invoice)"
+                  >
+                    <span class="block text-sm font-bold" dir="ltr">{{
+                      invoice.invoiceNumber
+                    }}</span>
+                    <span class="mt-1 block text-xs text-[#71847a]" dir="ltr"
+                      >المتبقي: {{ money(invoice.outstandingAmount) }} ج.م</span
+                    >
+                    <span class="mt-1 block text-[11px] text-[#71847a]" dir="ltr"
+                      >{{ invoice.periodStart }} — {{ invoice.periodEnd }}</span
+                    >
+                  </button>
+                }
+              </div>
+              @if (invoicePagination().totalPages > 1) {
+                <div class="mt-3 flex items-center justify-between text-xs text-[#71847a]">
+                  <span
+                    >الصفحة {{ invoicePagination().page }} من
+                    {{ invoicePagination().totalPages }}</span
+                  >
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="min-h-9 rounded-lg border px-3 disabled:opacity-50"
+                      [disabled]="invoicePagination().page <= 1 || invoiceOptionsLoading()"
+                      (click)="setInvoicePage(invoicePagination().page - 1)"
+                    >
+                      السابق
+                    </button>
+                    <button
+                      type="button"
+                      class="min-h-9 rounded-lg border px-3 disabled:opacity-50"
+                      [disabled]="
+                        invoicePagination().page >= invoicePagination().totalPages ||
+                        invoiceOptionsLoading()
+                      "
+                      (click)="setInvoicePage(invoicePagination().page + 1)"
+                    >
+                      التالي
+                    </button>
+                  </div>
+                </div>
+              }
+            } @else if (!invoiceOptionsLoading() && !invoiceOptionsError()) {
+              <p class="mt-4 rounded-xl bg-[#fafcfb] p-4 text-xs leading-6 text-[#71847a]">
+                لا توجد فواتير صادرة ذات رصيد متبقٍ في هذه الصفحة للطالب. أنشئ أو أصدر فاتورة أولًا.
+              </p>
+            }
+            <form
+              class="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+              [formGroup]="allocationForm"
+              (ngSubmit)="submitAllocation()"
+            >
+              <label class="grid gap-1 text-xs font-bold text-[#38554a]"
+                >مبلغ التخصيص
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  dir="ltr"
+                  formControlName="amount"
+                  maxlength="128"
+                  class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-left text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                  placeholder="0.00"
+                />
+                @if (
+                  allocationForm.controls.amount.touched &&
+                  allocationForm.controls.amount.errors?.['required']
+                ) {
+                  <span class="font-normal text-[#9b493e]">أدخل مبلغ التخصيص.</span>
+                }
+                @if (
+                  allocationForm.controls.amount.touched &&
+                  (allocationForm.controls.amount.errors?.['pattern'] ||
+                    allocationForm.controls.amount.errors?.['positiveDecimal'] ||
+                    allocationForm.controls.amount.errors?.['maxlength'])
+                ) {
+                  <span class="font-normal text-[#9b493e]"
+                    >أدخل مبلغًا موجبًا حتى منزلتين عشريتين وبحد أقصى 34 رقمًا معنويًا.</span
+                  >
+                }
+              </label>
+              <button
+                type="submit"
+                class="min-h-11 self-end rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                [disabled]="allocationSubmitting() || !selectedInvoice()"
+              >
+                {{ allocationSubmitting() ? 'جارٍ التخصيص...' : 'تأكيد التخصيص' }}
+              </button>
+            </form>
+          </section>
+        }
+
+        <section
+          class="mt-5 rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+          aria-labelledby="payment-allocations-title"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="payment-allocations-title" class="text-base font-black">
+                تخصيصات هذه الدفعة
+              </h2>
+              <p class="mt-1 text-xs text-[#71847a]">
+                لا يوجد تخصيص تلقائي؛ السجلات المعروضة من API.
+              </p>
+            </div>
+            <a
+              [routerLink]="['/invoices']"
+              [queryParams]="{ studentId: current.studentId }"
+              class="text-xs font-bold text-[#087b59] underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >فواتير الطالب</a
+            >
+          </div>
+          @if (allocationsError()) {
+            <p class="mt-4 text-xs text-[#9b493e]" role="alert">{{ allocationsError() }}</p>
+          } @else if (allocationsLoading()) {
+            <p class="mt-4 text-xs text-[#71847a]" aria-live="polite">جارٍ تحميل التخصيصات...</p>
+          } @else if (allocations().length) {
+            <div class="mt-3 overflow-x-auto">
+              <table class="w-full min-w-[500px] text-right text-sm">
+                <thead class="text-xs text-[#71847a]">
+                  <tr>
+                    <th class="p-3">الفاتورة</th>
+                    <th class="p-3">المبلغ</th>
+                    <th class="p-3">تاريخ التخصيص</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (allocation of allocations(); track allocation.id) {
+                    <tr class="border-t border-[#edf2ee]">
+                      <td class="p-3" dir="ltr">
+                        <a
+                          [routerLink]="['/invoices', allocation.invoiceId]"
+                          class="font-bold text-[#087b59] underline"
+                          >{{ allocation.invoiceId }}</a
+                        >
+                      </td>
+                      <td class="p-3" dir="ltr">{{ money(allocation.amount) }} ج.م</td>
+                      <td class="p-3">{{ timestamp(allocation.createdAt) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @else {
+            <p class="mt-4 rounded-xl bg-[#fafcfb] p-4 text-xs text-[#71847a]">
+              لم تُخصّص هذه الدفعة لأي فاتورة.
+            </p>
+          }
+        </section>
+      } @else if (detailError()) {
+        <section
+          class="rounded-2xl border border-[#f1d9d5] bg-[#fff8f7] p-6 text-sm text-[#9b493e]"
+          role="alert"
+        >
+          {{ detailError() }}
+        </section>
+      } @else {
+        <section class="rounded-2xl border border-[#e4ece6] bg-white p-6 text-sm text-[#71847a]">
+          تعذر العثور على الدفعة المطلوبة.
+        </section>
+      }
+    }
+  </main>
+</div>

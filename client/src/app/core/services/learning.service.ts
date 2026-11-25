@@ -9,6 +9,7 @@ import {
   AttendanceRecordWrite,
   AttendanceStatus,
   Enrollment,
+  EnrollmentQuery,
   EnrollmentUpdate,
   EnrollmentWrite,
   GroupEnrollmentQuery,
@@ -135,6 +136,29 @@ export class LearningService {
       .get<ApiEnvelope<PageResult<Enrollment>>>(
         `${this.workspaceUrl(workspaceId)}/groups/${encodeURIComponent(groupId)}/enrollments`,
         { withCredentials: true, params },
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  listEnrollments(workspaceId: string, query: EnrollmentQuery): Observable<PageResult<Enrollment>> {
+    let params = this.pageParams(query);
+    if (query.studentId) params = params.set('studentId', query.studentId);
+    if (query.groupId) params = params.set('groupId', query.groupId);
+    if (query.status) params = params.set('status', query.status);
+
+    return this.http
+      .get<ApiEnvelope<PageResult<Enrollment>>>(`${this.workspaceUrl(workspaceId)}/enrollments`, {
+        withCredentials: true,
+        params,
+      })
+      .pipe(map((response) => response.data));
+  }
+
+  getEnrollment(workspaceId: string, enrollmentId: string): Observable<Enrollment> {
+    return this.http
+      .get<ApiEnvelope<Enrollment>>(
+        `${this.workspaceUrl(workspaceId)}/enrollments/${encodeURIComponent(enrollmentId)}`,
+        { withCredentials: true },
       )
       .pipe(map((response) => response.data));
   }
