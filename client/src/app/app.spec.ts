@@ -1,17 +1,29 @@
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
-import { of } from 'rxjs';
+import { Router, provideRouter } from '@angular/router';
+import { RouterTestingHarness } from '@angular/router/testing';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AppComponent } from './app';
 import { appConfig } from './app.config';
+import { Workspace } from './core/models/workspace.models';
+import {
+  Guardian,
+  PageResult,
+  Student,
+  StudentGuardianLink,
+} from './core/models/people.models';
+import { PeopleService } from './core/services/people.service';
 import { AttendanceReport, FinanceReport, ReportService } from './core/services/report.service';
 import { WorkspaceService } from './core/services/workspace.service';
+import { GuardiansComponent } from './features/guardians/guardians.component';
 import {
   formatReportDateForTimezone,
   formatReportTimestampForTimezone,
   ReportsComponent,
 } from './features/reports/reports.component';
+import { StudentsComponent } from './features/students/students.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -19,6 +31,10 @@ describe('App', () => {
       imports: [AppComponent],
       providers: [...appConfig.providers, provideHttpClientTesting()],
     }).compileComponents();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe('Reports export acceptance', () => {
@@ -316,6 +332,363 @@ describe('App', () => {
     });
   });
 
+  describe('Students and guardians workflows', () => {
+    const workspace: Workspace = {
+      _id: 'workspace-1',
+      name: 'مساحة تجريبية',
+      slug: 'workspace',
+      status: 'active',
+      currency: 'EGP',
+      description: '',
+    };
+    const student: Student = {
+      id: 'student-1',
+      name: 'نور أحمد',
+      phone: null,
+      email: null,
+      schoolName: 'مدرسة النور',
+      grade: 'الصف السادس',
+      status: 'active',
+      notes: '',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const guardian: Guardian = {
+      id: 'guardian-1',
+      name: 'أحمد محمد',
+      phone: '+201000000000',
+      alternatePhone: null,
+      email: 'guardian@example.com',
+      relationship: 'father',
+      notes: '',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const link: StudentGuardianLink = {
+      guardian: {
+        id: guardian.id,
+        name: guardian.name,
+        phone: guardian.phone,
+        alternatePhone: guardian.alternatePhone,
+        email: guardian.email,
+        notes: guardian.notes,
+        createdAt: guardian.createdAt,
+        updatedAt: guardian.updatedAt,
+      },
+      relationship: 'father',
+      isPrimary: true,
+      receivesNotifications: true,
+      createdAt: '2026-01-02T10:00:00.000Z',
+      updatedAt: '2026-01-02T10:00:00.000Z',
+    };
+    const pageResult = <T>(
+      items: T[],
+      page = 1,
+      totalItems = items.length,
+      totalPages = totalItems === 0 ? 0 : 1,
+    ): PageResult<T> => ({
+      items,
+      pagination: { page, pageSize: 20, totalItems, totalPages },
+    });
+
+    const peopleMock = {
+      listStudents: vi.fn<PeopleService['listStudents']>(),
+      getStudent: vi.fn<PeopleService['getStudent']>(),
+      createStudent: vi.fn<PeopleService['createStudent']>(),
+      updateStudent: vi.fn<PeopleService['updateStudent']>(),
+      listGuardians: vi.fn<PeopleService['listGuardians']>(),
+      getGuardian: vi.fn<PeopleService['getGuardian']>(),
+      createGuardian: vi.fn<PeopleService['createGuardian']>(),
+      updateGuardian: vi.fn<PeopleService['updateGuardian']>(),
+      listStudentGuardians: vi.fn<PeopleService['listStudentGuardians']>(),
+      linkGuardian: vi.fn<PeopleService['linkGuardian']>(),
+      updateStudentGuardian: vi.fn<PeopleService['updateStudentGuardian']>(),
+      unlinkGuardian: vi.fn<PeopleService['unlinkGuardian']>(),
+    };
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule();
+      peopleMock.listStudents.mockReset().mockReturnValue(of(pageResult([student])));
+      peopleMock.getStudent.mockReset().mockReturnValue(of(student));
+      peopleMock.createStudent.mockReset().mockReturnValue(of(student));
+      peopleMock.updateStudent.mockReset().mockReturnValue(of(student));
+      peopleMock.listGuardians.mockReset().mockReturnValue(of(pageResult([guardian])));
+      peopleMock.getGuardian.mockReset().mockReturnValue(of(guardian));
+      peopleMock.createGuardian.mockReset().mockReturnValue(of(guardian));
+      peopleMock.updateGuardian.mockReset().mockReturnValue(of(guardian));
+      peopleMock.listStudentGuardians.mockReset().mockReturnValue(of([link]));
+      peopleMock.linkGuardian.mockReset().mockReturnValue(of(link));
+      peopleMock.updateStudentGuardian.mockReset().mockReturnValue(of(link));
+      peopleMock.unlinkGuardian.mockReset().mockReturnValue(
+        of({ studentId: student.id, guardianId: guardian.id }),
+      );
+      await TestBed.configureTestingModule({
+        imports: [StudentsComponent, GuardiansComponent],
+        providers: [
+          provideRouter([
+            { path: 'students/:studentId', component: StudentsComponent },
+            { path: 'students', component: StudentsComponent },
+            { path: 'guardians/:guardianId', component: GuardiansComponent },
+            { path: 'guardians', component: GuardiansComponent },
+          ]),
+          {
+            provide: WorkspaceService,
+            useValue: { getActiveWorkspace: () => of(workspace) },
+          },
+          { provide: PeopleService, useValue: peopleMock },
+        ],
+      }).compileComponents();
+    });
+
+    it('loads students in the active workspace and applies search and pagination', async () => {
+      peopleMock.listStudents.mockReturnValue(of(pageResult([student], 1, 21, 2)));
+      const harness = await RouterTestingHarness.create();
+      const component = await harness.navigateByUrl('/students', StudentsComponent);
+
+      expect(peopleMock.listStudents).toHaveBeenLastCalledWith(
+        workspace._id,
+        expect.objectContaining({ page: 1, pageSize: 20 }),
+      );
+
+      component.search.setValue('نور');
+      await new Promise((resolve) => setTimeout(resolve, 280));
+      expect(peopleMock.listStudents).toHaveBeenLastCalledWith(
+        workspace._id,
+        expect.objectContaining({ page: 1, search: 'نور' }),
+      );
+
+      component.changePage(2);
+      expect(peopleMock.listStudents).toHaveBeenLastCalledWith(
+        workspace._id,
+        expect.objectContaining({ page: 2, search: 'نور' }),
+      );
+    });
+
+    it('shows an explicit empty state and keeps API errors separate from empty results', async () => {
+      peopleMock.listStudents.mockReturnValue(of(pageResult([])));
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl('/students', StudentsComponent);
+      expect(harness.routeNativeElement?.textContent).toContain('لا توجد ملفات طلاب بعد');
+
+      peopleMock.listGuardians.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 500, error: { message: 'Internal Server Error' } })),
+      );
+      const guardianPage = await harness.navigateByUrl('/guardians', GuardiansComponent);
+      expect(guardianPage.error()).toContain('تعذر تحميل قائمة أولياء الأمور');
+      expect(harness.routeNativeElement?.textContent).not.toContain('لا توجد ملفات أولياء أمور بعد');
+    });
+
+    it('validates and creates a student using only the supported fields', async () => {
+      const harness = await RouterTestingHarness.create();
+      const component = await harness.navigateByUrl('/students/new', StudentsComponent);
+
+      component.submitStudent();
+      expect(component.studentForm.controls.name.touched).toBe(true);
+      expect(peopleMock.createStudent).not.toHaveBeenCalled();
+
+      component.studentForm.setValue({
+        name: '  نور طالبة  ',
+        phone: '   ',
+        email: '',
+        schoolName: ' مدرسة النور ',
+        grade: ' السادس ',
+        status: 'active',
+        notes: ' ملاحظة ',
+      });
+      vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      component.submitStudent();
+
+      expect(peopleMock.createStudent).toHaveBeenCalledWith(workspace._id, {
+        name: 'نور طالبة',
+        phone: null,
+        email: null,
+        schoolName: 'مدرسة النور',
+        grade: 'السادس',
+        status: 'active',
+        notes: 'ملاحظة',
+      });
+      harness.detectChanges();
+      expect(component.student()?.id).toBe(student.id);
+      expect(component.success()).toContain('تم حفظ بيانات الطالب بنجاح');
+    });
+
+    it('loads student details and updates the supported student status and profile fields', async () => {
+      const harness = await RouterTestingHarness.create();
+      const component = await harness.navigateByUrl('/students/student-1', StudentsComponent);
+
+      expect(component.student()).toEqual(student);
+      expect(component.guardians()).toEqual([link]);
+      component.beginEdit();
+      component.studentForm.controls.name.setValue('نور أحمد محدث');
+      component.studentForm.controls.status.setValue('inactive');
+      component.submitStudent();
+
+      expect(peopleMock.updateStudent).toHaveBeenCalledWith(
+        workspace._id,
+        student.id,
+        expect.objectContaining({ name: 'نور أحمد محدث', status: 'inactive' }),
+      );
+      harness.detectChanges();
+      expect(harness.routeNativeElement?.textContent).toContain('تم حفظ بيانات الطالب بنجاح');
+    });
+
+    it('links, updates, and removes guardian relationships through the supported contract', async () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const harness = await RouterTestingHarness.create();
+      const component = await harness.navigateByUrl('/students/student-1', StudentsComponent);
+
+      component.openLinkForm();
+      component.selectGuardian(guardian);
+      component.linkForm.controls.isPrimary.setValue(true);
+      component.linkSelectedGuardian();
+      expect(peopleMock.linkGuardian).toHaveBeenCalledWith(workspace._id, student.id, {
+        guardianId: guardian.id,
+        relationship: 'other',
+        isPrimary: true,
+        receivesNotifications: true,
+      });
+
+      component.editRelationship(link);
+      component.linkEditForm.controls.receivesNotifications.setValue(false);
+      component.saveRelationship();
+      expect(peopleMock.updateStudentGuardian).toHaveBeenCalledWith(
+        workspace._id,
+        student.id,
+        guardian.id,
+        expect.objectContaining({ isPrimary: true, receivesNotifications: false }),
+      );
+
+      component.removeRelationship(link);
+      expect(peopleMock.unlinkGuardian).toHaveBeenCalledWith(workspace._id, student.id, guardian.id);
+      expect(component.success()).toContain('لم يتم حذف ملف ولي الأمر');
+    });
+
+    it('searches and paginates guardians, and validates guardian creation', async () => {
+      peopleMock.listGuardians.mockReturnValue(of(pageResult([guardian], 1, 21, 2)));
+      const harness = await RouterTestingHarness.create();
+      const listComponent = await harness.navigateByUrl('/guardians', GuardiansComponent);
+
+      expect(peopleMock.listGuardians).toHaveBeenLastCalledWith(
+        workspace._id,
+        expect.objectContaining({ page: 1, pageSize: 20 }),
+      );
+      listComponent.search.setValue('أحمد');
+      await new Promise((resolve) => setTimeout(resolve, 280));
+      listComponent.changePage(2);
+      expect(peopleMock.listGuardians).toHaveBeenLastCalledWith(
+        workspace._id,
+        expect.objectContaining({ page: 2, search: 'أحمد' }),
+      );
+
+      const createComponent = await harness.navigateByUrl('/guardians/new', GuardiansComponent);
+      createComponent.submitGuardian();
+      expect(createComponent.guardianForm.controls.phone.touched).toBe(true);
+      expect(peopleMock.createGuardian).not.toHaveBeenCalled();
+
+      createComponent.guardianForm.setValue({
+        name: 'أحمد محمد',
+        phone: '+201000000000',
+        alternatePhone: '',
+        email: '',
+        relationship: 'father',
+        notes: '',
+      });
+      vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      createComponent.submitGuardian();
+      expect(peopleMock.createGuardian).toHaveBeenCalledWith(workspace._id, {
+        name: 'أحمد محمد',
+        phone: '+201000000000',
+        alternatePhone: null,
+        email: null,
+        relationship: 'father',
+        notes: '',
+      });
+    });
+
+    it('loads and edits guardian details without claiming unsupported linked-student data', async () => {
+      const harness = await RouterTestingHarness.create();
+      const component = await harness.navigateByUrl('/guardians/guardian-1', GuardiansComponent);
+
+      expect(component.guardian()).toEqual(guardian);
+      expect(harness.routeNativeElement?.textContent).toContain('لا تتيح واجهة API الحالية استرجاع الطلاب');
+      component.beginEdit();
+      component.guardianForm.controls.notes.setValue('ملاحظة جديدة');
+      component.submitGuardian();
+
+      expect(peopleMock.updateGuardian).toHaveBeenCalledWith(
+        workspace._id,
+        guardian.id,
+        expect.objectContaining({ notes: 'ملاحظة جديدة' }),
+      );
+    });
+  });
+
+  describe('PeopleService API contracts', () => {
+    beforeEach(async () => {
+      await TestBed.configureTestingModule({
+        providers: [provideHttpClient(), provideHttpClientTesting()],
+      }).compileComponents();
+    });
+
+    it('scopes student search requests to the authorized workspace and preserves credentials', () => {
+      const service = TestBed.inject(PeopleService);
+      const http = TestBed.inject(HttpTestingController);
+      service.listStudents('workspace-7', {
+        page: 2,
+        pageSize: 20,
+        search: 'نور أحمد',
+        status: 'active',
+      }).subscribe();
+
+      const request = http.expectOne(
+        (candidate) =>
+          candidate.url === '/api/workspaces/workspace-7/students' &&
+          candidate.params.get('page') === '2' &&
+          candidate.params.get('pageSize') === '20' &&
+          candidate.params.get('search') === 'نور أحمد' &&
+          candidate.params.get('status') === 'active',
+      );
+      expect(request.request.method).toBe('GET');
+      expect(request.request.withCredentials).toBe(true);
+      request.flush({ message: 'Students retrieved successfully', data: { items: [], pagination: { page: 2, pageSize: 20, totalItems: 0, totalPages: 0 } } });
+      http.verify();
+    });
+
+    it('uses the existing link, update, and unlink routes and request fields', () => {
+      const service = TestBed.inject(PeopleService);
+      const http = TestBed.inject(HttpTestingController);
+      const input = {
+        guardianId: 'guardian-1',
+        relationship: 'mother' as const,
+        isPrimary: true,
+        receivesNotifications: false,
+      };
+
+      service.linkGuardian('workspace-7', 'student-1', input).subscribe();
+      const createRequest = http.expectOne('/api/workspaces/workspace-7/students/student-1/guardians');
+      expect(createRequest.request.method).toBe('POST');
+      expect(createRequest.request.body).toEqual(input);
+      expect(createRequest.request.withCredentials).toBe(true);
+      createRequest.flush({ message: 'Guardian linked', data: {} });
+
+      service.updateStudentGuardian('workspace-7', 'student-1', 'guardian-1', {
+        isPrimary: false,
+        receivesNotifications: true,
+      }).subscribe();
+      const updateRequest = http.expectOne('/api/workspaces/workspace-7/students/student-1/guardians/guardian-1');
+      expect(updateRequest.request.method).toBe('PATCH');
+      expect(updateRequest.request.body).toEqual({ isPrimary: false, receivesNotifications: true });
+      updateRequest.flush({ message: 'Relationship updated', data: {} });
+
+      service.unlinkGuardian('workspace-7', 'student-1', 'guardian-1').subscribe();
+      const deleteRequest = http.expectOne('/api/workspaces/workspace-7/students/student-1/guardians/guardian-1');
+      expect(deleteRequest.request.method).toBe('DELETE');
+      expect(deleteRequest.request.withCredentials).toBe(true);
+      deleteRequest.flush({ message: 'Relationship removed', data: {} });
+      http.verify();
+    });
+  });
+
   it('should create the app', () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
@@ -388,6 +761,25 @@ describe('App', () => {
     expect(router.url).toBe('/sign-in?reason=session');
   });
 
+  it('should protect student and guardian routes with the existing auth guard', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    const router = TestBed.inject(Router);
+
+    for (const path of ['/students', '/guardians']) {
+      const navigation = router.navigateByUrl(path);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const request = TestBed.inject(HttpTestingController).expectOne('/api/auth/status');
+      expect(request.request.withCredentials).toBe(true);
+      request.flush(
+        { message: 'Authentication required' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+      await navigation;
+      expect(router.url).toBe('/sign-in?reason=session');
+    }
+  });
+
   it('should render the authenticated teacher in the Arabic RTL dashboard', async () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
@@ -419,6 +811,8 @@ describe('App', () => {
     expect(dashboard.querySelector('[dir="rtl"][lang="ar"]')).toBeTruthy();
     expect(dashboard.querySelector('button[aria-label="English"]')).toBeNull();
     expect(dashboard.querySelector('svg')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب وأولياء الأمور"] a[href="/students"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب وأولياء الأمور"] a[href="/guardians"]')).toBeTruthy();
 
     const navigationLinks = dashboard.querySelectorAll<HTMLAnchorElement>(
       'nav[aria-label="التنقل الرئيسي"] a',

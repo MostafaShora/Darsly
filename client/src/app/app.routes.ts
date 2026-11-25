@@ -34,4 +34,36 @@ export const routes: Routes = [
         (module) => module.ReportsComponent,
       ),
   },
+  {
+    path: 'students/:studentId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/students/students.component').then(
+        (module) => module.StudentsComponent,
+      ),
+  },
+  {
+    path: 'students',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/students/students.component').then(
+        (module) => module.StudentsComponent,
+      ),
+  },
+  {
+    path: 'guardians/:guardianId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/guardians/guardians.component').then(
+        (module) => module.GuardiansComponent,
+      ),
+  },
+  {
+    path: 'guardians',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/guardians/guardians.component').then(
+        (module) => module.GuardiansComponent,
+      ),
+  },
 ];

@@ -1,88 +1,229 @@
 <div class="min-h-screen bg-[#f5f8f6] text-[#173b32]" dir="rtl" lang="ar">
-  <header class="sticky top-0 z-30 flex min-h-[72px] items-center justify-between border-b border-[#e4ece6] bg-white px-4 sm:px-7">
+  <header
+    class="sticky top-0 z-30 flex min-h-[72px] items-center justify-between border-b border-[#e4ece6] bg-white px-4 sm:px-7"
+  >
     <div>
       <p class="text-[11px] font-semibold text-[#71847a]">مساحة عمل المدرّس</p>
       <h1 class="text-base font-black">التقارير</h1>
     </div>
-    <a routerLink="/dashboard" class="rounded-xl border border-[#dce8df] px-4 py-2 text-xs font-extrabold">لوحة التحكم</a>
+    <nav
+      class="flex flex-wrap items-center gap-2 text-xs font-bold"
+      aria-label="التنقل بين الأقسام"
+    >
+      <a
+        routerLink="/dashboard"
+        class="min-h-10 rounded-xl border border-[#dce8df] px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+        >لوحة التحكم</a
+      >
+      <a
+        routerLink="/students"
+        class="min-h-10 rounded-xl border border-[#dce8df] px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+        >الطلاب</a
+      >
+      <a
+        routerLink="/guardians"
+        class="min-h-10 rounded-xl border border-[#dce8df] px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+        >أولياء الأمور</a
+      >
+    </nav>
   </header>
 
   <main class="mx-auto max-w-[1460px] px-4 py-6 sm:px-7 xl:px-10">
     <section class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6">
       <div class="flex flex-wrap items-center gap-2">
-        <button type="button" class="min-h-11 rounded-xl px-4 text-xs font-extrabold"
+        <button
+          type="button"
+          class="min-h-11 rounded-xl px-4 text-xs font-extrabold"
           [class.bg-[#087b59]]="activeTab() === 'attendance'"
           [class.text-white]="activeTab() === 'attendance'"
           [class.bg-[#f2f6f3]]="activeTab() !== 'attendance'"
           [disabled]="exporting()"
-          (click)="setTab('attendance')">تقرير الحضور</button>
-        <button type="button" class="min-h-11 rounded-xl px-4 text-xs font-extrabold"
+          (click)="setTab('attendance')"
+        >
+          تقرير الحضور
+        </button>
+        <button
+          type="button"
+          class="min-h-11 rounded-xl px-4 text-xs font-extrabold"
           [class.bg-[#087b59]]="activeTab() === 'finance'"
           [class.text-white]="activeTab() === 'finance'"
           [class.bg-[#f2f6f3]]="activeTab() !== 'finance'"
           [disabled]="exporting()"
-          (click)="setTab('finance')">التقرير المالي</button>
+          (click)="setTab('finance')"
+        >
+          التقرير المالي
+        </button>
       </div>
 
-      <form class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5" [formGroup]="filters" (ngSubmit)="load()">
-        <label class="grid gap-1 text-[11px] font-bold">من
-          <input class="min-h-11 rounded-xl border border-[#dce8df] px-3" type="date" formControlName="from">
+      <form
+        class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5"
+        [formGroup]="filters"
+        (ngSubmit)="load()"
+      >
+        <label class="grid gap-1 text-[11px] font-bold"
+          >من
+          <input
+            class="min-h-11 rounded-xl border border-[#dce8df] px-3"
+            type="date"
+            formControlName="from"
+          />
         </label>
-        <label class="grid gap-1 text-[11px] font-bold">إلى
-          <input class="min-h-11 rounded-xl border border-[#dce8df] px-3" type="date" formControlName="to">
+        <label class="grid gap-1 text-[11px] font-bold"
+          >إلى
+          <input
+            class="min-h-11 rounded-xl border border-[#dce8df] px-3"
+            type="date"
+            formControlName="to"
+          />
         </label>
-        <label class="grid gap-1 text-[11px] font-bold">معرف الطالب
-          <input class="min-h-11 rounded-xl border border-[#dce8df] px-3" placeholder="اختياري" formControlName="studentId">
+        <label class="grid gap-1 text-[11px] font-bold"
+          >معرف الطالب
+          <input
+            class="min-h-11 rounded-xl border border-[#dce8df] px-3"
+            placeholder="اختياري"
+            formControlName="studentId"
+          />
         </label>
         @if (activeTab() === 'attendance') {
-          <label class="grid gap-1 text-[11px] font-bold">معرف المجموعة
-            <input class="min-h-11 rounded-xl border border-[#dce8df] px-3" placeholder="اختياري" formControlName="groupId">
+          <label class="grid gap-1 text-[11px] font-bold"
+            >معرف المجموعة
+            <input
+              class="min-h-11 rounded-xl border border-[#dce8df] px-3"
+              placeholder="اختياري"
+              formControlName="groupId"
+            />
           </label>
         }
-        <button class="min-h-11 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white" type="submit" [disabled]="loading()">تطبيق الفلتر</button>
+        <button
+          class="min-h-11 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white"
+          type="submit"
+          [disabled]="loading()"
+        >
+          تطبيق الفلتر
+        </button>
       </form>
 
       <div class="mt-5 flex gap-2">
-        <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold" [disabled]="exporting()" (click)="exportExcel()">{{ exporting() ? 'جارٍ التصدير...' : 'تنزيل جدول HTML' }}</button>
-        <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold" [disabled]="exporting()" (click)="exportPdf()">{{ exporting() ? 'جارٍ الإعداد...' : 'طباعة / حفظ PDF' }}</button>
+        <button
+          type="button"
+          class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold"
+          [disabled]="exporting()"
+          (click)="exportExcel()"
+        >
+          {{ exporting() ? 'جارٍ التصدير...' : 'تنزيل جدول HTML' }}
+        </button>
+        <button
+          type="button"
+          class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold"
+          [disabled]="exporting()"
+          (click)="exportPdf()"
+        >
+          {{ exporting() ? 'جارٍ الإعداد...' : 'طباعة / حفظ PDF' }}
+        </button>
       </div>
     </section>
 
     @if (loading()) {
-      <div class="mt-5 grid min-h-48 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-xs">جارٍ تحميل التقرير...</div>
+      <div
+        class="mt-5 grid min-h-48 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-xs"
+      >
+        جارٍ تحميل التقرير...
+      </div>
     } @else if (error()) {
-      <div class="mt-5 rounded-2xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]" role="alert">{{ error() }}</div>
+      <div
+        class="mt-5 rounded-2xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]"
+        role="alert"
+      >
+        {{ error() }}
+      </div>
     } @else if (activeTab() === 'attendance' && attendance(); as report) {
       <section class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">حاضر</p><strong class="mt-2 block text-xl">{{ report.summary.present }}</strong></article>
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">غائب</p><strong class="mt-2 block text-xl">{{ report.summary.absent }}</strong></article>
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">متأخر</p><strong class="mt-2 block text-xl">{{ report.summary.late }}</strong></article>
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">معذور</p><strong class="mt-2 block text-xl">{{ report.summary.excused }}</strong></article>
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">نسبة الحضور</p><strong class="mt-2 block text-xl">{{ formatRate(report.summary.attendanceRate) }}</strong></article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">حاضر</p>
+          <strong class="mt-2 block text-xl">{{ report.summary.present }}</strong>
+        </article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">غائب</p>
+          <strong class="mt-2 block text-xl">{{ report.summary.absent }}</strong>
+        </article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">متأخر</p>
+          <strong class="mt-2 block text-xl">{{ report.summary.late }}</strong>
+        </article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">معذور</p>
+          <strong class="mt-2 block text-xl">{{ report.summary.excused }}</strong>
+        </article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">نسبة الحضور</p>
+          <strong class="mt-2 block text-xl">{{
+            formatRate(report.summary.attendanceRate)
+          }}</strong>
+        </article>
       </section>
 
       <section class="mt-5 overflow-x-auto rounded-2xl border border-[#e4ece6] bg-white">
         <table class="w-full min-w-[720px] text-right text-xs">
-          <thead class="bg-[#f8faf8]"><tr><th class="p-3">الطالب</th><th class="p-3">المجموعة</th><th class="p-3">الحصة</th><th class="p-3">الحالة</th><th class="p-3">التأخير</th></tr></thead>
+          <thead class="bg-[#f8faf8]">
+            <tr>
+              <th class="p-3">الطالب</th>
+              <th class="p-3">المجموعة</th>
+              <th class="p-3">الحصة</th>
+              <th class="p-3">الحالة</th>
+              <th class="p-3">التأخير</th>
+            </tr>
+          </thead>
           <tbody>
             @for (item of report.items; track item.id) {
-              <tr class="border-t border-[#edf2ee]"><td class="p-3">{{ item.studentName }}</td><td class="p-3">{{ item.groupName }}</td><td class="p-3">{{ item.sessionTitle }}</td><td class="p-3">{{ item.status }}</td><td class="p-3">{{ item.lateMinutes }}</td></tr>
+              <tr class="border-t border-[#edf2ee]">
+                <td class="p-3">{{ item.studentName }}</td>
+                <td class="p-3">{{ item.groupName }}</td>
+                <td class="p-3">{{ item.sessionTitle }}</td>
+                <td class="p-3">{{ item.status }}</td>
+                <td class="p-3">{{ item.lateMinutes }}</td>
+              </tr>
             } @empty {
-              <tr><td colspan="5" class="p-8 text-center text-[#71847a]">لا توجد سجلات حضور في الفترة المحددة.</td></tr>
+              <tr>
+                <td colspan="5" class="p-8 text-center text-[#71847a]">
+                  لا توجد سجلات حضور في الفترة المحددة.
+                </td>
+              </tr>
             }
           </tbody>
         </table>
       </section>
     } @else if (activeTab() === 'finance' && finance(); as report) {
       <section class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">الفواتير الصادرة</p><strong class="mt-2 block text-lg">{{ formatMoney(report.summary.issuedInvoiceTotal) }} ج.م</strong></article>
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">المحصل</p><strong class="mt-2 block text-lg">{{ formatMoney(report.summary.collectedInPeriod) }} ج.م</strong></article>
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">الرصيد المستحق الحالي</p><strong class="mt-2 block text-lg">{{ formatMoney(report.summary.currentOutstanding) }} ج.م</strong></article>
-        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4"><p class="text-xs">مدفوعات غير مخصّصة</p><strong class="mt-2 block text-lg">{{ formatMoney(report.summary.unallocatedPayments) }} ج.م</strong></article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">الفواتير الصادرة</p>
+          <strong class="mt-2 block text-lg"
+            >{{ formatMoney(report.summary.issuedInvoiceTotal) }} ج.م</strong
+          >
+        </article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">المحصل</p>
+          <strong class="mt-2 block text-lg"
+            >{{ formatMoney(report.summary.collectedInPeriod) }} ج.م</strong
+          >
+        </article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">الرصيد المستحق الحالي</p>
+          <strong class="mt-2 block text-lg"
+            >{{ formatMoney(report.summary.currentOutstanding) }} ج.م</strong
+          >
+        </article>
+        <article class="rounded-2xl border border-[#e4ece6] bg-white p-4">
+          <p class="text-xs">مدفوعات غير مخصّصة</p>
+          <strong class="mt-2 block text-lg"
+            >{{ formatMoney(report.summary.unallocatedPayments) }} ج.م</strong
+          >
+        </article>
       </section>
 
       @if (!report.historicalData.available) {
-        <div class="mt-5 rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-4 text-xs leading-6 text-[#7a6231]">
+        <div
+          class="mt-5 rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-4 text-xs leading-6 text-[#7a6231]"
+        >
           {{ report.historicalData.limitation }}
           لا تُعرض الأرصدة التاريخية كقيم مؤكدة عند غياب تواريخ الإصدار أو الإبطال.
         </div>
@@ -90,12 +231,26 @@
 
       <section class="mt-5 overflow-x-auto rounded-2xl border border-[#e4ece6] bg-white">
         <table class="w-full min-w-[720px] text-right text-xs">
-          <thead class="bg-[#f8faf8]"><tr><th class="p-3">المبلغ</th><th class="p-3">الطريقة</th><th class="p-3">تاريخ الاستلام</th></tr></thead>
+          <thead class="bg-[#f8faf8]">
+            <tr>
+              <th class="p-3">المبلغ</th>
+              <th class="p-3">الطريقة</th>
+              <th class="p-3">تاريخ الاستلام</th>
+            </tr>
+          </thead>
           <tbody>
             @for (payment of report.payments.items; track payment.id) {
-              <tr class="border-t border-[#edf2ee]"><td class="p-3">{{ formatMoney(payment.amount) }} ج.م</td><td class="p-3">{{ payment.method }}</td><td class="p-3">{{ formatReportDate(payment.receivedAt) }}</td></tr>
+              <tr class="border-t border-[#edf2ee]">
+                <td class="p-3">{{ formatMoney(payment.amount) }} ج.م</td>
+                <td class="p-3">{{ payment.method }}</td>
+                <td class="p-3">{{ formatReportDate(payment.receivedAt) }}</td>
+              </tr>
             } @empty {
-              <tr><td colspan="3" class="p-8 text-center text-[#71847a]">لا توجد مدفوعات في الفترة المحددة.</td></tr>
+              <tr>
+                <td colspan="3" class="p-8 text-center text-[#71847a]">
+                  لا توجد مدفوعات في الفترة المحددة.
+                </td>
+              </tr>
             }
           </tbody>
         </table>

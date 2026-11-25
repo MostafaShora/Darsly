@@ -1,0 +1,773 @@
+<div class="min-h-screen bg-[#f5f8f6] text-[#173b32]" dir="rtl" lang="ar">
+  <header class="border-b border-[#e4ece6] bg-white">
+    <div
+      class="mx-auto flex min-h-[72px] max-w-[1460px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-7 xl:px-10"
+    >
+      <div>
+        <p class="text-[11px] font-semibold text-[#71847a]">مساحة عمل المدرّس</p>
+        <h1 class="text-base font-black">{{ isDetailView() ? 'ملف الطالب' : 'إدارة الطلاب' }}</h1>
+      </div>
+      <nav
+        class="flex flex-wrap items-center gap-2 text-xs font-bold"
+        aria-label="التنقل بين الأقسام"
+      >
+        <a
+          routerLink="/dashboard"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >لوحة التحكم</a
+        >
+        <a
+          routerLink="/students"
+          aria-current="page"
+          class="min-h-10 rounded-xl bg-[#edf8f1] px-3 py-3 text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >الطلاب</a
+        >
+        <a
+          routerLink="/guardians"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >أولياء الأمور</a
+        >
+        <a
+          routerLink="/reports"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >التقارير</a
+        >
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1460px] px-4 py-6 sm:px-7 xl:px-10">
+    @if (error()) {
+      <p
+        class="mb-4 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-sm leading-6 text-[#9b493e]"
+        role="alert"
+      >
+        {{ error() }}
+      </p>
+    }
+    @if (success()) {
+      <p
+        class="mb-4 rounded-xl border border-[#d1ead9] bg-[#f2faf4] p-4 text-sm leading-6 text-[#087b59]"
+        role="status"
+        aria-live="polite"
+      >
+        {{ success() }}
+      </p>
+    }
+
+    @if (workspaceLoading()) {
+      <div
+        class="grid min-h-48 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-sm text-[#5f7469]"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        جارٍ تحميل مساحة العمل...
+      </div>
+    } @else if (!hasWorkspace()) {
+      <section class="rounded-2xl border border-[#e4ece6] bg-white p-6 text-center">
+        <h2 class="font-black">لا توجد مساحة عمل نشطة</h2>
+        <p class="mt-2 text-sm text-[#71847a]">تعذر تحميل ملفات الطلاب دون مساحة عمل نشطة.</p>
+        <a
+          routerLink="/dashboard"
+          class="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >العودة إلى لوحة التحكم</a
+        >
+      </section>
+    } @else if (!isDetailView()) {
+      <section
+        class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+        aria-labelledby="students-heading"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="students-heading" class="text-lg font-black">الطلاب</h2>
+            <p class="mt-1 text-xs leading-6 text-[#71847a]">
+              ابحث في ملفات الطلاب أو أضف ملفًا جديدًا.
+            </p>
+          </div>
+          <a
+            routerLink="/students/new"
+            class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white transition-colors hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            >إضافة طالب</a
+          >
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]">
+            البحث
+            <input
+              class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none transition focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              type="search"
+              [formControl]="search"
+              autocomplete="off"
+              placeholder="الاسم أو الهاتف أو البريد أو المدرسة"
+              aria-label="البحث عن طالب"
+            />
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]">
+            الحالة
+            <select
+              class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none transition focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+              [formControl]="statusFilter"
+            >
+              <option value="">كل الحالات</option>
+              @for (status of statuses; track status.value) {
+                <option [value]="status.value">{{ status.label }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        @if (loading()) {
+          <div
+            class="mt-5 grid min-h-48 place-items-center rounded-xl border border-[#e4ece6] bg-[#fafcfb] text-sm text-[#5f7469]"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            جارٍ تحميل الطلاب...
+          </div>
+        } @else if (error()) {
+          <div
+            class="mt-5 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]"
+            role="alert"
+          >
+            تعذر عرض قائمة الطلاب بسبب خطأ في الطلب.
+          </div>
+        } @else if (students().length === 0) {
+          <div
+            class="mt-5 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-12 text-center"
+          >
+            <h3 class="text-sm font-extrabold text-[#38554a]">
+              {{
+                search.value || statusFilter.value
+                  ? 'لا توجد نتائج مطابقة'
+                  : 'لا توجد ملفات طلاب بعد'
+              }}
+            </h3>
+            <p class="mt-2 text-xs leading-6 text-[#71847a]">
+              {{
+                search.value || statusFilter.value
+                  ? 'جرّب تعديل البحث أو الحالة.'
+                  : 'أضف أول طالب لبدء تنظيم بيانات مساحة عملك.'
+              }}
+            </p>
+            @if (!search.value && !statusFilter.value) {
+              <a
+                routerLink="/students/new"
+                class="mt-4 inline-flex min-h-10 items-center rounded-xl border border-[#cfe4d5] px-4 text-xs font-extrabold text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                >إضافة طالب</a
+              >
+            }
+          </div>
+        } @else {
+          <div class="mt-5 overflow-x-auto rounded-xl border border-[#e4ece6]">
+            <table class="w-full min-w-[720px] text-right text-xs">
+              <caption class="sr-only">
+                قائمة الطلاب في مساحة العمل الحالية
+              </caption>
+              <thead class="bg-[#f8faf8] text-[#526b5f]">
+                <tr>
+                  <th scope="col" class="p-3 font-extrabold">الاسم</th>
+                  <th scope="col" class="p-3 font-extrabold">بيانات التواصل</th>
+                  <th scope="col" class="p-3 font-extrabold">المدرسة / الصف</th>
+                  <th scope="col" class="p-3 font-extrabold">الحالة</th>
+                  <th scope="col" class="p-3 font-extrabold"><span class="sr-only">إجراء</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of students(); track item.id) {
+                  <tr class="border-t border-[#edf2ee]">
+                    <th scope="row" class="p-3 font-extrabold text-[#29483d]">{{ item.name }}</th>
+                    <td class="p-3 text-[#526b5f]">
+                      <span class="block" dir="ltr">{{ item.phone || '—' }}</span>
+                      <span class="mt-1 block" dir="ltr">{{ item.email || '—' }}</span>
+                    </td>
+                    <td class="p-3 text-[#526b5f]">
+                      {{ item.schoolName || '—' }} / {{ item.grade || '—' }}
+                    </td>
+                    <td class="p-3">
+                      <span
+                        class="rounded-full bg-[#eff8f2] px-2.5 py-1 font-bold text-[#087b59]"
+                        >{{ statusLabel(item.status) }}</span
+                      >
+                    </td>
+                    <td class="p-3">
+                      <a
+                        [routerLink]="['/students', item.id]"
+                        class="inline-flex min-h-9 items-center rounded-lg border border-[#dce8df] px-3 font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                        >عرض الملف</a
+                      >
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div
+            class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[#5f7469]"
+          >
+            <p>إجمالي النتائج: {{ pagination().totalItems }}</p>
+            <div class="flex items-center gap-2" aria-label="التنقل بين صفحات الطلاب">
+              <button
+                type="button"
+                class="min-h-10 rounded-lg border border-[#dce8df] px-3 font-bold hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                [disabled]="loading() || pagination().page <= 1"
+                (click)="changePage(pagination().page - 1)"
+              >
+                السابق
+              </button>
+              <span aria-live="polite"
+                >صفحة {{ pagination().page }} من {{ pagination().totalPages }}</span
+              >
+              <button
+                type="button"
+                class="min-h-10 rounded-lg border border-[#dce8df] px-3 font-bold hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                [disabled]="loading() || pagination().page >= pagination().totalPages"
+                (click)="changePage(pagination().page + 1)"
+              >
+                التالي
+              </button>
+            </div>
+          </div>
+        }
+      </section>
+    } @else if (detailsLoading()) {
+      <div
+        class="grid min-h-56 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-sm text-[#5f7469]"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        جارٍ تحميل ملف الطالب...
+      </div>
+    } @else if (isCreating() || (isEditing() && student())) {
+      <section
+        class="mx-auto max-w-3xl rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-7"
+        aria-labelledby="student-form-heading"
+      >
+        <a
+          routerLink="/students"
+          class="text-xs font-bold text-[#087b59] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >العودة إلى قائمة الطلاب</a
+        >
+        <h2 id="student-form-heading" class="mt-4 text-lg font-black">
+          {{ isCreating() ? 'إضافة طالب' : 'تعديل بيانات الطالب' }}
+        </h2>
+        <form
+          class="mt-5 grid gap-4 sm:grid-cols-2"
+          [formGroup]="studentForm"
+          (ngSubmit)="submitStudent()"
+          novalidate
+        >
+          <fieldset class="contents" [disabled]="submitting()">
+            <label
+              class="grid gap-1 text-xs font-bold text-[#38554a] sm:col-span-2"
+              for="student-name"
+            >
+              الاسم الكامل *
+              <input
+                id="student-name"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                formControlName="name"
+                autocomplete="name"
+                [attr.aria-invalid]="
+                  studentForm.controls.name.invalid && studentForm.controls.name.touched
+                "
+                aria-describedby="student-name-error"
+              />
+              @if (
+                studentForm.controls.name.touched && studentForm.controls.name.hasError('required')
+              ) {
+                <span id="student-name-error" class="font-normal text-[#b42318]" role="alert"
+                  >اسم الطالب مطلوب.</span
+                >
+              } @else if (
+                studentForm.controls.name.touched &&
+                (studentForm.controls.name.hasError('minlength') ||
+                  studentForm.controls.name.hasError('maxlength'))
+              ) {
+                <span id="student-name-error" class="font-normal text-[#b42318]" role="alert"
+                  >يجب أن يتراوح الاسم بين حرفين و120 حرفًا.</span
+                >
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="student-phone">
+              الهاتف
+              <input
+                id="student-phone"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-left text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                type="tel"
+                dir="ltr"
+                formControlName="phone"
+                autocomplete="tel"
+              />
+              @if (
+                studentForm.controls.phone.touched &&
+                studentForm.controls.phone.hasError('maxlength')
+              ) {
+                <span class="font-normal text-[#b42318]" role="alert"
+                  >يجب ألا يتجاوز الهاتف 25 حرفًا.</span
+                >
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="student-email">
+              البريد الإلكتروني
+              <input
+                id="student-email"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-left text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                type="email"
+                dir="ltr"
+                formControlName="email"
+                autocomplete="email"
+                [attr.aria-invalid]="
+                  studentForm.controls.email.invalid && studentForm.controls.email.touched
+                "
+              />
+              @if (
+                studentForm.controls.email.touched && studentForm.controls.email.hasError('email')
+              ) {
+                <span class="font-normal text-[#b42318]" role="alert"
+                  >أدخل بريدًا إلكترونيًا صحيحًا.</span
+                >
+              } @else if (
+                studentForm.controls.email.touched &&
+                studentForm.controls.email.hasError('maxlength')
+              ) {
+                <span class="font-normal text-[#b42318]" role="alert"
+                  >يجب ألا يتجاوز البريد 254 حرفًا.</span
+                >
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="student-school">
+              المدرسة
+              <input
+                id="student-school"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                formControlName="schoolName"
+              />
+              @if (
+                studentForm.controls.schoolName.touched &&
+                studentForm.controls.schoolName.hasError('maxlength')
+              ) {
+                <span class="font-normal text-[#b42318]" role="alert"
+                  >يجب ألا يتجاوز اسم المدرسة 150 حرفًا.</span
+                >
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="student-grade">
+              الصف الدراسي
+              <input
+                id="student-grade"
+                class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                formControlName="grade"
+              />
+              @if (
+                studentForm.controls.grade.touched &&
+                studentForm.controls.grade.hasError('maxlength')
+              ) {
+                <span class="font-normal text-[#b42318]" role="alert"
+                  >يجب ألا يتجاوز الصف الدراسي 80 حرفًا.</span
+                >
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="student-status">
+              الحالة
+              <select
+                id="student-status"
+                class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                formControlName="status"
+              >
+                @for (status of statuses; track status.value) {
+                  <option [value]="status.value">{{ status.label }}</option>
+                }
+              </select>
+            </label>
+            <label
+              class="grid gap-1 text-xs font-bold text-[#38554a] sm:col-span-2"
+              for="student-notes"
+            >
+              ملاحظات
+              <textarea
+                id="student-notes"
+                class="min-h-24 rounded-xl border border-[#dce8df] px-3 py-2 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                formControlName="notes"
+              ></textarea>
+              @if (
+                studentForm.controls.notes.touched &&
+                studentForm.controls.notes.hasError('maxlength')
+              ) {
+                <span class="font-normal text-[#b42318]" role="alert"
+                  >يجب ألا تتجاوز الملاحظات 2000 حرف.</span
+                >
+              }
+            </label>
+          </fieldset>
+          <div class="flex flex-wrap gap-2 sm:col-span-2">
+            <button
+              type="submit"
+              class="min-h-11 rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60"
+              [disabled]="submitting()"
+              [attr.aria-busy]="submitting()"
+            >
+              {{ submitting() ? 'جارٍ الحفظ...' : 'حفظ البيانات' }}
+            </button>
+            <button
+              type="button"
+              class="min-h-11 rounded-xl border border-[#dce8df] px-5 text-xs font-bold hover:bg-[#f5f8f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-60"
+              [disabled]="submitting()"
+              (click)="cancelEdit()"
+            >
+              إلغاء
+            </button>
+          </div>
+        </form>
+      </section>
+    } @else if (student(); as currentStudent) {
+      <div class="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <section
+          class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+          aria-labelledby="student-detail-heading"
+        >
+          <a
+            routerLink="/students"
+            class="text-xs font-bold text-[#087b59] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+            >الطلاب</a
+          >
+          <div class="mt-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="student-detail-heading" class="text-xl font-black">
+                {{ currentStudent.name }}
+              </h2>
+              <span
+                class="mt-2 inline-flex rounded-full bg-[#eff8f2] px-3 py-1 text-xs font-bold text-[#087b59]"
+                >{{ statusLabel(currentStudent.status) }}</span
+              >
+            </div>
+            <button
+              type="button"
+              class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              (click)="beginEdit()"
+            >
+              تعديل البيانات
+            </button>
+          </div>
+          <dl class="mt-5 grid gap-3 text-xs sm:grid-cols-2">
+            <div class="rounded-xl bg-[#f8faf8] p-3">
+              <dt class="text-[#71847a]">الهاتف</dt>
+              <dd class="mt-1 font-bold" dir="ltr">{{ currentStudent.phone || 'غير مسجل' }}</dd>
+            </div>
+            <div class="rounded-xl bg-[#f8faf8] p-3">
+              <dt class="text-[#71847a]">البريد الإلكتروني</dt>
+              <dd class="mt-1 break-all font-bold" dir="ltr">
+                {{ currentStudent.email || 'غير مسجل' }}
+              </dd>
+            </div>
+            <div class="rounded-xl bg-[#f8faf8] p-3">
+              <dt class="text-[#71847a]">المدرسة</dt>
+              <dd class="mt-1 font-bold">{{ currentStudent.schoolName || 'غير مسجلة' }}</dd>
+            </div>
+            <div class="rounded-xl bg-[#f8faf8] p-3">
+              <dt class="text-[#71847a]">الصف الدراسي</dt>
+              <dd class="mt-1 font-bold">{{ currentStudent.grade || 'غير مسجل' }}</dd>
+            </div>
+            <div class="rounded-xl bg-[#f8faf8] p-3 sm:col-span-2">
+              <dt class="text-[#71847a]">ملاحظات</dt>
+              <dd class="mt-1 whitespace-pre-wrap font-bold">
+                {{ currentStudent.notes || 'لا توجد ملاحظات' }}
+              </dd>
+            </div>
+          </dl>
+        </section>
+
+        <section
+          class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6"
+          aria-labelledby="student-guardians-heading"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="student-guardians-heading" class="text-base font-black">
+                أولياء أمور الطالب
+              </h2>
+              <p class="mt-1 text-xs leading-5 text-[#71847a]">
+                إدارة روابط جهات الاتصال دون حذف ملفاتهم.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+              (click)="openLinkForm()"
+            >
+              ربط ولي أمر
+            </button>
+          </div>
+
+          @if (guardians().length === 0 && !linkFormOpen()) {
+            @if (guardianLinksLoading()) {
+              <p
+                class="mt-4 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] p-5 text-center text-xs leading-6 text-[#71847a]"
+                aria-live="polite"
+              >
+                جارٍ تحميل علاقات أولياء الأمور...
+              </p>
+            } @else {
+              <p
+                class="mt-4 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] p-5 text-center text-xs leading-6 text-[#71847a]"
+              >
+                لا توجد علاقات مسجلة لهذا الطالب.
+              </p>
+            }
+          } @else {
+            <ul class="mt-4 grid gap-3">
+              @for (link of guardians(); track link.guardian.id) {
+                <li class="rounded-xl border border-[#e4ece6] p-4">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <a
+                        [routerLink]="['/guardians', link.guardian.id]"
+                        class="font-extrabold text-[#087b59] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                        >{{ link.guardian.name }}</a
+                      >
+                      <p class="mt-1 text-xs text-[#526b5f]" dir="ltr">{{ link.guardian.phone }}</p>
+                      <div class="mt-2 flex flex-wrap gap-2 text-[10px] font-bold">
+                        <span class="rounded-full bg-[#f2f6f3] px-2.5 py-1">{{
+                          relationshipLabel(link.relationship)
+                        }}</span>
+                        @if (link.isPrimary) {
+                          <span class="rounded-full bg-[#eff8f2] px-2.5 py-1 text-[#087b59]"
+                            >جهة الاتصال الأساسية</span
+                          >
+                        }
+                        @if (link.receivesNotifications) {
+                          <span class="rounded-full bg-[#f2f6f3] px-2.5 py-1"
+                            >تفضيل الإشعارات مفعّل</span
+                          >
+                        }
+                      </div>
+                    </div>
+                    <div class="flex gap-2">
+                      <button
+                        type="button"
+                        class="min-h-9 rounded-lg border border-[#dce8df] px-3 text-[11px] font-bold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                        (click)="editRelationship(link)"
+                      >
+                        تعديل العلاقة
+                      </button>
+                      <button
+                        type="button"
+                        class="min-h-9 rounded-lg border border-[#f0d7d3] px-3 text-[11px] font-bold text-[#a23e35] hover:bg-[#fff8f7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#a23e35] disabled:cursor-wait disabled:opacity-60"
+                        [disabled]="removingGuardianId() !== null"
+                        [attr.aria-busy]="removingGuardianId() === link.guardian.id"
+                        (click)="removeRelationship(link)"
+                      >
+                        {{
+                          removingGuardianId() === link.guardian.id
+                            ? 'جارٍ الإزالة...'
+                            : 'إزالة العلاقة'
+                        }}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+
+          @if (linkFormOpen()) {
+            <form
+              class="mt-4 rounded-xl border border-[#dce8df] bg-[#fafcfb] p-4"
+              [formGroup]="linkForm"
+              (ngSubmit)="linkSelectedGuardian()"
+              novalidate
+            >
+              <h3 class="font-extrabold">ربط ولي أمر موجود</h3>
+              <label class="mt-3 grid gap-1 text-xs font-bold" for="guardian-search"
+                >ابحث عن ولي الأمر</label
+              >
+              <input
+                id="guardian-search"
+                class="min-h-11 w-full rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10"
+                type="search"
+                [formControl]="guardianSearch"
+                autocomplete="off"
+              />
+              @if (guardiansLoading()) {
+                <p class="py-3 text-xs text-[#71847a]" aria-live="polite">
+                  جارٍ تحميل أولياء الأمور...
+                </p>
+              } @else if (guardianOptions().length === 0) {
+                <p class="py-3 text-xs text-[#71847a]">
+                  لا توجد نتائج. أنشئ ملف ولي الأمر من قسم أولياء الأمور أولًا.
+                </p>
+              } @else {
+                <div
+                  class="mt-2 max-h-44 overflow-y-auto rounded-lg border border-[#e4ece6] bg-white"
+                  role="group"
+                  aria-label="نتائج البحث عن أولياء الأمور"
+                >
+                  @for (guardian of guardianOptions(); track guardian.id) {
+                    <button
+                      type="button"
+                      class="flex min-h-11 w-full items-center justify-between border-b border-[#edf2ee] px-3 text-start text-xs last:border-0 hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-emerald-700"
+                      [class.bg-[#eff8f2]]="linkForm.controls.guardianId.value === guardian.id"
+                      [attr.aria-pressed]="linkForm.controls.guardianId.value === guardian.id"
+                      (click)="selectGuardian(guardian)"
+                    >
+                      <span class="font-bold">{{ guardian.name }}</span
+                      ><span dir="ltr">{{ guardian.phone }}</span>
+                    </button>
+                  }
+                </div>
+                <div class="mt-2 flex items-center justify-between text-[11px]">
+                  <button
+                    type="button"
+                    class="min-h-9 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50"
+                    [disabled]="guardianPagination().page <= 1 || guardiansLoading()"
+                    (click)="changeGuardianPage(guardianPagination().page - 1)"
+                  >
+                    السابق
+                  </button>
+                  <span
+                    >صفحة {{ guardianPagination().page }} من
+                    {{ guardianPagination().totalPages }}</span
+                  >
+                  <button
+                    type="button"
+                    class="min-h-9 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50"
+                    [disabled]="
+                      guardianPagination().page >= guardianPagination().totalPages ||
+                      guardiansLoading()
+                    "
+                    (click)="changeGuardianPage(guardianPagination().page + 1)"
+                  >
+                    التالي
+                  </button>
+                </div>
+              }
+              @if (linkForm.controls.guardianId.touched && linkForm.controls.guardianId.invalid) {
+                <p class="mt-1 text-xs text-[#b42318]" role="alert">اختر ولي أمر لربطه.</p>
+              }
+              @if (selectedGuardianName()) {
+                <p class="mt-2 text-xs text-[#087b59]" role="status">
+                  المحدد: {{ selectedGuardianName() }}
+                </p>
+              }
+              <label class="mt-4 grid gap-1 text-xs font-bold" for="link-relationship"
+                >صلة القرابة بهذا الطالب</label
+              >
+              <select
+                id="link-relationship"
+                class="min-h-11 w-full rounded-xl border border-[#dce8df] bg-white px-3 text-sm"
+                formControlName="relationship"
+              >
+                @for (relationship of relationships; track relationship.value) {
+                  <option [value]="relationship.value">{{ relationship.label }}</option>
+                }
+              </select>
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                <label class="flex min-h-10 items-center gap-2 text-xs"
+                  ><input type="checkbox" formControlName="isPrimary" /> جهة الاتصال الأساسية</label
+                >
+                <label class="flex min-h-10 items-center gap-2 text-xs"
+                  ><input type="checkbox" formControlName="receivesNotifications" /> تفعيل تفضيل
+                  الإشعارات</label
+                >
+              </div>
+              <p class="text-[11px] leading-5 text-[#71847a]">
+                يُحفظ هذا التفضيل فقط؛ لا ترسل المنصة إشعارات حاليًا.
+              </p>
+              <p class="mt-1 text-[11px] leading-5 text-[#71847a]">
+                عند اختيار جهة أساسية، يستبدل الخادم الجهة الأساسية الحالية لهذا الطالب.
+              </p>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  class="min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white disabled:cursor-wait disabled:opacity-60"
+                  [disabled]="linking()"
+                  [attr.aria-busy]="linking()"
+                >
+                  {{ linking() ? 'جارٍ الربط...' : 'تأكيد الربط' }}
+                </button>
+                <button
+                  type="button"
+                  class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-bold disabled:opacity-60"
+                  [disabled]="linking()"
+                  (click)="closeRelationshipForms()"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          }
+
+          @if (linkEditOpen() && selectedLink(); as link) {
+            <form
+              class="mt-4 rounded-xl border border-[#dce8df] bg-[#fafcfb] p-4"
+              [formGroup]="linkEditForm"
+              (ngSubmit)="saveRelationship()"
+              novalidate
+            >
+              <h3 class="font-extrabold">تعديل علاقة {{ link.guardian.name }}</h3>
+              <label class="mt-3 grid gap-1 text-xs font-bold" for="edit-link-relationship"
+                >صلة القرابة بهذا الطالب</label
+              >
+              <select
+                id="edit-link-relationship"
+                class="min-h-11 w-full rounded-xl border border-[#dce8df] bg-white px-3 text-sm"
+                formControlName="relationship"
+              >
+                @for (relationship of relationships; track relationship.value) {
+                  <option [value]="relationship.value">{{ relationship.label }}</option>
+                }
+              </select>
+              <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                <label class="flex min-h-10 items-center gap-2 text-xs"
+                  ><input type="checkbox" formControlName="isPrimary" /> جهة الاتصال الأساسية</label
+                >
+                <label class="flex min-h-10 items-center gap-2 text-xs"
+                  ><input type="checkbox" formControlName="receivesNotifications" /> تفعيل تفضيل
+                  الإشعارات</label
+                >
+              </div>
+              <p class="text-[11px] leading-5 text-[#71847a]">
+                يُحفظ هذا التفضيل فقط؛ لا ترسل المنصة إشعارات حاليًا.
+              </p>
+              <p class="mt-1 text-[11px] leading-5 text-[#71847a]">
+                تحديد جهة أساسية يستبدل الجهة الأساسية الحالية. إزالة الأساسية لا تختار بديلًا
+                تلقائيًا.
+              </p>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  class="min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white disabled:cursor-wait disabled:opacity-60"
+                  [disabled]="savingLink()"
+                  [attr.aria-busy]="savingLink()"
+                >
+                  {{ savingLink() ? 'جارٍ الحفظ...' : 'حفظ العلاقة' }}
+                </button>
+                <button
+                  type="button"
+                  class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-bold disabled:opacity-60"
+                  [disabled]="savingLink()"
+                  (click)="closeRelationshipForms()"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          }
+        </section>
+      </div>
+    } @else {
+      <section class="rounded-2xl border border-[#e4ece6] bg-white p-6 text-center" role="alert">
+        <h2 class="font-black">تعذر العثور على الطالب</h2>
+        <p class="mt-2 text-sm text-[#71847a]">
+          قد يكون الملف غير موجود أو غير متاح في مساحة العمل الحالية.
+        </p>
+        <a
+          routerLink="/students"
+          class="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+          >العودة إلى الطلاب</a
+        >
+      </section>
+    }
+  </main>
+</div>

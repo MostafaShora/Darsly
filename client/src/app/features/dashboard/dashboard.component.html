@@ -56,6 +56,20 @@
         }
       </nav>
 
+      <div class="mt-6 border-t border-[#edf2ee] pt-4">
+        <p class="mb-2 px-2 text-[11px] font-extrabold tracking-wide text-[#71847a]">إدارة الملفات</p>
+        <nav class="grid gap-1" aria-label="إدارة الطلاب وأولياء الأمور">
+          @for (item of managementLinks; track item.href) {
+            <a
+              class="flex min-h-11 items-center rounded-xl px-3 text-[13px] font-bold text-[#5d7468] transition-colors hover:bg-[#f5faf6] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+              [routerLink]="item.href"
+            >
+              {{ item.label }}
+            </a>
+          }
+        </nav>
+      </div>
+
       <div class="mt-auto border-t border-[#edf2ee] pt-4">
         @if (signOutError()) {
           <p class="mb-3 rounded-lg bg-[#fff3f1] p-3 text-xs leading-6 text-[#a23e35]" role="alert">
@@ -332,10 +346,18 @@
                   <span
                     class="rounded-full bg-[#f2f5f3] px-2.5 py-1 text-[9px] font-extrabold text-[#5f7469]"
                   >
-                    {{ feature.id === 'reports' || feature.id === 'attendance' || feature.id === 'payments' ? 'متاح للتقرير' : 'غير متصل' }}
+                    {{ feature.id === 'students' || feature.id === 'guardians' ? 'متاح للإدارة' : feature.id === 'reports' || feature.id === 'attendance' || feature.id === 'payments' ? 'متاح للتقرير' : 'غير متصل' }}
                   </span>
                 </div>
                 <p class="mt-3 text-[11px] leading-6 text-[#5f7469]">{{ feature.description }}</p>
+                @if (feature.id === 'students' || feature.id === 'guardians') {
+                  <a
+                    class="mt-3 inline-flex min-h-9 items-center rounded-lg border border-[#dce8df] px-3 text-[11px] font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                    [routerLink]="feature.id === 'students' ? '/students' : '/guardians'"
+                  >
+                    {{ feature.id === 'students' ? 'إدارة الطلاب' : 'إدارة أولياء الأمور' }}
+                  </a>
+                }
               </article>
             }
           </div>

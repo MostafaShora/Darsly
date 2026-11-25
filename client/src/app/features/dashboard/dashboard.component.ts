@@ -30,9 +30,14 @@ interface DashboardMetric {
 }
 
 interface DashboardFeature {
-  id: 'students' | 'groups' | 'attendance' | 'payments' | 'reports';
+  id: 'students' | 'guardians' | 'groups' | 'attendance' | 'payments' | 'reports';
   label: string;
   description: string;
+}
+
+interface DashboardManagementLink {
+  label: string;
+  href: string;
 }
 
 const DASHBOARD_NAVIGATION: readonly DashboardNavigationItem[] = [
@@ -56,7 +61,12 @@ const DASHBOARD_FEATURES: readonly DashboardFeature[] = [
   {
     id: 'students',
     label: 'الطلاب',
-    description: 'لا تتوفر بيانات هذا القسم في لوحة التحكم بعد.',
+    description: 'إدارة ملفات الطلاب وبيانات التواصل والحالة.',
+  },
+  {
+    id: 'guardians',
+    label: 'أولياء الأمور',
+    description: 'إدارة جهات اتصال أولياء الأمور وربطهم بملفات الطلاب.',
   },
   {
     id: 'groups',
@@ -114,6 +124,10 @@ export class DashboardComponent {
     String(this.currentDate.getDate()).padStart(2, '0'),
   ].join('-');
   readonly navigationItems = DASHBOARD_NAVIGATION;
+  readonly managementLinks: readonly DashboardManagementLink[] = [
+    { label: 'إدارة الطلاب', href: '/students' },
+    { label: 'أولياء الأمور', href: '/guardians' },
+  ];
   readonly metricCards = DASHBOARD_METRICS;
   readonly featureCards = DASHBOARD_FEATURES;
   readonly activeSection = signal<DashboardSection>('overview');

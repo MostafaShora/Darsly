@@ -14,4 +14,10 @@ export class WorkspaceService {
       .get<ApiListResponse<Workspace[]>>(this.baseUrl + '/mine', { withCredentials: true })
       .pipe(map((response) => response.data));
   }
+
+  getActiveWorkspace(): Observable<Workspace | null> {
+    return this.getMyWorkspaces().pipe(
+      map((workspaces) => workspaces.find((workspace) => workspace.status === 'active') ?? null),
+    );
+  }
 }
