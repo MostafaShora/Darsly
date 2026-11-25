@@ -35,6 +35,38 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'subjects/:subjectId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/subjects/subjects.component').then(
+        (module) => module.SubjectsComponent,
+      ),
+  },
+  {
+    path: 'subjects',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/subjects/subjects.component').then(
+        (module) => module.SubjectsComponent,
+      ),
+  },
+  {
+    path: 'groups/:groupId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/groups/groups.component').then(
+        (module) => module.GroupsComponent,
+      ),
+  },
+  {
+    path: 'groups',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/groups/groups.component').then(
+        (module) => module.GroupsComponent,
+      ),
+  },
+  {
     path: 'students/:studentId',
     canActivate: [authGuard],
     loadComponent: () =>

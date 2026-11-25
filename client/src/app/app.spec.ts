@@ -1,7 +1,8 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { Type } from '@angular/core';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -14,16 +15,20 @@ import {
   Student,
   StudentGuardianLink,
 } from './core/models/people.models';
+import { Enrollment, StudyGroup, Subject } from './core/models/learning.models';
+import { LearningService } from './core/services/learning.service';
 import { PeopleService } from './core/services/people.service';
 import { AttendanceReport, FinanceReport, ReportService } from './core/services/report.service';
 import { WorkspaceService } from './core/services/workspace.service';
 import { GuardiansComponent } from './features/guardians/guardians.component';
+import { GroupsComponent } from './features/groups/groups.component';
 import {
   formatReportDateForTimezone,
   formatReportTimestampForTimezone,
   ReportsComponent,
 } from './features/reports/reports.component';
 import { StudentsComponent } from './features/students/students.component';
+import { SubjectsComponent } from './features/subjects/subjects.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -809,7 +814,7 @@ describe('App', () => {
     fixture.detectChanges();
     const router = TestBed.inject(Router);
 
-    for (const path of ['/students', '/guardians']) {
+    for (const path of ['/students', '/guardians', '/subjects', '/groups']) {
       const navigation = router.navigateByUrl(path);
       await new Promise((resolve) => setTimeout(resolve, 0));
       const request = TestBed.inject(HttpTestingController).expectOne('/api/auth/status');
@@ -850,12 +855,14 @@ describe('App', () => {
     const dashboard = fixture.nativeElement as HTMLElement;
     expect(dashboard.textContent).toContain('Teacher Name');
     expect(dashboard.textContent).toContain('teacher@example.com');
-    expect(dashboard.textContent).toContain('لا تتوفر بيانات هذا القسم في لوحة التحكم بعد.');
+    expect(dashboard.textContent).toContain('إدارة المواد وربطها بالمجموعات الدراسية.');
     expect(dashboard.querySelector('[dir="rtl"][lang="ar"]')).toBeTruthy();
     expect(dashboard.querySelector('button[aria-label="English"]')).toBeNull();
     expect(dashboard.querySelector('svg')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب وأولياء الأمور"] a[href="/students"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب وأولياء الأمور"] a[href="/guardians"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات"] a[href="/students"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات"] a[href="/guardians"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات"] a[href="/subjects"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات"] a[href="/groups"]')).toBeTruthy();
 
     const navigationLinks = dashboard.querySelectorAll<HTMLAnchorElement>(
       'nav[aria-label="التنقل الرئيسي"] a',
@@ -886,5 +893,331 @@ describe('App', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     fixture.detectChanges();
     expect(menuButton.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  describe('Subjects, groups, and enrollments workflows', () => {
+    const workspace: Workspace = {
+      _id: 'workspace-learning',
+      name: 'مساحة التعلم',
+      slug: 'learning',
+      status: 'active',
+      currency: 'EGP',
+      description: '',
+    };
+    const subject: Subject = {
+      id: 'subject-1',
+      name: 'الرياضيات',
+      description: '',
+      status: 'active',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const group: StudyGroup = {
+      id: 'group-1',
+      subjectId: subject.id,
+      name: 'المجموعة الأولى',
+      description: '',
+      monthlyFee: '25.00',
+      capacity: null,
+      status: 'active',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const student: Student = {
+      id: 'student-learning-1',
+      name: 'طالب تجريبي',
+      phone: null,
+      email: null,
+      schoolName: '',
+      grade: '',
+      status: 'active',
+      notes: '',
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+    };
+    const enrollment: Enrollment = {
+      id: 'enrollment-1',
+      studentId: student.id,
+      groupId: group.id,
+      enrolledAt: '2026-01-02T10:00:00.000Z',
+      endedAt: null,
+      status: 'paused',
+      notes: '',
+      createdAt: '2026-01-02T10:00:00.000Z',
+      updatedAt: '2026-01-02T10:00:00.000Z',
+    };
+    const pageResult = <T>(items: T[], totalItems = items.length): PageResult<T> => ({
+      items,
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        totalItems,
+        totalPages: totalItems ? Math.ceil(totalItems / 20) : 0,
+      },
+    });
+
+    const learningMock = {
+      listSubjects: vi.fn<LearningService['listSubjects']>(),
+      getSubject: vi.fn<LearningService['getSubject']>(),
+      createSubject: vi.fn<LearningService['createSubject']>(),
+      updateSubject: vi.fn<LearningService['updateSubject']>(),
+      listGroups: vi.fn<LearningService['listGroups']>(),
+      getGroup: vi.fn<LearningService['getGroup']>(),
+      createGroup: vi.fn<LearningService['createGroup']>(),
+      updateGroup: vi.fn<LearningService['updateGroup']>(),
+      listGroupEnrollments: vi.fn<LearningService['listGroupEnrollments']>(),
+      createEnrollment: vi.fn<LearningService['createEnrollment']>(),
+      updateEnrollment: vi.fn<LearningService['updateEnrollment']>(),
+    };
+    const peopleMock = {
+      listStudents: vi.fn<PeopleService['listStudents']>(),
+      getStudent: vi.fn<PeopleService['getStudent']>(),
+    };
+
+    async function configure(
+      component: Type<unknown>,
+      routeParams: Record<string, string>,
+    ): Promise<void> {
+      await TestBed.configureTestingModule({
+        imports: [component],
+        providers: [
+          provideRouter([]),
+          {
+            provide: ActivatedRoute,
+            useValue: { paramMap: of(convertToParamMap(routeParams)) },
+          },
+          { provide: WorkspaceService, useValue: { getActiveWorkspace: () => of(workspace) } },
+          { provide: LearningService, useValue: learningMock },
+          { provide: PeopleService, useValue: peopleMock },
+        ],
+      }).compileComponents();
+    }
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule();
+      learningMock.listSubjects.mockReset().mockReturnValue(of(pageResult([subject])));
+      learningMock.getSubject.mockReset().mockReturnValue(of(subject));
+      learningMock.createSubject.mockReset().mockReturnValue(of(subject));
+      learningMock.updateSubject.mockReset().mockReturnValue(of(subject));
+      learningMock.listGroups.mockReset().mockReturnValue(of(pageResult([group])));
+      learningMock.getGroup.mockReset().mockReturnValue(of(group));
+      learningMock.createGroup.mockReset().mockReturnValue(of(group));
+      learningMock.updateGroup.mockReset().mockReturnValue(of(group));
+      learningMock.listGroupEnrollments.mockReset().mockReturnValue(of(pageResult([])));
+      learningMock.createEnrollment.mockReset().mockReturnValue(of(enrollment));
+      learningMock.updateEnrollment.mockReset().mockReturnValue(of(enrollment));
+      peopleMock.listStudents.mockReset().mockReturnValue(of(pageResult([student])));
+      peopleMock.getStudent.mockReset().mockReturnValue(of(student));
+      await Promise.resolve();
+    });
+
+    afterEach(() => {
+      TestBed.resetTestingModule();
+      vi.restoreAllMocks();
+    });
+
+    it('treats /subjects/new as create mode and submits with the active workspace', async () => {
+      await configure(SubjectsComponent, { subjectId: 'new' });
+      const fixture = TestBed.createComponent(SubjectsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+      expect(component.isCreating()).toBe(true);
+      expect(learningMock.getSubject).not.toHaveBeenCalled();
+      component.subjectForm.setValue({ name: 'الرياضيات', description: '', status: 'active' });
+      component.submitSubject();
+
+      expect(learningMock.createSubject).toHaveBeenCalledWith('workspace-learning', {
+        name: 'الرياضيات',
+        description: '',
+      });
+      expect(learningMock.updateSubject).not.toHaveBeenCalled();
+    });
+
+    it('blocks invalid subject submissions and applies list search and page parameters', async () => {
+      await configure(SubjectsComponent, {});
+      const fixture = TestBed.createComponent(SubjectsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      component.submitSubject();
+      expect(learningMock.createSubject).not.toHaveBeenCalled();
+      component.search.setValue('جبر');
+      component.loadSubjects(2);
+
+      expect(learningMock.listSubjects).toHaveBeenLastCalledWith('workspace-learning', {
+        page: 2,
+        pageSize: 20,
+        search: 'جبر',
+        status: undefined,
+      });
+    });
+
+    it('updates existing subjects instead of creating duplicates', async () => {
+      await configure(SubjectsComponent, { subjectId: subject.id });
+      const fixture = TestBed.createComponent(SubjectsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      component.beginEdit();
+      component.subjectForm.setValue({
+        name: 'الجبر',
+        description: 'مستوى أول',
+        status: 'archived',
+      });
+      component.submitSubject();
+
+      expect(learningMock.updateSubject).toHaveBeenCalledWith('workspace-learning', subject.id, {
+        name: 'الجبر',
+        description: 'مستوى أول',
+        status: 'archived',
+      });
+      expect(learningMock.createSubject).not.toHaveBeenCalled();
+    });
+
+    it('shows unlimited capacity and the linked subject in group details', async () => {
+      await configure(GroupsComponent, { groupId: group.id });
+      const fixture = TestBed.createComponent(GroupsComponent);
+      fixture.detectChanges();
+
+      expect(learningMock.getGroup).toHaveBeenCalledWith('workspace-learning', group.id);
+      expect(learningMock.getSubject).toHaveBeenCalledWith('workspace-learning', subject.id);
+      expect(learningMock.listGroupEnrollments).toHaveBeenCalledWith(
+        'workspace-learning',
+        group.id,
+        { page: 1, pageSize: 1, status: 'active' },
+      );
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('غير محدودة');
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(subject.name);
+    });
+
+    it('creates groups using the selected subject and an unlimited capacity', async () => {
+      await configure(GroupsComponent, { groupId: 'new' });
+      const fixture = TestBed.createComponent(GroupsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+
+      expect(component.isCreating()).toBe(true);
+      expect(learningMock.getGroup).not.toHaveBeenCalled();
+      component.selectFormSubject(subject);
+      component.groupForm.patchValue({
+        name: 'مجموعة جديدة',
+        description: '',
+        monthlyFee: '40.00',
+        capacity: null,
+      });
+      component.submitGroup();
+
+      expect(learningMock.createGroup).toHaveBeenCalledWith('workspace-learning', {
+        subjectId: subject.id,
+        name: 'مجموعة جديدة',
+        description: '',
+        monthlyFee: '40.00',
+        capacity: null,
+      });
+    });
+
+    it('filters group pages and resolves roster students in the same workspace', async () => {
+      await configure(GroupsComponent, {});
+      const listFixture = TestBed.createComponent(GroupsComponent);
+      listFixture.detectChanges();
+      const listComponent = listFixture.componentInstance;
+      listComponent.search.setValue('المجموعة');
+      listComponent.subjectFilterId.setValue(subject.id);
+      listComponent.statusFilter.setValue('active');
+      listComponent.loadGroups(2);
+
+      expect(learningMock.listGroups).toHaveBeenLastCalledWith('workspace-learning', {
+        page: 2,
+        pageSize: 20,
+        search: 'المجموعة',
+        subjectId: subject.id,
+        status: 'active',
+      });
+
+      TestBed.resetTestingModule();
+      learningMock.listGroupEnrollments.mockReturnValue(of(pageResult([enrollment], 1)));
+      await configure(GroupsComponent, { groupId: group.id });
+      const detailFixture = TestBed.createComponent(GroupsComponent);
+      detailFixture.detectChanges();
+
+      expect(peopleMock.getStudent).toHaveBeenCalledWith('workspace-learning', student.id);
+      expect((detailFixture.nativeElement as HTMLElement).textContent).toContain(student.name);
+    });
+
+    it('updates group details in the active workspace', async () => {
+      await configure(GroupsComponent, { groupId: group.id });
+      const fixture = TestBed.createComponent(GroupsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      component.beginEdit();
+      component.groupForm.setValue({
+        subjectId: subject.id,
+        name: 'مجموعة الجبر',
+        description: '',
+        monthlyFee: '30.00',
+        capacity: 25,
+        status: 'inactive',
+      });
+      component.submitGroup();
+
+      expect(learningMock.updateGroup).toHaveBeenCalledWith('workspace-learning', group.id, {
+        subjectId: subject.id,
+        name: 'مجموعة الجبر',
+        description: '',
+        monthlyFee: '30.00',
+        capacity: 25,
+        status: 'inactive',
+      });
+      expect(learningMock.createGroup).not.toHaveBeenCalled();
+    });
+
+    it('creates group enrollments with the active workspace and reports capacity conflicts', async () => {
+      await configure(GroupsComponent, { groupId: group.id });
+      const fixture = TestBed.createComponent(GroupsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      component.openEnrollmentForm();
+      component.selectStudent(student);
+      component.submitEnrollment();
+      expect(learningMock.createEnrollment).toHaveBeenCalledWith(
+        'workspace-learning',
+        group.id,
+        { studentId: student.id, status: 'active' },
+      );
+
+      learningMock.createEnrollment.mockReturnValue(
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { message: 'Study group is at capacity' },
+            }),
+        ),
+      );
+      component.openEnrollmentForm();
+      component.selectStudent(student);
+      component.submitEnrollment();
+      expect(component.error()).toContain('وصلت إلى السعة المحددة');
+    });
+
+    it('clears endedAt when reactivating a paused enrollment', async () => {
+      await configure(GroupsComponent, { groupId: group.id });
+      const fixture = TestBed.createComponent(GroupsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      component.changeEnrollmentStatus({ enrollment, student }, 'active');
+
+      expect(learningMock.updateEnrollment).toHaveBeenCalledWith(
+        'workspace-learning',
+        enrollment.id,
+        { status: 'active', endedAt: null },
+      );
+    });
   });
 });

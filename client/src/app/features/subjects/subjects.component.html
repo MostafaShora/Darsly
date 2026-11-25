@@ -1,0 +1,165 @@
+<div class="min-h-screen bg-[#f5f8f6] text-[#173b32]" dir="rtl" lang="ar">
+  <header class="border-b border-[#e4ece6] bg-white">
+    <div
+      class="mx-auto flex min-h-[72px] max-w-[1460px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-7 xl:px-10"
+    >
+      <div>
+        <p class="text-[11px] font-semibold text-[#71847a]">مساحة عمل المدرّس</p>
+        <h1 class="text-base font-black">{{ isDetailView() ? 'ملف المادة' : 'إدارة المواد' }}</h1>
+      </div>
+      <nav class="flex flex-wrap items-center gap-2 text-xs font-bold" aria-label="التنقل بين الأقسام">
+        <a routerLink="/dashboard" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">لوحة التحكم</a>
+        <a routerLink="/subjects" aria-current="page" class="min-h-10 rounded-xl bg-[#edf8f1] px-3 py-3 text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">المواد</a>
+        <a routerLink="/groups" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">المجموعات</a>
+        <a routerLink="/students" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">الطلاب</a>
+        <a routerLink="/guardians" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">أولياء الأمور</a>
+        <a routerLink="/reports" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">التقارير</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1460px] px-4 py-6 sm:px-7 xl:px-10">
+    @if (error()) {
+      <p class="mb-4 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-sm leading-6 text-[#9b493e]" role="alert">{{ error() }}</p>
+    }
+    @if (success()) {
+      <p class="mb-4 rounded-xl border border-[#d1ead9] bg-[#f2faf4] p-4 text-sm leading-6 text-[#087b59]" role="status" aria-live="polite">{{ success() }}</p>
+    }
+
+    @if (workspaceLoading()) {
+      <div class="grid min-h-48 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-sm text-[#5f7469]" aria-live="polite" aria-busy="true">جارٍ تحميل مساحة العمل...</div>
+    } @else if (!hasWorkspace()) {
+      <section class="rounded-2xl border border-[#e4ece6] bg-white p-6 text-center">
+        <h2 class="font-black">لا توجد مساحة عمل نشطة</h2>
+        <p class="mt-2 text-sm text-[#71847a]">تعذر تحميل المواد دون مساحة عمل نشطة.</p>
+        <a routerLink="/dashboard" class="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">العودة إلى لوحة التحكم</a>
+      </section>
+    } @else if (!isDetailView()) {
+      <section class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6" aria-labelledby="subjects-heading">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="subjects-heading" class="text-lg font-black">المواد الدراسية</h2>
+            <p class="mt-1 text-xs leading-6 text-[#71847a]">إدارة أسماء المواد وحالتها.</p>
+          </div>
+          <a routerLink="/subjects/new" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">إضافة مادة</a>
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]">
+            البحث
+            <input class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" type="search" maxlength="100" [formControl]="search" placeholder="اسم المادة أو وصفها" aria-label="البحث عن مادة" />
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]">
+            الحالة
+            <select class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" [formControl]="statusFilter">
+              <option value="">كل الحالات</option>
+              @for (status of statuses; track status.value) {
+                <option [value]="status.value">{{ status.label }}</option>
+              }
+            </select>
+          </label>
+        </div>
+
+        @if (loading()) {
+          <div class="mt-5 grid min-h-48 place-items-center rounded-xl border border-[#e4ece6] bg-[#fafcfb] text-sm text-[#5f7469]" aria-live="polite" aria-busy="true">جارٍ تحميل المواد...</div>
+        } @else if (error()) {
+          <div class="mt-5 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]" role="alert">تعذر عرض قائمة المواد بسبب خطأ في الطلب.</div>
+        } @else if (subjects().length === 0) {
+          <div class="mt-5 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-12 text-center">
+            <h3 class="text-sm font-extrabold text-[#38554a]">{{ search.value || statusFilter.value ? 'لا توجد نتائج مطابقة' : 'لا توجد مواد مسجلة بعد' }}</h3>
+            <p class="mt-2 text-xs leading-6 text-[#71847a]">{{ search.value || statusFilter.value ? 'جرّب تعديل البحث أو الحالة.' : 'أضف أول مادة لبدء إنشاء المجموعات.' }}</p>
+            @if (!search.value && !statusFilter.value) {
+              <a routerLink="/subjects/new" class="mt-4 inline-flex min-h-10 items-center rounded-xl border border-[#cfe4d5] px-4 text-xs font-extrabold text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">إضافة مادة</a>
+            }
+          </div>
+        } @else {
+          <div class="mt-5 overflow-x-auto rounded-xl border border-[#e4ece6]">
+            <table class="w-full min-w-[560px] text-right text-xs">
+              <caption class="sr-only">المواد في مساحة العمل الحالية</caption>
+              <thead class="bg-[#f8faf8] text-[#526b5f]">
+                <tr><th scope="col" class="p-3 font-extrabold">المادة</th><th scope="col" class="p-3 font-extrabold">الوصف</th><th scope="col" class="p-3 font-extrabold">الحالة</th><th scope="col" class="p-3"><span class="sr-only">إجراء</span></th></tr>
+              </thead>
+              <tbody>
+                @for (item of subjects(); track item.id) {
+                  <tr class="border-t border-[#edf2ee]">
+                    <th scope="row" class="p-3 font-extrabold text-[#29483d]">{{ item.name }}</th>
+                    <td class="max-w-xl whitespace-pre-wrap p-3 text-[#526b5f]">{{ item.description || '—' }}</td>
+                    <td class="p-3"><span class="rounded-full bg-[#eff8f2] px-2.5 py-1 font-bold text-[#087b59]">{{ statusLabel(item.status) }}</span></td>
+                    <td class="p-3"><a [routerLink]="['/subjects', item.id]" class="inline-flex min-h-9 items-center rounded-lg border border-[#dce8df] px-3 font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">عرض الملف</a></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[#5f7469]">
+            <p>إجمالي النتائج: {{ pagination().totalItems }}</p>
+            <div class="flex items-center gap-2" aria-label="التنقل بين صفحات المواد">
+              <button type="button" class="min-h-10 rounded-lg border border-[#dce8df] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50" [disabled]="loading() || pagination().page <= 1" (click)="changePage(pagination().page - 1)">السابق</button>
+              <span aria-live="polite">صفحة {{ pagination().page }} من {{ pagination().totalPages }}</span>
+              <button type="button" class="min-h-10 rounded-lg border border-[#dce8df] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50" [disabled]="loading() || pagination().page >= pagination().totalPages" (click)="changePage(pagination().page + 1)">التالي</button>
+            </div>
+          </div>
+        }
+      </section>
+    } @else if (detailsLoading()) {
+      <div class="grid min-h-56 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-sm text-[#5f7469]" aria-live="polite" aria-busy="true">جارٍ تحميل بيانات المادة...</div>
+    } @else if (isCreating() || (isEditing() && subject())) {
+      <section class="mx-auto max-w-3xl rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-7" aria-labelledby="subject-form-heading">
+        <a routerLink="/subjects" class="text-xs font-bold text-[#087b59] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">العودة إلى المواد</a>
+        <h2 id="subject-form-heading" class="mt-4 text-lg font-black">{{ isCreating() ? 'إضافة مادة' : 'تعديل المادة' }}</h2>
+        <form class="mt-5 grid gap-4" [formGroup]="subjectForm" (ngSubmit)="submitSubject()" novalidate>
+          <fieldset class="grid gap-4" [disabled]="submitting()">
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="subject-name">اسم المادة *
+              <input id="subject-name" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" formControlName="name" maxlength="100" [attr.aria-invalid]="subjectForm.controls.name.invalid && subjectForm.controls.name.touched" />
+              @if (subjectForm.controls.name.touched && subjectForm.controls.name.hasError('required')) {
+                <span class="font-normal text-[#b42318]" role="alert">اسم المادة مطلوب.</span>
+              } @else if (subjectForm.controls.name.touched && (subjectForm.controls.name.hasError('minlength') || subjectForm.controls.name.hasError('maxlength'))) {
+                <span class="font-normal text-[#b42318]" role="alert">يجب أن يتراوح الاسم بين حرفين و100 حرف.</span>
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="subject-description">الوصف
+              <textarea id="subject-description" class="min-h-28 rounded-xl border border-[#dce8df] px-3 py-2 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" formControlName="description" maxlength="1000"></textarea>
+              @if (subjectForm.controls.description.touched && subjectForm.controls.description.hasError('maxlength')) {
+                <span class="font-normal text-[#b42318]" role="alert">يجب ألا يتجاوز الوصف 1000 حرف.</span>
+              }
+            </label>
+            @if (!isCreating()) {
+              <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="subject-status">الحالة
+                <select id="subject-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" formControlName="status">
+                  @for (status of statuses; track status.value) {
+                    <option [value]="status.value">{{ status.label }}</option>
+                  }
+                </select>
+              </label>
+            }
+          </fieldset>
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" class="min-h-11 rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60" [disabled]="submitting()" [attr.aria-busy]="submitting()">{{ submitting() ? 'جارٍ الحفظ...' : 'حفظ البيانات' }}</button>
+            <button type="button" class="min-h-11 rounded-xl border border-[#dce8df] px-5 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-60" [disabled]="submitting()" (click)="cancelEdit()">إلغاء</button>
+          </div>
+        </form>
+      </section>
+    } @else if (subject(); as currentSubject) {
+      <section class="mx-auto max-w-4xl rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-7" aria-labelledby="subject-detail-heading">
+        <a routerLink="/subjects" class="text-xs font-bold text-[#087b59] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">المواد</a>
+        <div class="mt-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="subject-detail-heading" class="text-xl font-black">{{ currentSubject.name }}</h2>
+            <span class="mt-2 inline-flex rounded-full bg-[#eff8f2] px-3 py-1 text-xs font-bold text-[#087b59]">{{ statusLabel(currentSubject.status) }}</span>
+          </div>
+          <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" (click)="beginEdit()">تعديل البيانات</button>
+        </div>
+        <div class="mt-5 rounded-xl bg-[#f8faf8] p-4">
+          <h3 class="text-xs font-extrabold text-[#71847a]">الوصف</h3>
+          <p class="mt-2 whitespace-pre-wrap text-sm leading-7">{{ currentSubject.description || 'لا يوجد وصف مسجل.' }}</p>
+        </div>
+      </section>
+    } @else {
+      <section class="rounded-2xl border border-[#e4ece6] bg-white p-6 text-center" role="alert">
+        <h2 class="font-black">تعذر العثور على المادة</h2>
+        <p class="mt-2 text-sm text-[#71847a]">قد تكون المادة غير موجودة أو غير متاحة في مساحة العمل الحالية.</p>
+        <a routerLink="/subjects" class="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">العودة إلى المواد</a>
+      </section>
+    }
+  </main>
+</div>

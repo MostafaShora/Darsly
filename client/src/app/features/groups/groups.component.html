@@ -1,0 +1,370 @@
+<div class="min-h-screen bg-[#f5f8f6] text-[#173b32]" dir="rtl" lang="ar">
+  <header class="border-b border-[#e4ece6] bg-white">
+    <div class="mx-auto flex min-h-[72px] max-w-[1460px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-7 xl:px-10">
+      <div>
+        <p class="text-[11px] font-semibold text-[#71847a]">مساحة عمل المدرّس</p>
+        <h1 class="text-base font-black">{{ isDetailView() ? 'ملف المجموعة' : 'إدارة المجموعات' }}</h1>
+      </div>
+      <nav class="flex flex-wrap items-center gap-2 text-xs font-bold" aria-label="التنقل بين الأقسام">
+        <a routerLink="/dashboard" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">لوحة التحكم</a>
+        <a routerLink="/subjects" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">المواد</a>
+        <a routerLink="/groups" aria-current="page" class="min-h-10 rounded-xl bg-[#edf8f1] px-3 py-3 text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">المجموعات</a>
+        <a routerLink="/students" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">الطلاب</a>
+        <a routerLink="/guardians" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">أولياء الأمور</a>
+        <a routerLink="/reports" class="min-h-10 rounded-xl px-3 py-3 hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">التقارير</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-[1460px] px-4 py-6 sm:px-7 xl:px-10">
+    @if (error()) {
+      <p class="mb-4 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-sm leading-6 text-[#9b493e]" role="alert">{{ error() }}</p>
+    }
+    @if (success()) {
+      <p class="mb-4 rounded-xl border border-[#d1ead9] bg-[#f2faf4] p-4 text-sm leading-6 text-[#087b59]" role="status" aria-live="polite">{{ success() }}</p>
+    }
+
+    @if (workspaceLoading()) {
+      <div class="grid min-h-48 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-sm text-[#5f7469]" aria-live="polite" aria-busy="true">جارٍ تحميل مساحة العمل...</div>
+    } @else if (!hasWorkspace()) {
+      <section class="rounded-2xl border border-[#e4ece6] bg-white p-6 text-center">
+        <h2 class="font-black">لا توجد مساحة عمل نشطة</h2>
+        <p class="mt-2 text-sm text-[#71847a]">تعذر تحميل المجموعات دون مساحة عمل نشطة.</p>
+        <a routerLink="/dashboard" class="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">العودة إلى لوحة التحكم</a>
+      </section>
+    } @else if (!isDetailView()) {
+      <section class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6" aria-labelledby="groups-heading">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="groups-heading" class="text-lg font-black">المجموعات الدراسية</h2>
+            <p class="mt-1 text-xs leading-6 text-[#71847a]">ابحث وصفِّ المجموعات حسب المادة والحالة.</p>
+          </div>
+          <a routerLink="/groups/new" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">إضافة مجموعة</a>
+        </div>
+
+        <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]">
+            البحث
+            <input class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" type="search" maxlength="100" [formControl]="search" placeholder="اسم المجموعة أو وصفها" />
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-status-filter">الحالة
+            <select id="group-status-filter" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" [formControl]="statusFilter">
+              <option value="">كل الحالات</option>
+              @for (status of statuses; track status.value) {
+                <option [value]="status.value">{{ status.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="subject-search">ابحث عن مادة للتصفية
+            <input id="subject-search" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" type="search" maxlength="100" [formControl]="subjectSearch" />
+          </label>
+          <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-subject-filter">المادة
+            <select id="group-subject-filter" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" [formControl]="subjectFilterId">
+              <option value="">كل المواد</option>
+              @for (subjectOption of subjectFilterOptions(); track subjectOption.id) {
+                <option [value]="subjectOption.id">{{ subjectOption.name }}{{ subjectOption.status === 'archived' ? ' (مؤرشفة)' : '' }}</option>
+              }
+            </select>
+          </label>
+        </div>
+        @if (subjectOptionsError()) {
+          <p class="mt-2 text-xs text-[#9b493e]" role="alert">{{ subjectOptionsError() }}</p>
+        }
+        <div class="mt-2 flex items-center justify-between text-[11px] text-[#71847a]">
+          <button type="button" class="min-h-8 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50" [disabled]="subjectsLoading() || subjectPagination().page <= 1" (click)="changeSubjectPage(subjectPagination().page - 1)">مواد سابقة</button>
+          <span aria-live="polite">صفحة المواد {{ subjectPagination().page }} من {{ subjectPagination().totalPages }}</span>
+          <button type="button" class="min-h-8 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50" [disabled]="subjectsLoading() || subjectPagination().page >= subjectPagination().totalPages" (click)="changeSubjectPage(subjectPagination().page + 1)">مواد تالية</button>
+        </div>
+
+        @if (loading()) {
+          <div class="mt-5 grid min-h-48 place-items-center rounded-xl border border-[#e4ece6] bg-[#fafcfb] text-sm text-[#5f7469]" aria-live="polite" aria-busy="true">جارٍ تحميل المجموعات...</div>
+        } @else if (error()) {
+          <div class="mt-5 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]" role="alert">تعذر عرض قائمة المجموعات بسبب خطأ في الطلب.</div>
+        } @else if (groupRows().length === 0) {
+          <div class="mt-5 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-12 text-center">
+            <h3 class="text-sm font-extrabold text-[#38554a]">{{ search.value || statusFilter.value || subjectFilterId.value ? 'لا توجد نتائج مطابقة' : 'لا توجد مجموعات مسجلة بعد' }}</h3>
+            <p class="mt-2 text-xs leading-6 text-[#71847a]">{{ search.value || statusFilter.value || subjectFilterId.value ? 'جرّب تعديل البحث أو الفلاتر.' : 'أنشئ مجموعة واربطها بمادة موجودة.' }}</p>
+            @if (!search.value && !statusFilter.value && !subjectFilterId.value) {
+              <a routerLink="/groups/new" class="mt-4 inline-flex min-h-10 items-center rounded-xl border border-[#cfe4d5] px-4 text-xs font-extrabold text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">إضافة مجموعة</a>
+            }
+          </div>
+        } @else {
+          <div class="mt-5 overflow-x-auto rounded-xl border border-[#e4ece6]">
+            <table class="w-full min-w-[760px] text-right text-xs">
+              <caption class="sr-only">المجموعات الدراسية في مساحة العمل الحالية</caption>
+              <thead class="bg-[#f8faf8] text-[#526b5f]">
+                <tr><th scope="col" class="p-3 font-extrabold">المجموعة</th><th scope="col" class="p-3 font-extrabold">المادة</th><th scope="col" class="p-3 font-extrabold">الرسوم الشهرية</th><th scope="col" class="p-3 font-extrabold">السعة</th><th scope="col" class="p-3 font-extrabold">الحالة</th><th scope="col" class="p-3"><span class="sr-only">إجراء</span></th></tr>
+              </thead>
+              <tbody>
+                @for (row of groupRows(); track row.group.id) {
+                  <tr class="border-t border-[#edf2ee]">
+                    <th scope="row" class="p-3 font-extrabold text-[#29483d]">{{ row.group.name }}</th>
+                    <td class="p-3 text-[#526b5f]">{{ row.subject.name }}</td>
+                    <td class="p-3 text-[#526b5f]" dir="ltr">{{ row.group.monthlyFee }} EGP</td>
+                    <td class="p-3 text-[#526b5f]">{{ row.group.capacity === null ? 'غير محدودة' : row.group.capacity }}</td>
+                    <td class="p-3"><span class="rounded-full bg-[#eff8f2] px-2.5 py-1 font-bold text-[#087b59]">{{ statusLabel(row.group.status) }}</span></td>
+                    <td class="p-3"><a [routerLink]="['/groups', row.group.id]" class="inline-flex min-h-9 items-center rounded-lg border border-[#dce8df] px-3 font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">عرض الملف والسجل</a></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[#5f7469]">
+            <p>إجمالي النتائج: {{ pagination().totalItems }}</p>
+            <div class="flex items-center gap-2" aria-label="التنقل بين صفحات المجموعات">
+              <button type="button" class="min-h-10 rounded-lg border border-[#dce8df] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50" [disabled]="loading() || pagination().page <= 1" (click)="changePage(pagination().page - 1)">السابق</button>
+              <span aria-live="polite">صفحة {{ pagination().page }} من {{ pagination().totalPages }}</span>
+              <button type="button" class="min-h-10 rounded-lg border border-[#dce8df] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50" [disabled]="loading() || pagination().page >= pagination().totalPages" (click)="changePage(pagination().page + 1)">التالي</button>
+            </div>
+          </div>
+        }
+      </section>
+    } @else if (detailsLoading()) {
+      <div class="grid min-h-56 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-sm text-[#5f7469]" aria-live="polite" aria-busy="true">جارٍ تحميل بيانات المجموعة...</div>
+    } @else if (isCreating() || (isEditing() && group())) {
+      <section class="mx-auto max-w-4xl rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-7" aria-labelledby="group-form-heading">
+        <a routerLink="/groups" class="text-xs font-bold text-[#087b59] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">العودة إلى المجموعات</a>
+        <h2 id="group-form-heading" class="mt-4 text-lg font-black">{{ isCreating() ? 'إضافة مجموعة' : 'تعديل المجموعة' }}</h2>
+        <form class="mt-5 grid gap-4 sm:grid-cols-2" [formGroup]="groupForm" (ngSubmit)="submitGroup()" novalidate>
+          <fieldset class="contents" [disabled]="submitting()">
+            <div class="grid gap-2 sm:col-span-2">
+              <label class="text-xs font-bold text-[#38554a]" for="subject-options-search">ابحث عن المادة المطلوبة *</label>
+              <input id="subject-options-search" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm" type="search" maxlength="100" [formControl]="subjectSearch" />
+              @if (selectedFormSubject(); as selectedSubject) {
+                <p class="rounded-lg bg-[#eff8f2] p-3 text-xs text-[#087b59]" role="status">المادة المختارة: <strong>{{ selectedSubject.name }}</strong></p>
+              }
+              @if (subjectsLoading()) {
+                <p class="text-xs text-[#71847a]" aria-live="polite">جارٍ تحميل المواد...</p>
+              } @else if (subjects().length === 0) {
+                <p class="text-xs text-[#71847a]">لا توجد مواد مطابقة. أنشئ المادة أولًا من صفحة المواد.</p>
+              } @else {
+                <div class="max-h-44 overflow-y-auto rounded-lg border border-[#e4ece6] bg-white" role="group" aria-label="اختيار مادة للمجموعة">
+                  @for (subjectOption of subjects(); track subjectOption.id) {
+                    <button type="button" class="flex min-h-10 w-full items-center justify-between border-b border-[#edf2ee] px-3 text-start text-xs last:border-0 hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" [class.bg-[#eff8f2]]="groupForm.controls.subjectId.value === subjectOption.id" [attr.aria-pressed]="groupForm.controls.subjectId.value === subjectOption.id" (click)="selectFormSubject(subjectOption)">
+                      <span class="font-bold">{{ subjectOption.name }}</span><span class="text-[#71847a]">{{ subjectOption.status === 'archived' ? 'مؤرشفة' : 'نشطة' }}</span>
+                    </button>
+                  }
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-[#71847a]">
+                  <button type="button" class="min-h-8 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50" [disabled]="subjectsLoading() || subjectPagination().page <= 1" (click)="changeSubjectPage(subjectPagination().page - 1)">السابق</button>
+                  <span aria-live="polite">صفحة {{ subjectPagination().page }} من {{ subjectPagination().totalPages }}</span>
+                  <button type="button" class="min-h-8 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50" [disabled]="subjectsLoading() || subjectPagination().page >= subjectPagination().totalPages" (click)="changeSubjectPage(subjectPagination().page + 1)">التالي</button>
+                </div>
+              }
+              @if (groupForm.controls.subjectId.touched && groupForm.controls.subjectId.invalid) {
+                <span class="text-xs text-[#b42318]" role="alert">اختر مادة موجودة لهذه المجموعة.</span>
+              }
+              @if (subjectOptionsError()) {
+                <span class="text-xs text-[#b42318]" role="alert">{{ subjectOptionsError() }}</span>
+              }
+            </div>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-name">اسم المجموعة *
+              <input id="group-name" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm" formControlName="name" maxlength="120" [attr.aria-invalid]="groupForm.controls.name.invalid && groupForm.controls.name.touched" />
+              @if (groupForm.controls.name.touched && groupForm.controls.name.invalid) {
+                <span class="font-normal text-[#b42318]" role="alert">اسم المجموعة مطلوب (من حرفين إلى 120 حرفًا).</span>
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-monthly-fee">الرسوم الشهرية بالجنيه المصري *
+              <input id="group-monthly-fee" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-left text-sm" dir="ltr" type="text" inputmode="decimal" formControlName="monthlyFee" maxlength="128" placeholder="0.00" [attr.aria-invalid]="groupForm.controls.monthlyFee.invalid && groupForm.controls.monthlyFee.touched" />
+              @if (groupForm.controls.monthlyFee.touched && groupForm.controls.monthlyFee.hasError('required')) {
+                <span class="font-normal text-[#b42318]" role="alert">الرسوم الشهرية مطلوبة.</span>
+              } @else if (groupForm.controls.monthlyFee.touched && groupForm.controls.monthlyFee.hasError('pattern')) {
+                <span class="font-normal text-[#b42318]" role="alert">أدخل مبلغًا عشريًا موجبًا أو صفرًا دون فواصل.</span>
+              } @else if (groupForm.controls.monthlyFee.touched && groupForm.controls.monthlyFee.hasError('decimalPrecision')) {
+                <span class="font-normal text-[#b42318]" role="alert">تجاوز المبلغ دقة Decimal128 المسموحة.</span>
+              } @else if (groupForm.controls.monthlyFee.touched && groupForm.controls.monthlyFee.hasError('maxlength')) {
+                <span class="font-normal text-[#b42318]" role="alert">يجب ألا يتجاوز المبلغ 128 حرفًا.</span>
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-capacity">السعة (اتركها فارغة لغير المحدودة)
+              <input id="group-capacity" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm" type="number" min="1" max="1000" step="1" formControlName="capacity" />
+              @if (groupForm.controls.capacity.touched && groupForm.controls.capacity.hasError('integer')) {
+                <span class="font-normal text-[#b42318]" role="alert">يجب أن تكون السعة عددًا صحيحًا.</span>
+              } @else if (groupForm.controls.capacity.touched && groupForm.controls.capacity.invalid) {
+                <span class="font-normal text-[#b42318]" role="alert">أدخل سعة بين 1 و1000 أو اتركها فارغة.</span>
+              }
+            </label>
+            <label class="grid gap-1 text-xs font-bold text-[#38554a] sm:col-span-2" for="group-description">الوصف
+              <textarea id="group-description" class="min-h-24 rounded-xl border border-[#dce8df] px-3 py-2 text-sm" formControlName="description" maxlength="1000"></textarea>
+              @if (groupForm.controls.description.touched && groupForm.controls.description.hasError('maxlength')) {
+                <span class="font-normal text-[#b42318]" role="alert">يجب ألا يتجاوز الوصف 1000 حرف.</span>
+              }
+            </label>
+            @if (!isCreating()) {
+              <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-status">الحالة
+                <select id="group-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" formControlName="status">
+                  @for (status of statuses; track status.value) {
+                    <option [value]="status.value">{{ status.label }}</option>
+                  }
+                </select>
+              </label>
+            }
+          </fieldset>
+          <div class="flex flex-wrap gap-2 sm:col-span-2">
+            <button type="submit" class="min-h-11 rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60" [disabled]="submitting()" [attr.aria-busy]="submitting()">{{ submitting() ? 'جارٍ الحفظ...' : 'حفظ المجموعة' }}</button>
+            <button type="button" class="min-h-11 rounded-xl border border-[#dce8df] px-5 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:opacity-60" [disabled]="submitting()" (click)="cancelEdit()">إلغاء</button>
+          </div>
+        </form>
+      </section>
+    } @else if (group(); as currentGroup) {
+      <div class="grid gap-4">
+        <section class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6" aria-labelledby="group-detail-heading">
+          <a routerLink="/groups" class="text-xs font-bold text-[#087b59] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">المجموعات</a>
+          <div class="mt-4 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 id="group-detail-heading" class="text-xl font-black">{{ currentGroup.name }}</h2>
+              <p class="mt-1 text-sm text-[#71847a]">المادة: {{ subject()?.name || '—' }}</p>
+              <span class="mt-2 inline-flex rounded-full bg-[#eff8f2] px-3 py-1 text-xs font-bold text-[#087b59]">{{ statusLabel(currentGroup.status) }}</span>
+            </div>
+            <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" (click)="beginEdit()">تعديل المجموعة</button>
+          </div>
+          <dl class="mt-5 grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-4">
+            <div class="rounded-xl bg-[#f8faf8] p-3"><dt class="text-[#71847a]">الرسوم الشهرية</dt><dd class="mt-1 font-bold" dir="ltr">{{ currentGroup.monthlyFee }} EGP</dd></div>
+            <div class="rounded-xl bg-[#f8faf8] p-3"><dt class="text-[#71847a]">السعة</dt><dd class="mt-1 font-bold">{{ currentGroup.capacity === null ? 'غير محدودة' : currentGroup.capacity }}</dd></div>
+            <div class="rounded-xl bg-[#f8faf8] p-3"><dt class="text-[#71847a]">التسجيلات النشطة</dt>
+              <dd class="mt-1 font-bold" aria-live="polite">
+                @if (activeCountLoading()) { جارٍ التحميل... }
+                @else if (activeCountError()) { <span class="text-[#9b493e]" role="status">غير متاح حاليًا</span> }
+                @else { {{ activeEnrollmentCount() ?? '—' }} }
+              </dd>
+              @if (activeCountError()) { <p class="mt-1 text-[10px] text-[#9b493e]" role="alert">{{ activeCountError() }}</p> }
+            </div>
+            <div class="rounded-xl bg-[#f8faf8] p-3"><dt class="text-[#71847a]">الوصف</dt><dd class="mt-1 whitespace-pre-wrap font-bold">{{ currentGroup.description || 'لا يوجد وصف مسجل.' }}</dd></div>
+          </dl>
+        </section>
+
+        <section class="rounded-2xl border border-[#e4ece6] bg-white p-5 sm:p-6" aria-labelledby="enrollments-heading">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="enrollments-heading" class="text-base font-black">سجل المجموعة</h2>
+              <p class="mt-1 text-xs leading-5 text-[#71847a]">تعرض القائمة بيانات التسجيل والطالب من واجهات مساحة العمل الحالية.</p>
+            </div>
+            <button type="button" class="min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" (click)="openEnrollmentForm()">تسجيل طالب</button>
+          </div>
+          <label class="mt-4 grid max-w-sm gap-1 text-xs font-bold text-[#38554a]" for="enrollment-status-filter">تصفية حسب حالة التسجيل
+            <select id="enrollment-status-filter" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" [formControl]="enrollmentStatusFilter">
+              <option value="">كل الحالات</option>
+              @for (status of enrollmentStatuses; track status.value) {
+                <option [value]="status.value">{{ status.label }}</option>
+              }
+            </select>
+          </label>
+
+          @if (rosterError()) {
+            <p class="mt-4 rounded-xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]" role="alert">{{ rosterError() }}</p>
+          } @else if (rosterLoading()) {
+            <div class="mt-4 grid min-h-40 place-items-center rounded-xl border border-[#e4ece6] bg-[#fafcfb] text-sm text-[#5f7469]" aria-live="polite" aria-busy="true">جارٍ تحميل سجل المجموعة...</div>
+          } @else if (enrollments().length === 0) {
+            <div class="mt-4 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-10 text-center">
+              <h3 class="text-sm font-extrabold text-[#38554a]">{{ enrollmentStatusFilter.value ? 'لا توجد تسجيلات بهذه الحالة' : 'لا توجد تسجيلات في هذه المجموعة' }}</h3>
+              <p class="mt-2 text-xs text-[#71847a]">يمكن تسجيل طالب موجود دون إنشاء سجل تجريبي.</p>
+            </div>
+          } @else {
+            <div class="mt-4 grid gap-3">
+              @for (row of enrollments(); track row.enrollment.id) {
+                <article class="rounded-xl border border-[#e4ece6] p-4" [attr.aria-labelledby]="'enrollment-' + row.enrollment.id">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <h3 [id]="'enrollment-' + row.enrollment.id" class="font-extrabold">
+                        <a [routerLink]="['/students', row.student.id]" class="text-[#087b59] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">{{ row.student.name }}</a>
+                      </h3>
+                      <p class="mt-1 text-xs text-[#526b5f]" dir="ltr">{{ row.student.phone || '—' }}</p>
+                      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[#71847a]">
+                        <span>الحالة: <strong class="text-[#38554a]">{{ enrollmentStatusLabel(row.enrollment.status) }}</strong></span>
+                        <span>تاريخ التسجيل: <time [attr.datetime]="row.enrollment.enrolledAt">{{ row.enrollment.enrolledAt | date:'medium' }}</time></span>
+                        @if (row.enrollment.endedAt) {
+                          <span>تاريخ الانتهاء: <time [attr.datetime]="row.enrollment.endedAt">{{ row.enrollment.endedAt | date:'medium' }}</time></span>
+                        }
+                      </div>
+                      @if (row.enrollment.notes) {
+                        <p class="mt-2 whitespace-pre-wrap text-xs text-[#526b5f]">ملاحظات: {{ row.enrollment.notes }}</p>
+                      }
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                      @for (action of enrollmentActions(row.enrollment.status); track action.value) {
+                        <button type="button" class="min-h-9 rounded-lg border border-[#dce8df] px-3 text-[11px] font-bold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60" [disabled]="updatingEnrollmentId() !== null" [attr.aria-busy]="updatingEnrollmentId() === row.enrollment.id" [attr.aria-label]="action.label + ' للطالب ' + row.student.name" (click)="changeEnrollmentStatus(row, action.value)">
+                          {{ updatingEnrollmentId() === row.enrollment.id ? 'جارٍ التحديث...' : action.label }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                </article>
+              }
+            </div>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[#5f7469]">
+              <p>إجمالي النتائج: {{ enrollmentPagination().totalItems }}</p>
+              <div class="flex items-center gap-2" aria-label="التنقل بين صفحات سجل المجموعة">
+                <button type="button" class="min-h-9 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50" [disabled]="rosterLoading() || enrollmentPagination().page <= 1" (click)="changeEnrollmentPage(enrollmentPagination().page - 1)">السابق</button>
+                <span aria-live="polite">صفحة {{ enrollmentPagination().page }} من {{ enrollmentPagination().totalPages }}</span>
+                <button type="button" class="min-h-9 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50" [disabled]="rosterLoading() || enrollmentPagination().page >= enrollmentPagination().totalPages" (click)="changeEnrollmentPage(enrollmentPagination().page + 1)">التالي</button>
+              </div>
+            </div>
+          }
+
+          @if (enrollmentFormOpen()) {
+            <form class="mt-5 rounded-xl border border-[#dce8df] bg-[#fafcfb] p-4" [formGroup]="enrollmentForm" (ngSubmit)="submitEnrollment()" novalidate>
+              <h3 class="font-extrabold">تسجيل طالب موجود</h3>
+              <label class="mt-3 grid gap-1 text-xs font-bold text-[#38554a]" for="student-search">ابحث عن الطالب</label>
+              <input id="student-search" class="min-h-11 w-full rounded-xl border border-[#dce8df] bg-white px-3 text-sm" type="search" maxlength="100" [formControl]="studentSearch" autocomplete="off" />
+              @if (studentsLoading()) {
+                <p class="py-3 text-xs text-[#71847a]" aria-live="polite">جارٍ تحميل الطلاب...</p>
+              } @else if (studentOptionsError()) {
+                <p class="py-3 text-xs text-[#9b493e]" role="alert">{{ studentOptionsError() }}</p>
+              } @else if (studentOptions().length === 0) {
+                <p class="py-3 text-xs text-[#71847a]">لا توجد نتائج مطابقة. أضف الطالب من صفحة الطلاب أولًا.</p>
+              } @else {
+                <div class="mt-2 max-h-44 overflow-y-auto rounded-lg border border-[#e4ece6] bg-white" role="group" aria-label="نتائج البحث عن الطلاب">
+                  @for (studentOption of studentOptions(); track studentOption.id) {
+                    <button type="button" class="flex min-h-11 w-full items-center justify-between gap-2 border-b border-[#edf2ee] px-3 text-start text-xs last:border-0 hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" [class.bg-[#eff8f2]]="enrollmentForm.controls.studentId.value === studentOption.id" [attr.aria-pressed]="enrollmentForm.controls.studentId.value === studentOption.id" (click)="selectStudent(studentOption)">
+                      <span class="font-bold">{{ studentOption.name }}</span>
+                      <span class="text-[#71847a]">{{ studentOption.status }}</span>
+                      <span dir="ltr">{{ studentOption.phone || '—' }}</span>
+                    </button>
+                  }
+                </div>
+                <div class="mt-2 flex items-center justify-between text-[11px]">
+                  <button type="button" class="min-h-9 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50" [disabled]="studentPagination().page <= 1 || studentsLoading()" (click)="changeStudentPage(studentPagination().page - 1)">السابق</button>
+                  <span aria-live="polite">صفحة {{ studentPagination().page }} من {{ studentPagination().totalPages }}</span>
+                  <button type="button" class="min-h-9 rounded-lg border border-[#dce8df] px-3 disabled:opacity-50" [disabled]="studentPagination().page >= studentPagination().totalPages || studentsLoading()" (click)="changeStudentPage(studentPagination().page + 1)">التالي</button>
+                </div>
+              }
+              @if (selectedStudent(); as chosenStudent) {
+                <p class="mt-2 text-xs text-[#087b59]" role="status">الطالب المحدد: <strong>{{ chosenStudent.name }}</strong></p>
+              }
+              @if (enrollmentForm.controls.studentId.touched && enrollmentForm.controls.studentId.invalid) {
+                <p class="mt-1 text-xs text-[#b42318]" role="alert">اختر طالبًا موجودًا.</p>
+              }
+              <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="enrollment-date">تاريخ التسجيل (اختياري، بالتوقيت المحلي)
+                  <input id="enrollment-date" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" type="datetime-local" formControlName="enrolledAt" />
+                </label>
+                <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="enrollment-initial-status">الحالة عند التسجيل
+                  <select id="enrollment-initial-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" formControlName="status">
+                    <option value="active">نشط</option>
+                    <option value="paused">موقوف مؤقتًا</option>
+                  </select>
+                </label>
+              </div>
+              <label class="mt-3 grid gap-1 text-xs font-bold text-[#38554a]" for="enrollment-notes">ملاحظات
+                <textarea id="enrollment-notes" class="min-h-20 rounded-xl border border-[#dce8df] bg-white px-3 py-2 text-sm" formControlName="notes" maxlength="1000"></textarea>
+              </label>
+              @if (enrollmentForm.controls.notes.touched && enrollmentForm.controls.notes.hasError('maxlength')) {
+                <p class="mt-1 text-xs text-[#b42318]" role="alert">يجب ألا تتجاوز الملاحظات 1000 حرف.</p>
+              }
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button type="submit" class="min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white disabled:cursor-wait disabled:opacity-60" [disabled]="enrolling()" [attr.aria-busy]="enrolling()">{{ enrolling() ? 'جارٍ التسجيل...' : 'تأكيد التسجيل' }}</button>
+                <button type="button" class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-bold disabled:opacity-60" [disabled]="enrolling()" (click)="closeEnrollmentForm()">إلغاء</button>
+              </div>
+            </form>
+          }
+        </section>
+      </div>
+    } @else {
+      <section class="rounded-2xl border border-[#e4ece6] bg-white p-6 text-center" role="alert">
+        <h2 class="font-black">تعذر العثور على المجموعة</h2>
+        <p class="mt-2 text-sm text-[#71847a]">قد تكون المجموعة غير موجودة أو غير متاحة في مساحة العمل الحالية.</p>
+        <a routerLink="/groups" class="mt-4 inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">العودة إلى المجموعات</a>
+      </section>
+    }
+  </main>
+</div>

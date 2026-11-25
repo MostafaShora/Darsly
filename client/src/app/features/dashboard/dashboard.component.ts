@@ -30,7 +30,7 @@ interface DashboardMetric {
 }
 
 interface DashboardFeature {
-  id: 'students' | 'guardians' | 'groups' | 'attendance' | 'payments' | 'reports';
+  id: 'students' | 'guardians' | 'subjects' | 'groups' | 'attendance' | 'payments' | 'reports';
   label: string;
   description: string;
 }
@@ -69,9 +69,14 @@ const DASHBOARD_FEATURES: readonly DashboardFeature[] = [
     description: 'إدارة جهات اتصال أولياء الأمور وربطهم بملفات الطلاب.',
   },
   {
+    id: 'subjects',
+    label: 'المواد الدراسية',
+    description: 'إدارة المواد وربطها بالمجموعات الدراسية.',
+  },
+  {
     id: 'groups',
     label: 'المجموعات الدراسية',
-    description: 'لا تتوفر بيانات هذا القسم في لوحة التحكم بعد.',
+    description: 'إدارة المجموعات والتسجيلات وسعتها.',
   },
   {
     id: 'attendance',
@@ -127,6 +132,8 @@ export class DashboardComponent {
   readonly managementLinks: readonly DashboardManagementLink[] = [
     { label: 'إدارة الطلاب', href: '/students' },
     { label: 'أولياء الأمور', href: '/guardians' },
+    { label: 'المواد الدراسية', href: '/subjects' },
+    { label: 'المجموعات', href: '/groups' },
   ];
   readonly metricCards = DASHBOARD_METRICS;
   readonly featureCards = DASHBOARD_FEATURES;
