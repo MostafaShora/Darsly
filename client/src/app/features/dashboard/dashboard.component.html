@@ -191,9 +191,54 @@
                 نظرة على الأقسام الأساسية في مساحة عملك
               </p>
             </div>
+            <button
+              type="button"
+              class="min-h-9 rounded-lg border border-[#dce8df] px-3 text-[10px] font-bold text-[#526b5f] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60"
+              [disabled]="workspaceLoading()"
+              (click)="retryWorkspace()"
+            >
+              {{ workspaceLoading() ? 'جارٍ التحقق...' : 'تحديث حالة المساحة' }}
+            </button>
           </div>
 
-          @if (dashboardLoading()) {
+          @if (workspaceLoading()) {
+            <div class="grid min-h-40 place-items-center rounded-2xl border border-[#e4ece6] bg-white text-xs" aria-live="polite" aria-busy="true">
+              جارٍ التحقق من مساحة العمل...
+            </div>
+          } @else if (workspaceError()) {
+            <div class="rounded-2xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]" role="alert">
+              <p>{{ workspaceError() }}</p>
+              <button
+                type="button"
+                class="mt-3 min-h-10 rounded-lg border border-[#dce8df] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                [disabled]="workspaceLoading()"
+                (click)="retryWorkspace()"
+              >
+                إعادة المحاولة
+              </button>
+            </div>
+          } @else if (workspaceAvailability()?.kind === 'suspended') {
+            <div class="rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-4 text-xs leading-6 text-[#7a6231]" role="status">
+              <p class="font-bold">مساحة العمل معلّقة، لذلك لن يتم تحميل ملخصاتها.</p>
+              <p>راجع حالة المساحة أو خيارات الاستعادة من إعداد مساحة العمل.</p>
+              <a
+                routerLink="/workspace/onboarding"
+                class="mt-3 inline-flex min-h-10 items-center rounded-lg border border-[#ddc989] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >
+                مراجعة مساحة العمل
+              </a>
+            </div>
+          } @else if (workspaceAvailability()?.kind === 'unavailable') {
+            <div class="rounded-2xl border border-[#e4ece6] bg-[#fafcfb] p-4 text-xs leading-6 text-[#5f7469]" role="status">
+              <p>لا توجد مساحة عمل متاحة لعرض الملخص.</p>
+              <a
+                routerLink="/workspace/onboarding"
+                class="mt-3 inline-flex min-h-10 items-center rounded-lg border border-[#dce8df] px-3 font-bold text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+              >
+                إعداد مساحة العمل
+              </a>
+            </div>
+          } @else if (dashboardLoading()) {
             <div class="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="جارٍ تحميل الملخص">
               @for (_ of [1, 2, 3, 4]; track $index) {
                 <div class="h-32 animate-pulse rounded-2xl border border-[#e4ece6] bg-[#edf3ef]"></div>
@@ -305,14 +350,18 @@
             <div
               class="mt-5 grid min-h-[154px] gap-3 rounded-xl border border-[#dce8df] bg-[#fafcfb] px-4 py-4"
             >
-              <div class="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                <span class="text-[11px] text-[#71847a]">نسبة الحضور</span>
-                <strong class="text-sm text-[#087b59]">{{ formatRate(summary()?.attendance?.attendanceRate) }}</strong>
-              </div>
-              <div class="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                <span class="text-[11px] text-[#71847a]">مدفوعات غير مخصّصة</span>
-                <strong class="text-sm text-[#087b59]" dir="ltr">{{ formatMoney(summary()?.finance?.unallocatedPayments) }} ج.م</strong>
-              </div>
+              @if (summary(); as currentSummary) {
+                <div class="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                  <span class="text-[11px] text-[#71847a]">نسبة الحضور</span>
+                  <strong class="text-sm text-[#087b59]">{{ formatRate(currentSummary.attendance?.attendanceRate) }}</strong>
+                </div>
+                <div class="flex items-center justify-between rounded-lg bg-white px-3 py-2">
+                  <span class="text-[11px] text-[#71847a]">مدفوعات غير مخصّصة</span>
+                  <strong class="text-sm text-[#087b59]" dir="ltr">{{ formatMoney(currentSummary.finance?.unallocatedPayments) }} ج.م</strong>
+                </div>
+              } @else {
+                <p class="text-[11px] leading-6 text-[#71847a]">تظهر الملخصات بعد التحقق من مساحة عمل نشطة.</p>
+              }
               <a
                 routerLink="/reports"
                 class="mt-auto inline-flex min-h-10 items-center justify-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white"

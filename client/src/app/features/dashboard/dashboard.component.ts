@@ -1,8 +1,12 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, HostListener, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/services/auth.service';
-import { WorkspaceService } from '../../core/services/workspace.service';
+import {
+  WorkspaceAvailability,
+  WorkspaceService,
+} from '../../core/services/workspace.service';
 import { DashboardSummary, ReportService } from '../../core/services/report.service';
 import { formatMoneyExact } from '../../core/utils/finance';
 
@@ -119,6 +123,7 @@ export class DashboardComponent {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly currentDate = new Date();
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly teacher = this.authService.currentUser;
   readonly teacherName = computed(() => this.teacher()?.name ?? '');
@@ -165,45 +170,81 @@ export class DashboardComponent {
   readonly summary = signal<DashboardSummary | null>(null);
   readonly dashboardLoading = signal(false);
   readonly dashboardError = signal('');
+  readonly workspaceAvailability = signal<WorkspaceAvailability | null>(null);
+  readonly workspaceLoading = signal(true);
+  readonly workspaceError = signal('');
   private readonly workspaceService = inject(WorkspaceService);
   private readonly reportService = inject(ReportService);
+  private workspaceRequestId = 0;
 
   constructor() {
     this.loadDashboard();
   }
 
-  private loadDashboard(): void {
-    this.dashboardLoading.set(true);
+  retryWorkspace(): void {
+    this.loadDashboard(true);
+  }
+
+  private loadDashboard(refreshWorkspace = false): void {
+    const requestId = ++this.workspaceRequestId;
+    this.summary.set(null);
+    this.dashboardLoading.set(false);
     this.dashboardError.set('');
-    this.workspaceService.getActiveWorkspace().subscribe({
-      next: (workspace) => {
-        if (!workspace?._id) {
-          this.dashboardLoading.set(false);
-          this.dashboardError.set('لا تتوفر مساحة عمل نشطة.');
-          return;
-        }
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (!timezone) {
-          this.dashboardLoading.set(false);
-          this.dashboardError.set('تعذر تحديد المنطقة الزمنية لهذا الجهاز.');
-          return;
-        }
-        this.reportService.getDashboard(workspace._id, timezone).subscribe({
-          next: (summary) => {
-            this.summary.set(summary);
+    this.workspaceLoading.set(true);
+    this.workspaceError.set('');
+    this.workspaceAvailability.set(null);
+    this.workspaceService
+      .getWorkspaceAvailability(refreshWorkspace)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (availability) => {
+          if (requestId !== this.workspaceRequestId) return;
+          this.workspaceAvailability.set(availability);
+          this.workspaceLoading.set(false);
+          if (availability.kind !== 'active') {
+            this.summary.set(null);
             this.dashboardLoading.set(false);
-          },
-          error: () => {
-            this.dashboardError.set('تعذر تحميل ملخص لوحة التحكم.');
+            return;
+          }
+          const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          if (!timezone) {
             this.dashboardLoading.set(false);
-          },
-        });
-      },
-      error: () => {
-        this.dashboardError.set('تعذر تحميل مساحة العمل.');
-        this.dashboardLoading.set(false);
-      },
-    });
+            this.dashboardError.set('تعذر تحديد المنطقة الزمنية لهذا الجهاز.');
+            return;
+          }
+          this.dashboardLoading.set(true);
+          this.reportService
+            .getDashboard(availability.workspace._id, timezone)
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: (summary) => {
+                const currentAvailability = this.workspaceAvailability();
+                if (
+                  requestId !== this.workspaceRequestId ||
+                  currentAvailability?.kind !== 'active' ||
+                  currentAvailability.workspace._id !== availability.workspace._id
+                ) {
+                  return;
+                }
+                this.summary.set(summary);
+                this.dashboardLoading.set(false);
+              },
+              error: () => {
+                if (requestId !== this.workspaceRequestId) return;
+                this.dashboardError.set('تعذر تحميل ملخص لوحة التحكم.');
+                this.dashboardLoading.set(false);
+              },
+            });
+        },
+        error: () => {
+          if (requestId !== this.workspaceRequestId) return;
+          this.summary.set(null);
+          this.dashboardLoading.set(false);
+          this.workspaceLoading.set(false);
+          this.workspaceAvailability.set(null);
+          this.workspaceError.set('تعذر تحميل مساحة العمل.');
+        },
+      });
   }
 
   toggleMobileNavigation(): void {

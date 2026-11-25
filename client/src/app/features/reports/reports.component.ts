@@ -3,8 +3,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { Workspace } from '../../core/models/workspace.models';
 import { AttendanceReport, FinanceReport, ReportCollection, ReportService } from '../../core/services/report.service';
-import { WorkspaceService } from '../../core/services/workspace.service';
+import {
+  WorkspaceAvailability,
+  WorkspaceService,
+} from '../../core/services/workspace.service';
 import { formatMoneyExact } from '../../core/utils/finance';
 
 type ReportFilters = {
@@ -76,6 +80,7 @@ export class ReportsComponent {
   private appliedFilters: ReportFilters | null = null;
   private filterRevision = 0;
   private attendanceRequestId = 0;
+  private workspaceRequestId = 0;
   private readonly financeRequestIds = {
     payments: 0,
     invoices: 0,
@@ -85,6 +90,7 @@ export class ReportsComponent {
   readonly activeTab = signal<'attendance' | 'finance'>('attendance');
   readonly workspaceLoading = signal(true);
   readonly workspaceError = signal('');
+  readonly workspaceAvailability = signal<WorkspaceAvailability | null>(null);
   readonly attendanceLoading = signal(false);
   readonly attendanceError = signal('');
   readonly exporting = signal(false);
@@ -104,29 +110,48 @@ export class ReportsComponent {
 
   constructor() {
     this.appliedFilters = this.readFormFilters();
+    this.loadWorkspace();
+  }
+
+  retryWorkspace(): void {
+    this.loadWorkspace(true);
+  }
+
+  private loadWorkspace(refresh = false): void {
+    const requestId = ++this.workspaceRequestId;
+    this.workspaceId = '';
+    this.workspaceAvailability.set(null);
+    this.workspaceLoading.set(true);
+    this.workspaceError.set('');
+    this.error.set('');
+    this.invalidateRequests();
+    this.clearReportData();
+
     this.workspaceService
-      .getActiveWorkspace()
+      .getWorkspaceAvailability(refresh)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (workspace) => {
-          const nextWorkspaceId = workspace?._id ?? '';
-          if (nextWorkspaceId === this.workspaceId && !this.workspaceLoading()) return;
-
-          this.workspaceId = nextWorkspaceId;
-          this.invalidateRequests();
-          this.clearReportData();
+        next: (availability) => {
+          if (requestId !== this.workspaceRequestId) return;
+          this.workspaceAvailability.set(availability);
           this.workspaceLoading.set(false);
-          this.workspaceError.set('');
-          if (!this.workspaceId) {
-            this.workspaceError.set('لا توجد مساحة عمل نشطة.');
-            return;
+          const nextWorkspaceId = availability.kind === 'active' ? availability.workspace._id : '';
+          if (nextWorkspaceId !== this.workspaceId) {
+            this.workspaceId = nextWorkspaceId;
+            this.invalidateRequests();
+            this.clearReportData();
           }
+          if (availability.kind !== 'active') return;
+
           this.appliedFilters = this.readFormFilters();
           this.load();
         },
         error: () => {
+          if (requestId !== this.workspaceRequestId) return;
           this.workspaceLoading.set(false);
+          this.workspaceAvailability.set(null);
           this.workspaceError.set('تعذر تحميل مساحة العمل.');
+          this.clearReportData();
         },
       });
   }
@@ -193,6 +218,11 @@ export class ReportsComponent {
 
   pageCount(pagination: ReportPagination): number {
     return Math.max(pagination.totalPages, 1);
+  }
+
+  suspendedWorkspaces(): Workspace[] {
+    const availability = this.workspaceAvailability();
+    return availability?.kind === 'suspended' ? availability.workspaces : [];
   }
 
   private loadAttendancePage(page: number): void {

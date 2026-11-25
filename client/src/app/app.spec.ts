@@ -2,7 +2,7 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, ParamMap, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { Component, Type } from '@angular/core';
+import { Component, Type, signal } from '@angular/core';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, of, Subject as RxSubject, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -30,12 +30,20 @@ import {
 import { FinanceService } from './core/services/finance.service';
 import { LearningService } from './core/services/learning.service';
 import { PeopleService } from './core/services/people.service';
-import { AttendanceReport, FinanceReport, ReportService } from './core/services/report.service';
 import {
+  AttendanceReport,
+  DashboardSummary,
+  FinanceReport,
+  ReportService,
+} from './core/services/report.service';
+import {
+  WorkspaceAvailability,
+  WorkspaceActivationVerificationError,
   WorkspaceAccessState,
   WorkspaceService,
 } from './core/services/workspace.service';
 import { AuthService } from './core/services/auth.service';
+import { AuthUser } from './core/models/auth.models';
 import { authGuard } from './core/guards/auth.guard';
 import { workspaceGuard } from './core/guards/workspace.guard';
 import { GuardiansComponent } from './features/guardians/guardians.component';
@@ -52,6 +60,7 @@ import { AttendanceComponent } from './features/attendance/attendance.component'
 import { InvoicesComponent } from './features/finance/invoices.component';
 import { PaymentsComponent } from './features/finance/payments.component';
 import { WorkspaceOnboardingComponent } from './features/workspace/workspace-onboarding.component';
+import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { formatMoneyExact, isPositiveDecimalString } from './core/utils/finance';
 
 @Component({
@@ -98,7 +107,7 @@ describe('App', () => {
     let pendingAttendanceResponses: RxSubject<AttendanceReport>[] | null;
     let pendingAttendanceIndex: number;
     let pendingFinanceResponse: RxSubject<FinanceReport> | null;
-    let activeWorkspaceStream: Observable<Workspace | null>;
+    let activeWorkspaceStream: Observable<WorkspaceAvailability>;
 
     const reportWorkspace: Workspace = {
       _id: 'workspace-1',
@@ -176,7 +185,7 @@ describe('App', () => {
       pendingAttendanceResponses = null;
       pendingAttendanceIndex = 0;
       pendingFinanceResponse = null;
-      activeWorkspaceStream = of(reportWorkspace);
+      activeWorkspaceStream = of({ kind: 'active', workspace: reportWorkspace });
       attendancePage = () => emptyAttendance();
       financePage = () => emptyFinance();
 
@@ -187,7 +196,7 @@ describe('App', () => {
           {
             provide: WorkspaceService,
             useValue: {
-              getActiveWorkspace: () => activeWorkspaceStream,
+              getWorkspaceAvailability: () => activeWorkspaceStream,
             },
           },
           {
@@ -322,7 +331,7 @@ describe('App', () => {
       expect(attendanceRequests).toEqual([1]);
       expect(createObjectURL).toHaveBeenCalledTimes(1);
       expect(component.error()).toContain('10,000');
-    });
+    }, 10000);
 
     it('rejects attendance exports if the result count changes during pagination', async () => {
       const fixture = TestBed.createComponent(ReportsComponent);
@@ -622,13 +631,13 @@ describe('App', () => {
     });
 
     it('ignores stale filter and workspace responses', () => {
-      const workspaceChanges = new RxSubject<Workspace | null>();
+      const workspaceChanges = new RxSubject<WorkspaceAvailability>();
       activeWorkspaceStream = workspaceChanges.asObservable();
       pendingAttendanceResponses = [new RxSubject<AttendanceReport>(), new RxSubject<AttendanceReport>(), new RxSubject<AttendanceReport>()];
       const fixture = TestBed.createComponent(ReportsComponent);
       fixture.detectChanges();
       const component = fixture.componentInstance;
-      workspaceChanges.next(reportWorkspace);
+      workspaceChanges.next({ kind: 'active', workspace: reportWorkspace });
       expect(component.attendanceLoading()).toBe(true);
       fixture.detectChanges();
       expect(fixture.nativeElement.textContent).toContain('جارٍ تحميل سجلات الحضور');
@@ -636,7 +645,7 @@ describe('App', () => {
       component.applyFilters();
 
       const secondWorkspace = { ...reportWorkspace, _id: 'workspace-2' };
-      workspaceChanges.next(secondWorkspace);
+      workspaceChanges.next({ kind: 'active', workspace: secondWorkspace });
       expect(component.attendance()).toBeNull();
 
       const makeReport = (id: string): AttendanceReport => ({
@@ -651,6 +660,52 @@ describe('App', () => {
       expect(attendanceQueries.map(({ workspaceId }) => workspaceId)).toEqual([reportWorkspace._id, reportWorkspace._id, secondWorkspace._id]);
       expect(component.attendance()?.items[0].id).toBe('current-workspace-row');
       expect(component.attendanceLoading()).toBe(false);
+    });
+
+    it('does not request reports for an initially suspended workspace', () => {
+      const suspendedWorkspace = { ...reportWorkspace, status: 'suspended' as const };
+      activeWorkspaceStream = of({ kind: 'suspended', workspaces: [suspendedWorkspace] });
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+
+      expect(attendanceRequests).toEqual([]);
+      expect(financeRequests).toEqual([]);
+      expect(fixture.nativeElement.textContent).toContain('مساحة العمل معلّقة');
+    });
+
+    it('clears an in-flight active report when workspace refresh finds suspension', () => {
+      const suspendedWorkspace = { ...reportWorkspace, status: 'suspended' as const };
+      activeWorkspaceStream = of({ kind: 'active', workspace: reportWorkspace });
+      pendingAttendanceResponses = [new RxSubject<AttendanceReport>()];
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(attendanceRequests).toEqual([1]);
+      expect(component.attendanceLoading()).toBe(true);
+
+      activeWorkspaceStream = of({ kind: 'suspended', workspaces: [suspendedWorkspace] });
+      component.retryWorkspace();
+      fixture.detectChanges();
+      expect(component.workspaceAvailability()?.kind).toBe('suspended');
+      expect(component.attendance()).toBeNull();
+      expect(component.finance()).toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('مساحة العمل معلّقة');
+      expect(attendanceRequests).toEqual([1]);
+
+      pendingAttendanceResponses[0].next(emptyAttendance());
+      expect(component.attendance()).toBeNull();
+      expect(attendanceRequests).toEqual([1]);
+    });
+
+    it('shows the no-workspace state without issuing report requests', () => {
+      activeWorkspaceStream = of({ kind: 'unavailable' });
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+
+      expect(attendanceRequests).toEqual([]);
+      expect(financeRequests).toEqual([]);
+      expect(fixture.nativeElement.textContent).toContain('لا توجد مساحة عمل متاحة');
     });
 
     it('keeps export pagination independent from the selected interactive page', async () => {
@@ -679,6 +734,153 @@ describe('App', () => {
       expect(attendanceRequests).toEqual([1, 2]);
       expect(blobs).toHaveLength(1);
       expect(await blobs[0].text()).toContain('export-last');
+    });
+  });
+
+  describe('Dashboard workspace gating', () => {
+    const activeWorkspace: Workspace = {
+      _id: 'workspace-dashboard-gate',
+      name: 'مساحة لوحة التحكم',
+      slug: 'workspace-dashboard-gate',
+      status: 'active',
+      currency: 'EGP',
+      description: '',
+    };
+    const suspendedWorkspace: Workspace = {
+      ...activeWorkspace,
+      _id: 'workspace-dashboard-suspended',
+      status: 'suspended',
+    };
+    const dashboardSummary: DashboardSummary = {
+      period: { from: '2026-01-01T00:00:00.000Z', to: '2026-01-31T23:59:59.999Z' },
+      students: { total: 1, active: 1, inactive: 0, archived: 0 },
+      groups: {
+        total: 0,
+        activeEnrollments: 0,
+        pausedEnrollments: 0,
+        cancelledEnrollments: 0,
+        occupancy: [],
+      },
+      sessions: { scheduled: 0, completed: 0, cancelled: 0 },
+      attendance: {
+        present: 0,
+        absent: 0,
+        late: 0,
+        excused: 0,
+        attended: 0,
+        denominator: 0,
+        attendanceRate: null,
+      },
+      finance: {
+        issuedInvoiceCount: 0,
+        issuedInvoiceTotal: '0',
+        currentOutstanding: '0',
+        collectedInPeriod: '0',
+        unallocatedPayments: '0',
+      },
+    };
+    let availabilityResponse: Observable<WorkspaceAvailability>;
+    const workspaceServiceMock = {
+      getWorkspaceAvailability: vi.fn<WorkspaceService['getWorkspaceAvailability']>(),
+    };
+    const reportServiceMock = {
+      getDashboard: vi.fn<ReportService['getDashboard']>(),
+    };
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule();
+      availabilityResponse = of({ kind: 'suspended', workspaces: [suspendedWorkspace] });
+      workspaceServiceMock.getWorkspaceAvailability
+        .mockReset()
+        .mockImplementation(() => availabilityResponse);
+      reportServiceMock.getDashboard.mockReset().mockReturnValue(of(dashboardSummary));
+      await TestBed.configureTestingModule({
+        imports: [DashboardComponent],
+        providers: [
+          provideRouter([]),
+          {
+            provide: AuthService,
+            useValue: {
+              currentUser: signal<AuthUser | null>({
+                id: 'teacher-dashboard',
+                name: 'Teacher',
+                email: 'teacher@example.com',
+                status: 'active',
+                lastLoginAt: null,
+              }),
+              logout: () => of({ message: 'ok' }),
+            },
+          },
+          { provide: WorkspaceService, useValue: workspaceServiceMock },
+          { provide: ReportService, useValue: reportServiceMock },
+        ],
+      });
+      TestBed.overrideComponent(DashboardComponent, {
+        set: {
+          template: `
+            @if (workspaceLoading()) {
+              <p>جارٍ التحقق من مساحة العمل</p>
+            } @else if (workspaceError()) {
+              <p>{{ workspaceError() }}</p>
+            } @else if (workspaceAvailability()?.kind === 'suspended') {
+              <p>مساحة العمل معلّقة</p>
+            } @else if (summary(); as currentSummary) {
+              <p>{{ currentSummary.students.total }}</p>
+            }
+          `,
+        },
+      });
+      await TestBed.compileComponents();
+    });
+
+    it('never requests dashboard data for a suspended workspace', () => {
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+
+      expect(reportServiceMock.getDashboard).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.summary()).toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('مساحة العمل معلّقة');
+    });
+
+    it('clears dashboard data when refreshed workspace state becomes suspended', () => {
+      const pendingSummary = new RxSubject<DashboardSummary>();
+      reportServiceMock.getDashboard.mockReturnValue(pendingSummary);
+      availabilityResponse = of({ kind: 'active', workspace: activeWorkspace });
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(reportServiceMock.getDashboard).toHaveBeenCalledWith(
+        activeWorkspace._id,
+        expect.any(String),
+      );
+      availabilityResponse = of({ kind: 'suspended', workspaces: [suspendedWorkspace] });
+      component.retryWorkspace();
+      pendingSummary.next(dashboardSummary);
+      fixture.detectChanges();
+
+      expect(component.workspaceAvailability()?.kind).toBe('suspended');
+      expect(component.summary()).toBeNull();
+      expect(fixture.nativeElement.textContent).toContain('مساحة العمل معلّقة');
+    });
+
+    it('shows Workspace loading failures and retries with the active Workspace', () => {
+      availabilityResponse = throwError(() => new HttpErrorResponse({ status: 0 }));
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(component.workspaceError()).toBe('تعذر تحميل مساحة العمل.');
+      expect(reportServiceMock.getDashboard).not.toHaveBeenCalled();
+
+      availabilityResponse = of({ kind: 'active', workspace: activeWorkspace });
+      component.retryWorkspace();
+
+      expect(component.workspaceError()).toBe('');
+      expect(reportServiceMock.getDashboard).toHaveBeenCalledWith(
+        activeWorkspace._id,
+        expect.any(String),
+      );
     });
   });
 
@@ -2979,6 +3181,8 @@ describe('App', () => {
       ...activeWorkspace,
       _id: 'workspace-suspended',
       status: 'suspended',
+      ownerId: 'owner-1',
+      suspensionType: 'owner',
     };
     const emptyState: WorkspaceAccessState = {
       workspaces: [],
@@ -2994,7 +3198,15 @@ describe('App', () => {
       getWorkspaceAccessState: vi.fn<WorkspaceService['getWorkspaceAccessState']>(),
       createWorkspace: vi.fn<WorkspaceService['createWorkspace']>(),
       getWorkspace: vi.fn<WorkspaceService['getWorkspace']>(),
+      activateWorkspaceAndRefresh: vi.fn<WorkspaceService['activateWorkspaceAndRefresh']>(),
     };
+    const currentUser = signal<AuthUser | null>({
+      id: 'teacher-1',
+      name: 'Teacher',
+      email: 'teacher@example.com',
+      status: 'active',
+      lastLoginAt: null,
+    });
     const routerMock = {
       navigateByUrl: vi.fn().mockResolvedValue(true),
     };
@@ -3004,10 +3216,19 @@ describe('App', () => {
       workspaceServiceMock.getWorkspaceAccessState.mockReset().mockReturnValue(of(emptyState));
       workspaceServiceMock.createWorkspace.mockReset();
       workspaceServiceMock.getWorkspace.mockReset();
+      workspaceServiceMock.activateWorkspaceAndRefresh.mockReset();
+      currentUser.set({
+        id: 'teacher-1',
+        name: 'Teacher',
+        email: 'teacher@example.com',
+        status: 'active',
+        lastLoginAt: null,
+      });
       routerMock.navigateByUrl.mockReset().mockResolvedValue(true);
       await TestBed.configureTestingModule({
         imports: [WorkspaceOnboardingComponent],
         providers: [
+          { provide: AuthService, useValue: { currentUser } },
           { provide: WorkspaceService, useValue: workspaceServiceMock },
           { provide: Router, useValue: routerMock },
         ],
@@ -3136,6 +3357,125 @@ describe('App', () => {
       expect(fixture.nativeElement.textContent).toContain('مساحة العمل معلّقة');
       expect(fixture.nativeElement.querySelector('form')).toBeNull();
       expect(workspaceServiceMock.createWorkspace).not.toHaveBeenCalled();
+    });
+
+    it('offers activation only to the owner of an owner-suspended workspace', () => {
+      workspaceServiceMock.getWorkspaceAccessState.mockReturnValue(
+        of(stateWith([suspendedWorkspace])),
+      );
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).not.toContain('إعادة تفعيل المساحة');
+
+      currentUser.set({
+        id: 'owner-1',
+        name: 'Owner',
+        email: 'owner@example.com',
+        status: 'active',
+        lastLoginAt: null,
+      });
+      fixture.componentInstance.loadWorkspaces();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('إعادة تفعيل المساحة');
+
+      const administrativelySuspended = {
+        ...suspendedWorkspace,
+        suspensionType: 'admin' as const,
+      };
+      workspaceServiceMock.getWorkspaceAccessState.mockReturnValue(
+        of(stateWith([administrativelySuspended])),
+      );
+      fixture.componentInstance.loadWorkspaces();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).not.toContain('إعادة تفعيل المساحة');
+    });
+
+    it('activates an owner-suspended workspace, refreshes membership, then opens the dashboard', () => {
+      const activated = { ...suspendedWorkspace, status: 'active' as const, suspensionType: null };
+      const refreshedState = stateWith([activated]);
+      currentUser.set({
+        id: 'owner-1',
+        name: 'Owner',
+        email: 'owner@example.com',
+        status: 'active',
+        lastLoginAt: null,
+      });
+      workspaceServiceMock.getWorkspaceAccessState.mockReturnValue(
+        of(stateWith([suspendedWorkspace])),
+      );
+      workspaceServiceMock.activateWorkspaceAndRefresh.mockReturnValue(of(refreshedState));
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+
+      fixture.componentInstance.activateWorkspace(suspendedWorkspace);
+
+      expect(workspaceServiceMock.activateWorkspaceAndRefresh).toHaveBeenCalledWith(
+        suspendedWorkspace._id,
+      );
+      expect(fixture.componentInstance.accessState()).toEqual(refreshedState);
+      expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('prevents duplicate owner activation requests while one is pending', () => {
+      const pendingActivation = new RxSubject<WorkspaceAccessState>();
+      currentUser.set({
+        id: 'owner-1',
+        name: 'Owner',
+        email: 'owner@example.com',
+        status: 'active',
+        lastLoginAt: null,
+      });
+      workspaceServiceMock.getWorkspaceAccessState.mockReturnValue(
+        of(stateWith([suspendedWorkspace])),
+      );
+      workspaceServiceMock.activateWorkspaceAndRefresh.mockReturnValue(pendingActivation);
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+
+      fixture.componentInstance.activateWorkspace(suspendedWorkspace);
+      fixture.componentInstance.activateWorkspace(suspendedWorkspace);
+
+      expect(fixture.componentInstance.activationBusyId()).toBe(suspendedWorkspace._id);
+      expect(workspaceServiceMock.activateWorkspaceAndRefresh).toHaveBeenCalledTimes(1);
+      pendingActivation.complete();
+    });
+
+    it('does not activate for a non-owner and displays activation errors safely', () => {
+      currentUser.set({
+        id: 'teacher-1',
+        name: 'Teacher',
+        email: 'teacher@example.com',
+        status: 'active',
+        lastLoginAt: null,
+      });
+      workspaceServiceMock.getWorkspaceAccessState.mockReturnValue(
+        of(stateWith([suspendedWorkspace])),
+      );
+      const fixture = TestBed.createComponent(WorkspaceOnboardingComponent);
+      fixture.detectChanges();
+      fixture.componentInstance.activateWorkspace(suspendedWorkspace);
+      expect(workspaceServiceMock.activateWorkspaceAndRefresh).not.toHaveBeenCalled();
+
+      currentUser.set({
+        id: 'owner-1',
+        name: 'Owner',
+        email: 'owner@example.com',
+        status: 'active',
+        lastLoginAt: null,
+      });
+      workspaceServiceMock.activateWorkspaceAndRefresh.mockReturnValue(
+        throwError(() => new HttpErrorResponse({
+          status: 403,
+          error: { message: 'Only the workspace owner can perform this action' },
+        })),
+      );
+      fixture.componentInstance.activateWorkspace(suspendedWorkspace);
+
+      expect(fixture.componentInstance.activationError()).toContain(
+        'Only the workspace owner can perform this action',
+      );
+      expect(fixture.componentInstance.activationBusyId()).toBe('');
     });
 
     it('does not navigate or resubmit if the created workspace is missing from refreshed /mine', () => {
@@ -3288,6 +3628,110 @@ describe('App', () => {
       expect(workspaces).toEqual([apiWorkspace]);
       expect(created).toEqual(apiWorkspace);
       expect(details).toEqual(apiWorkspace);
+      httpTesting.verify();
+    });
+
+    it('selects only active workspaces and represents suspended and empty membership states', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const suspendedWorkspace: Workspace = {
+        _id: 'workspace-suspended',
+        name: 'مساحة معلّقة',
+        slug: 'workspace-suspended',
+        status: 'suspended',
+        currency: 'EGP',
+        description: '',
+      };
+      const activeWorkspace: Workspace = {
+        _id: 'workspace-active',
+        name: 'مساحة نشطة',
+        slug: 'workspace-active',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      const states: WorkspaceAvailability[] = [];
+
+      service.getWorkspaceAvailability(true).subscribe((state) => states.push(state));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [suspendedWorkspace, activeWorkspace],
+      });
+
+      service.getWorkspaceAvailability(true).subscribe((state) => states.push(state));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [suspendedWorkspace],
+      });
+
+      service.getWorkspaceAvailability(true).subscribe((state) => states.push(state));
+      httpTesting.expectOne('/api/workspaces/mine').flush({ message: 'ok', data: [] });
+
+      expect(states).toEqual([
+        { kind: 'active', workspace: activeWorkspace },
+        { kind: 'suspended', workspaces: [suspendedWorkspace] },
+        { kind: 'unavailable' },
+      ]);
+      httpTesting.verify();
+    });
+
+    it('activates through the owner endpoint and confirms active membership from refreshed /mine', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const activatedWorkspace: Workspace = {
+        _id: 'workspace-owner-suspended',
+        name: 'مساحة المالك',
+        slug: 'workspace-owner-suspended',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      let refreshedState: WorkspaceAccessState | undefined;
+
+      service.activateWorkspaceAndRefresh(activatedWorkspace._id).subscribe((state) => {
+        refreshedState = state;
+      });
+      const activationRequest = httpTesting.expectOne(
+        `/api/workspaces/${activatedWorkspace._id}/activate`,
+      );
+      expect(activationRequest.request.method).toBe('PATCH');
+      expect(activationRequest.request.body).toBeNull();
+      expect(activationRequest.request.withCredentials).toBe(true);
+      activationRequest.flush({ message: 'activated', data: activatedWorkspace });
+
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'refreshed',
+        data: [activatedWorkspace],
+      });
+
+      expect(refreshedState?.activeWorkspace).toEqual(activatedWorkspace);
+      expect(refreshedState?.workspaces).toEqual([activatedWorkspace]);
+      httpTesting.verify();
+    });
+
+    it('does not confirm activation when the refreshed membership list omits the workspace', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const activatedWorkspace: Workspace = {
+        _id: 'workspace-not-listed',
+        name: 'مساحة غير ظاهرة',
+        slug: 'workspace-not-listed',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      let activationError: unknown;
+
+      service.activateWorkspaceAndRefresh(activatedWorkspace._id).subscribe({
+        error: (error: unknown) => (activationError = error),
+      });
+      httpTesting.expectOne(`/api/workspaces/${activatedWorkspace._id}/activate`).flush({
+        message: 'activated',
+        data: activatedWorkspace,
+      });
+      httpTesting.expectOne('/api/workspaces/mine').flush({ message: 'refreshed', data: [] });
+
+      expect(activationError).toBeInstanceOf(WorkspaceActivationVerificationError);
       httpTesting.verify();
     });
   });

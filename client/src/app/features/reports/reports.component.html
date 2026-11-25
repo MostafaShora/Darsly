@@ -117,7 +117,7 @@
         <button
           class="min-h-11 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white"
           type="submit"
-          [disabled]="workspaceLoading()"
+          [disabled]="workspaceLoading() || workspaceAvailability()?.kind !== 'active'"
         >
           تطبيق الفلتر
         </button>
@@ -127,7 +127,7 @@
         <button
           type="button"
           class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold"
-          [disabled]="exporting()"
+          [disabled]="exporting() || workspaceAvailability()?.kind !== 'active'"
           (click)="exportExcel()"
         >
           {{ exporting() ? 'جارٍ التصدير...' : 'تنزيل جدول HTML' }}
@@ -135,12 +135,22 @@
         <button
           type="button"
           class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold"
-          [disabled]="exporting()"
+          [disabled]="exporting() || workspaceAvailability()?.kind !== 'active'"
           (click)="exportPdf()"
         >
           {{ exporting() ? 'جارٍ الإعداد...' : 'طباعة / حفظ PDF' }}
         </button>
       </div>
+      @if (workspaceAvailability()?.kind === 'active') {
+        <button
+          type="button"
+          class="mt-3 min-h-9 rounded-lg border border-[#dce8df] px-3 text-xs font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60"
+          [disabled]="workspaceLoading() || exporting()"
+          (click)="retryWorkspace()"
+        >
+          {{ workspaceLoading() ? 'جارٍ التحقق...' : 'تحديث حالة مساحة العمل' }}
+        </button>
+      }
       @if (error()) {
         <p class="mt-3 text-xs text-[#9b493e]" role="alert">{{ error() }}</p>
       }
@@ -151,7 +161,51 @@
     } @else if (workspaceError()) {
       <div class="mt-5 rounded-2xl border border-[#f1d9d5] bg-[#fff8f7] p-4 text-xs text-[#9b493e]" role="alert">
         {{ workspaceError() }}
+        <button
+          type="button"
+          class="mr-3 min-h-9 rounded-lg border border-[#e6c5bf] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          [disabled]="workspaceLoading()"
+          (click)="retryWorkspace()"
+        >
+          إعادة المحاولة
+        </button>
       </div>
+    } @else if (workspaceAvailability()?.kind === 'suspended') {
+      <section class="mt-5 rounded-2xl border border-[#f0dfad] bg-[#fffaf0] p-5 text-xs leading-6 text-[#7a6231]" role="status">
+        <h2 class="font-black">مساحة العمل معلّقة</h2>
+        <p>لن تُحمّل التقارير من مساحة معلّقة. راجع حالة المساحة وخيارات الاستعادة.</p>
+        <ul class="mt-3 list-inside list-disc font-bold">
+          @for (workspace of suspendedWorkspaces(); track workspace._id) {
+            <li>{{ workspace.name }}</li>
+          }
+        </ul>
+        <a
+          routerLink="/workspace/onboarding"
+          class="mt-3 inline-flex min-h-10 items-center rounded-lg border border-[#ddc989] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+        >
+          مراجعة مساحة العمل
+        </a>
+      </section>
+    } @else if (workspaceAvailability()?.kind === 'unavailable') {
+      <section class="mt-5 rounded-2xl border border-[#e4ece6] bg-white p-5 text-xs leading-6 text-[#5f7469]" role="status">
+        <h2 class="font-black">لا توجد مساحة عمل متاحة</h2>
+        <p>تحتاج التقارير إلى مساحة عمل نشطة. أنشئ مساحة أو أعد تحميل قائمة المساحات.</p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <a
+            routerLink="/workspace/onboarding"
+            class="inline-flex min-h-10 items-center rounded-lg bg-[#087b59] px-3 font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >
+            إعداد مساحة العمل
+          </a>
+          <button
+            type="button"
+            class="min-h-10 rounded-lg border border-[#dce8df] px-3 font-bold focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+            (click)="retryWorkspace()"
+          >
+            إعادة تحميل المساحات
+          </button>
+        </div>
+      </section>
     } @else if (activeTab() === 'attendance') {
       @if (attendance(); as report) {
         <section class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">

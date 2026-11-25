@@ -3,8 +3,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { map, switchMap, throwError } from 'rxjs';
+import { AuthService } from '../../core/services/auth.service';
 import { Workspace } from '../../core/models/workspace.models';
-import { WorkspaceAccessState, WorkspaceService } from '../../core/services/workspace.service';
+import {
+  WorkspaceAccessState,
+  WorkspaceActivationVerificationError,
+  WorkspaceService,
+} from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { trimmedMinLength, trimmedRequired } from '../../core/utils/form-validators';
 
@@ -18,6 +23,7 @@ class WorkspaceVerificationError extends Error {}
 })
 export class WorkspaceOnboardingComponent {
   private readonly formBuilder = inject(FormBuilder);
+  private readonly authService = inject(AuthService);
   private readonly workspaceService = inject(WorkspaceService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -32,6 +38,8 @@ export class WorkspaceOnboardingComponent {
   readonly verifying = signal(false);
   readonly loadError = signal('');
   readonly creationError = signal('');
+  readonly activationError = signal('');
+  readonly activationBusyId = signal('');
   readonly verificationError = signal('');
   readonly successMessage = signal('');
   readonly createdWorkspace = signal<Workspace | null>(null);
@@ -116,6 +124,42 @@ export class WorkspaceOnboardingComponent {
   retryVerification(): void {
     const workspace = this.createdWorkspace();
     if (workspace?._id) this.verifyCreatedWorkspace(workspace);
+  }
+
+  canActivateWorkspace(workspace: Workspace): boolean {
+    const userId = this.authService.currentUser()?.id;
+    return (
+      workspace.status === 'suspended' &&
+      workspace.suspensionType === 'owner' &&
+      !!userId &&
+      workspace.ownerId === userId
+    );
+  }
+
+  activateWorkspace(workspace: Workspace): void {
+    if (!this.canActivateWorkspace(workspace) || this.activationBusyId()) return;
+
+    this.activationBusyId.set(workspace._id);
+    this.activationError.set('');
+    this.workspaceService
+      .activateWorkspaceAndRefresh(workspace._id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (state) => {
+          this.accessState.set(state);
+          this.activationBusyId.set('');
+          this.successMessage.set('تم تفعيل المساحة والتحقق من صلاحية الوصول. جارٍ فتح لوحة التحكم...');
+          void this.router.navigateByUrl('/dashboard');
+        },
+        error: (error: unknown) => {
+          this.activationBusyId.set('');
+          this.activationError.set(
+            error instanceof WorkspaceActivationVerificationError
+              ? 'لم يؤكد الخادم تفعيل المساحة وإمكانية الوصول إليها. أعد تحميل قائمة المساحات قبل المتابعة.'
+              : getApiErrorMessage(error, 'تعذر تفعيل مساحة العمل. تحقق من صلاحيتك وحاول مرة أخرى.'),
+          );
+        },
+      });
   }
 
   private verifyCreatedWorkspace(created: Workspace): void {
