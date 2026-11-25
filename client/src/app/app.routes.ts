@@ -203,4 +203,11 @@ export const routes: Routes = [
         (module) => module.GuardiansComponent,
       ),
   },
+  {
+    path: '**',
+    loadComponent: () =>
+      import('./features/not-found/not-found.component').then(
+        (module) => module.NotFoundComponent,
+      ),
+  },
 ];

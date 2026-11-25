@@ -1,10 +1,17 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, ParamMap, Router, convertToParamMap, provideRouter } from '@angular/router';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import {
+  ActivatedRoute,
+  NavigationEnd,
+  ParamMap,
+  Router,
+  convertToParamMap,
+  provideRouter,
+} from '@angular/router';
 import { Component, Type, signal } from '@angular/core';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { Observable, of, Subject as RxSubject, throwError } from 'rxjs';
+import { Observable, filter, firstValueFrom, of, Subject as RxSubject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AppComponent } from './app';
 import { appConfig } from './app.config';
@@ -1337,6 +1344,143 @@ describe('App', () => {
     expect(router.url).toBe('/sign-in');
     await router.navigateByUrl('/sign-up');
     expect(router.url).toBe('/sign-up');
+  });
+
+  describe('Not Found route', () => {
+    async function openUnknownUrl(fixture: ComponentFixture<AppComponent>): Promise<void> {
+      await TestBed.inject(Router).navigateByUrl('/this-page-does-not-exist');
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    function clickDashboardLink(
+      fixture: ComponentFixture<AppComponent>,
+      router: Router,
+    ): Promise<NavigationEnd> {
+      const navigationEnd = firstValueFrom(
+        router.events.pipe(
+          filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+        ),
+      );
+      const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>(
+        'a[routerLink="/dashboard"]',
+      );
+      expect(link).not.toBeNull();
+      link?.click();
+      return navigationEnd;
+    }
+
+    it('renders the Arabic Not Found page for unknown URLs without requiring authentication', async () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      await openUnknownUrl(fixture);
+
+      expect(fixture.nativeElement.textContent).toContain('الصفحة غير موجودة');
+      expect(fixture.nativeElement.textContent).toContain('404');
+      expect(fixture.nativeElement.querySelector('main')?.getAttribute('dir')).toBe('rtl');
+      TestBed.inject(HttpTestingController).expectNone('/api/auth/status');
+    });
+
+    it('sends authenticated users with an active workspace from the CTA to Dashboard', async () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const router = TestBed.inject(Router);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      await openUnknownUrl(fixture);
+
+      const navigation = clickDashboardLink(fixture, router);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      httpTesting.expectOne('/api/auth/status').flush({
+        message: 'Authenticated user',
+        user: {
+          id: 'teacher-1',
+          name: 'Teacher Name',
+          email: 'teacher@example.com',
+          status: 'active',
+          lastLoginAt: null,
+        },
+      });
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'Workspaces loaded',
+        data: [{
+          _id: 'workspace-not-found',
+          name: 'مساحة العمل',
+          slug: 'workspace-not-found',
+          status: 'active',
+          currency: 'EGP',
+          description: '',
+        }],
+      });
+
+      await navigation;
+      expect(router.url).toBe('/dashboard');
+      httpTesting.expectOne(
+        (request) =>
+          request.url === '/api/workspaces/workspace-not-found/dashboard/summary',
+      ).flush({
+        message: 'Dashboard loaded',
+        data: {},
+      });
+    });
+
+    it('sends unauthenticated users from the CTA through the existing sign-in guard', async () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const router = TestBed.inject(Router);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      await openUnknownUrl(fixture);
+
+      const navigation = clickDashboardLink(fixture, router);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      httpTesting.expectOne('/api/auth/status').flush(
+        { message: 'Authentication required' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+
+      await navigation;
+      expect(router.url).toBe('/sign-in?reason=session');
+    });
+
+    it('sends authenticated users without a workspace from the CTA to onboarding', async () => {
+      const fixture = TestBed.createComponent(AppComponent);
+      fixture.detectChanges();
+      const router = TestBed.inject(Router);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      await openUnknownUrl(fixture);
+
+      const navigation = clickDashboardLink(fixture, router);
+      const authenticatedResponse = {
+        message: 'Authenticated user',
+        user: {
+          id: 'teacher-1',
+          name: 'Teacher Name',
+          email: 'teacher@example.com',
+          status: 'active',
+          lastLoginAt: null,
+        },
+      };
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      httpTesting.expectOne('/api/auth/status').flush(authenticatedResponse);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'Workspaces loaded',
+        data: [],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      httpTesting.expectOne('/api/auth/status').flush(authenticatedResponse);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'Workspaces loaded',
+        data: [],
+      });
+
+      await navigation;
+      expect(router.url).toBe('/workspace/onboarding');
+      httpTesting.expectNone(
+        (request) => request.url.includes('/dashboard/summary'),
+      );
+    });
   });
 
   it('should redirect unauthenticated dashboard visits to sign-in', async () => {
