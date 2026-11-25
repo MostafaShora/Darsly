@@ -94,7 +94,7 @@ const DASHBOARD_FEATURES: readonly DashboardFeature[] = [
   {
     id: 'attendance',
     label: 'الحضور',
-    description: 'تقرير الحضور والحالات حسب الفترة والمجموعة والطالب.',
+    description: 'تسجيل الحضور ومراجعته حسب الجلسة أو ملف الطالب.',
   },
   {
     id: 'payments',
@@ -148,6 +148,7 @@ export class DashboardComponent {
     { label: 'المواد الدراسية', href: '/subjects' },
     { label: 'المجموعات', href: '/groups' },
     { label: 'إدارة الجلسات', href: '/sessions' },
+    { label: 'إدارة الحضور', href: '/attendance' },
   ];
   readonly metricCards = DASHBOARD_METRICS;
   readonly featureCards = DASHBOARD_FEATURES;

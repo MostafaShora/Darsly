@@ -35,6 +35,30 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'attendance/sessions/:sessionId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/attendance/attendance.component').then(
+        (module) => module.AttendanceComponent,
+      ),
+  },
+  {
+    path: 'attendance/students/:studentId',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/attendance/attendance.component').then(
+        (module) => module.AttendanceComponent,
+      ),
+  },
+  {
+    path: 'attendance',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/attendance/attendance.component').then(
+        (module) => module.AttendanceComponent,
+      ),
+  },
+  {
     path: 'sessions/:sessionId',
     canActivate: [authGuard],
     loadComponent: () =>

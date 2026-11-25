@@ -15,7 +15,13 @@ import {
   Student,
   StudentGuardianLink,
 } from './core/models/people.models';
-import { Enrollment, Session, StudyGroup, Subject } from './core/models/learning.models';
+import {
+  AttendanceRecord,
+  Enrollment,
+  Session,
+  StudyGroup,
+  Subject,
+} from './core/models/learning.models';
 import { LearningService } from './core/services/learning.service';
 import { PeopleService } from './core/services/people.service';
 import { AttendanceReport, FinanceReport, ReportService } from './core/services/report.service';
@@ -30,6 +36,7 @@ import {
 import { StudentsComponent } from './features/students/students.component';
 import { SessionsComponent, localDateBoundaryToIso, localDateTimeToIso, utcDateTimeToLocalInput } from './features/sessions/sessions.component';
 import { SubjectsComponent } from './features/subjects/subjects.component';
+import { AttendanceComponent } from './features/attendance/attendance.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -538,6 +545,7 @@ describe('App', () => {
 
       expect(component.student()).toEqual(student);
       expect(component.guardians()).toEqual([link]);
+      expect(harness.routeNativeElement?.querySelector('a[href="/attendance/students/student-1"]')).toBeTruthy();
       component.beginEdit();
       component.studentForm.controls.name.setValue('نور أحمد محدث');
       component.studentForm.controls.status.setValue('inactive');
@@ -815,7 +823,16 @@ describe('App', () => {
     fixture.detectChanges();
     const router = TestBed.inject(Router);
 
-    for (const path of ['/students', '/guardians', '/subjects', '/groups', '/sessions']) {
+    for (const path of [
+      '/students',
+      '/guardians',
+      '/subjects',
+      '/groups',
+      '/sessions',
+      '/attendance',
+      '/attendance/sessions/session-1',
+      '/attendance/students/student-1',
+    ]) {
       const navigation = router.navigateByUrl(path);
       await new Promise((resolve) => setTimeout(resolve, 0));
       const request = TestBed.inject(HttpTestingController).expectOne('/api/auth/status');
@@ -860,11 +877,13 @@ describe('App', () => {
     expect(dashboard.querySelector('[dir="rtl"][lang="ar"]')).toBeTruthy();
     expect(dashboard.querySelector('button[aria-label="English"]')).toBeNull();
     expect(dashboard.querySelector('svg')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/students"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/guardians"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/subjects"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/groups"]')).toBeTruthy();
-    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات"] a[href="/sessions"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/students"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/guardians"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/subjects"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/groups"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/sessions"]')).toBeTruthy();
+    expect(dashboard.querySelector('nav[aria-label="إدارة الطلاب والمواد والمجموعات والجلسات والحضور"] a[href="/attendance"]')).toBeTruthy();
+    expect(dashboard.querySelector('#attendance a[href="/attendance"]')).toBeTruthy();
 
     const navigationLinks = dashboard.querySelectorAll<HTMLAnchorElement>(
       'nav[aria-label="التنقل الرئيسي"] a',
@@ -1275,6 +1294,7 @@ describe('App', () => {
       getSession: vi.fn<LearningService['getSession']>(),
       createSession: vi.fn<LearningService['createSession']>(),
       updateSession: vi.fn<LearningService['updateSession']>(),
+      listSessionAttendance: vi.fn<LearningService['listSessionAttendance']>(),
     };
 
     async function configure(routeParams: Record<string, string> = {}): Promise<void> {
@@ -1300,6 +1320,7 @@ describe('App', () => {
       learningMock.getSession.mockReset().mockReturnValue(of(session));
       learningMock.createSession.mockReset().mockReturnValue(of(session));
       learningMock.updateSession.mockReset().mockReturnValue(of(session));
+      learningMock.listSessionAttendance.mockReset().mockReturnValue(of(pageResult([])));
       await Promise.resolve();
     });
 
@@ -1488,6 +1509,8 @@ describe('App', () => {
       expect(learningMock.getSession).toHaveBeenCalledWith('workspace-sessions', session.id);
       expect((fixture.nativeElement as HTMLElement).textContent).toContain(group.name);
       expect((fixture.nativeElement as HTMLElement).textContent).toContain('مجدولة');
+      expect(learningMock.listSessionAttendance).not.toHaveBeenCalled();
+      expect(fixture.nativeElement.querySelector(`a[href="/attendance/sessions/${session.id}"]`)).toBeTruthy();
 
       TestBed.resetTestingModule();
       learningMock.getSession.mockReturnValue(
@@ -1564,6 +1587,452 @@ describe('App', () => {
           return sameLocalTime ? date.toISOString() : null;
         })(),
       );
+    });
+
+    describe('Attendance workflows', () => {
+      const workspace: Workspace = {
+        _id: 'workspace-attendance',
+        name: 'مساحة الحضور',
+        slug: 'attendance',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      const group: StudyGroup = {
+        id: 'group-attendance-1',
+        subjectId: 'subject-attendance-1',
+        name: 'مجموعة العلوم',
+        description: '',
+        monthlyFee: '30.00',
+        capacity: null,
+        status: 'inactive',
+        createdAt: '2026-01-01T10:00:00.000Z',
+        updatedAt: '2026-01-01T10:00:00.000Z',
+      };
+      const startsAt = new Date(Date.now() - 3_600_000).toISOString();
+      const session: Session = {
+        id: 'session-attendance-1',
+        groupId: group.id,
+        title: 'مراجعة العلوم',
+        startsAt,
+        endsAt: new Date(Date.now() - 1_800_000).toISOString(),
+        status: 'completed',
+        notes: '',
+        createdAt: '2026-01-01T10:00:00.000Z',
+        updatedAt: '2026-01-01T10:00:00.000Z',
+      };
+      const student: Student = {
+        id: 'student-attendance-1',
+        name: 'سارة أحمد',
+        phone: null,
+        email: null,
+        schoolName: '',
+        grade: '',
+        status: 'inactive',
+        notes: '',
+        createdAt: '2026-01-01T10:00:00.000Z',
+        updatedAt: '2026-01-01T10:00:00.000Z',
+      };
+      const enrollment: Enrollment = {
+        id: 'enrollment-attendance-1',
+        studentId: student.id,
+        groupId: group.id,
+        enrolledAt: new Date(Date.parse(startsAt) - 86_400_000).toISOString(),
+        endedAt: null,
+        status: 'active',
+        notes: '',
+        createdAt: '2026-01-01T10:00:00.000Z',
+        updatedAt: '2026-01-01T10:00:00.000Z',
+      };
+      const record: AttendanceRecord = {
+        id: 'attendance-record-1',
+        sessionId: session.id,
+        studentId: student.id,
+        status: 'present',
+        lateMinutes: 0,
+        notes: '',
+        recordedAt: new Date(Date.parse(startsAt) + 60_000).toISOString(),
+        createdAt: '2026-01-01T10:00:00.000Z',
+        updatedAt: '2026-01-01T10:00:00.000Z',
+      };
+      const pageResult = <T>(items: T[], totalItems = items.length, page = 1): PageResult<T> => ({
+        items,
+        pagination: {
+          page,
+          pageSize: 20,
+          totalItems,
+          totalPages: totalItems ? Math.ceil(totalItems / 20) : 0,
+        },
+      });
+      const learningMock = {
+        listSessions: vi.fn<LearningService['listSessions']>(),
+        getSession: vi.fn<LearningService['getSession']>(),
+        getGroup: vi.fn<LearningService['getGroup']>(),
+        listGroupEnrollments: vi.fn<LearningService['listGroupEnrollments']>(),
+        listSessionAttendance: vi.fn<LearningService['listSessionAttendance']>(),
+        createAttendanceRecord: vi.fn<LearningService['createAttendanceRecord']>(),
+        updateAttendanceRecord: vi.fn<LearningService['updateAttendanceRecord']>(),
+        listStudentAttendance: vi.fn<LearningService['listStudentAttendance']>(),
+      };
+      const peopleMock = {
+        getStudent: vi.fn<PeopleService['getStudent']>(),
+      };
+
+      async function configure(routeParams: Record<string, string> = {}): Promise<void> {
+        await TestBed.configureTestingModule({
+          imports: [AttendanceComponent],
+          providers: [
+            provideRouter([]),
+            {
+              provide: ActivatedRoute,
+              useValue: { paramMap: of(convertToParamMap(routeParams)) },
+            },
+            { provide: WorkspaceService, useValue: { getActiveWorkspace: () => of(workspace) } },
+            { provide: LearningService, useValue: learningMock },
+            { provide: PeopleService, useValue: peopleMock },
+          ],
+        }).compileComponents();
+      }
+
+      beforeEach(async () => {
+        TestBed.resetTestingModule();
+        learningMock.listSessions.mockReset().mockReturnValue(of(pageResult([session], 41)));
+        learningMock.getSession.mockReset().mockReturnValue(of(session));
+        learningMock.getGroup.mockReset().mockReturnValue(of(group));
+        learningMock.listGroupEnrollments
+          .mockReset()
+          .mockReturnValue(of(pageResult([enrollment])));
+        learningMock.listSessionAttendance
+          .mockReset()
+          .mockReturnValue(of(pageResult([record])));
+        learningMock.createAttendanceRecord.mockReset().mockReturnValue(of(record));
+        learningMock.updateAttendanceRecord.mockReset().mockReturnValue(of(record));
+        learningMock.listStudentAttendance.mockReset().mockReturnValue(of(pageResult([record], 41)));
+        peopleMock.getStudent.mockReset().mockReturnValue(of(student));
+        await Promise.resolve();
+      });
+
+      afterEach(() => {
+        TestBed.resetTestingModule();
+        vi.restoreAllMocks();
+      });
+
+      it('uses the workspace-scoped attendance contracts, query parameters, and credentials', async () => {
+        TestBed.resetTestingModule();
+        await TestBed.configureTestingModule({
+          providers: [provideHttpClient(), provideHttpClientTesting()],
+        }).compileComponents();
+        const service = TestBed.inject(LearningService);
+        const http = TestBed.inject(HttpTestingController);
+
+        service
+          .listSessionAttendance(workspace._id, session.id, {
+            page: 2,
+            pageSize: 20,
+            status: 'late',
+          })
+          .subscribe();
+        const listRequest = http.expectOne(
+          (request) =>
+            request.url.endsWith(`/workspaces/${workspace._id}/sessions/${session.id}/attendance`),
+        );
+        expect(listRequest.request.method).toBe('GET');
+        expect(listRequest.request.withCredentials).toBe(true);
+        expect(listRequest.request.params.get('page')).toBe('2');
+        expect(listRequest.request.params.get('pageSize')).toBe('20');
+        expect(listRequest.request.params.get('status')).toBe('late');
+        listRequest.flush({ message: 'Session attendance retrieved', data: pageResult([]) });
+
+        service
+          .createAttendanceRecord(workspace._id, session.id, {
+            studentId: student.id,
+            status: 'late',
+            lateMinutes: 7.5,
+            notes: 'تأخر بسبب المواصلات',
+          })
+          .subscribe();
+        const createRequest = http.expectOne(
+          (request) =>
+            request.method === 'POST' &&
+            request.url.endsWith(`/workspaces/${workspace._id}/sessions/${session.id}/attendance`),
+        );
+        expect(createRequest.request.withCredentials).toBe(true);
+        expect(createRequest.request.body).toEqual({
+          studentId: student.id,
+          status: 'late',
+          lateMinutes: 7.5,
+          notes: 'تأخر بسبب المواصلات',
+        });
+        createRequest.flush({ message: 'Attendance recorded', data: record });
+
+        service
+          .updateAttendanceRecord(workspace._id, session.id, record.id, { status: 'excused' })
+          .subscribe();
+        const updateRequest = http.expectOne(
+          (request) =>
+            request.method === 'PATCH' &&
+            request.url.endsWith(
+              `/workspaces/${workspace._id}/sessions/${session.id}/attendance/${record.id}`,
+            ),
+        );
+        expect(updateRequest.request.withCredentials).toBe(true);
+        expect(updateRequest.request.body).toEqual({ status: 'excused' });
+        updateRequest.flush({ message: 'Attendance updated', data: { ...record, status: 'excused' } });
+
+        service
+          .listStudentAttendance(workspace._id, student.id, {
+            page: 1,
+            pageSize: 20,
+            status: 'absent',
+            from: '2026-03-10T00:00:00.000Z',
+            to: '2026-03-10T23:59:59.999Z',
+          })
+          .subscribe();
+        const historyRequest = http.expectOne(
+          (request) =>
+            request.url.endsWith(`/workspaces/${workspace._id}/students/${student.id}/attendance`),
+        );
+        expect(historyRequest.request.withCredentials).toBe(true);
+        expect(historyRequest.request.params.get('status')).toBe('absent');
+        expect(historyRequest.request.params.get('from')).toBe('2026-03-10T00:00:00.000Z');
+        expect(historyRequest.request.params.get('to')).toBe('2026-03-10T23:59:59.999Z');
+        historyRequest.flush({ message: 'Student attendance retrieved', data: pageResult([]) });
+        http.verify();
+      });
+
+      it('loads session records and only active, date-eligible group enrollments for the active workspace', async () => {
+        await configure({ sessionId: session.id });
+        const fixture = TestBed.createComponent(AttendanceComponent);
+        fixture.detectChanges();
+
+        expect(learningMock.getSession).toHaveBeenCalledWith(workspace._id, session.id);
+        expect(learningMock.listSessionAttendance).toHaveBeenCalledWith(workspace._id, session.id, {
+          page: 1,
+          pageSize: 20,
+        });
+        expect(learningMock.listGroupEnrollments).toHaveBeenCalledWith(workspace._id, group.id, {
+          page: 1,
+          pageSize: 20,
+          status: 'active',
+        });
+        expect(peopleMock.getStudent).toHaveBeenCalledWith(workspace._id, student.id);
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(student.name);
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(group.name);
+        expect(fixture.nativeElement.querySelector(`a[href="/attendance/students/${student.id}"]`)).toBeTruthy();
+        expect(learningMock.createAttendanceRecord).not.toHaveBeenCalled();
+      });
+
+      it('creates only fields supported by the API and omits blank optional values', async () => {
+        learningMock.listSessionAttendance
+          .mockReturnValueOnce(of(pageResult([])))
+          .mockReturnValue(of(pageResult([record])));
+        await configure({ sessionId: session.id });
+        const fixture = TestBed.createComponent(AttendanceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+
+        component.openCreateForm();
+        expect(component.availableStudents()[0].student.status).toBe('inactive');
+        component.recordForm.patchValue({
+          studentId: student.id,
+          status: 'present',
+          notes: '   ',
+          lateMinutes: -3,
+        });
+        component.submitAttendance();
+
+        expect(learningMock.createAttendanceRecord).toHaveBeenCalledWith(workspace._id, session.id, {
+          studentId: student.id,
+          status: 'present',
+        });
+        expect(component.recording()).toBe(false);
+        expect(learningMock.listSessionAttendance).toHaveBeenCalledTimes(2);
+        fixture.detectChanges();
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(student.name);
+      });
+
+      it('prevents selecting a student already present in the loaded attendance page', async () => {
+        await configure({ sessionId: session.id });
+        const fixture = TestBed.createComponent(AttendanceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+
+        component.openCreateForm();
+
+        expect(component.availableStudents()).toEqual([]);
+        expect(component.recordForm.controls.studentId.value).toBe('');
+        expect(learningMock.createAttendanceRecord).not.toHaveBeenCalled();
+      });
+
+      it('shows backend duplicate errors without inventing a successful result', async () => {
+        learningMock.listSessionAttendance.mockReturnValue(of(pageResult([])));
+        learningMock.createAttendanceRecord.mockReturnValue(
+          throwError(
+            () =>
+              new HttpErrorResponse({
+                status: 409,
+                error: { message: 'A record with these values already exists' },
+              }),
+          ),
+        );
+        await configure({ sessionId: session.id });
+        const fixture = TestBed.createComponent(AttendanceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+
+        component.openCreateForm();
+        component.recordForm.controls.studentId.setValue(student.id);
+        component.submitAttendance();
+
+        expect(component.error()).toContain('A record with these values already exists');
+        expect(component.success()).toBe('');
+        expect(component.attendanceRows()).toEqual([]);
+      });
+
+      it('filters and paginates the session overview using supported session API fields', async () => {
+        await configure();
+        const fixture = TestBed.createComponent(AttendanceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+
+        component.filters.setValue({
+          from: '2026-03-10',
+          to: '2026-03-11',
+          status: 'completed',
+        });
+        component.applySessionFilters();
+        expect(learningMock.listSessions).toHaveBeenLastCalledWith(workspace._id, {
+          page: 1,
+          pageSize: 20,
+          from: localDateBoundaryToIso('2026-03-10'),
+          to: localDateBoundaryToIso('2026-03-11', true),
+          status: 'completed',
+        });
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(group.name);
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(session.title);
+        component.changeSessionPage(2);
+        expect(learningMock.listSessions).toHaveBeenLastCalledWith(
+          workspace._id,
+          expect.objectContaining({ page: 2, status: 'completed' }),
+        );
+      });
+
+      it('blocks new records for cancelled or future sessions but allows correcting a started cancelled session', async () => {
+        learningMock.getSession.mockReturnValue(of({ ...session, status: 'cancelled' }));
+        const updateResponse = new RxSubject<AttendanceRecord>();
+        learningMock.updateAttendanceRecord.mockReturnValue(updateResponse);
+        await configure({ sessionId: session.id });
+        const fixture = TestBed.createComponent(AttendanceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+        const row = component.attendanceRows()[0];
+
+        expect(component.canRecordNewAttendance()).toBe(false);
+        component.openCreateForm();
+        expect(learningMock.createAttendanceRecord).not.toHaveBeenCalled();
+        component.beginEdit(row);
+        expect(component.editingAttendanceId()).toBe(record.id);
+        component.editForm.controls.status.setValue('excused');
+        component.editForm.controls.status.markAsDirty();
+        component.saveEdit(row);
+        expect(learningMock.updateAttendanceRecord).toHaveBeenCalledWith(
+          workspace._id,
+          session.id,
+          record.id,
+          { status: 'excused' },
+        );
+        expect(component.attendanceRows()[0].record.status).toBe('present');
+        updateResponse.next({ ...record, status: 'excused' });
+        updateResponse.complete();
+        expect(component.attendanceRows()[0].record.status).toBe('excused');
+
+        TestBed.resetTestingModule();
+        learningMock.getSession.mockReturnValue(
+          of({
+            ...session,
+            startsAt: new Date(Date.now() + 3_600_000).toISOString(),
+            status: 'scheduled',
+          }),
+        );
+        await configure({ sessionId: session.id });
+        const futureFixture = TestBed.createComponent(AttendanceComponent);
+        futureFixture.detectChanges();
+        const futureComponent = futureFixture.componentInstance;
+        expect(futureComponent.canRecordNewAttendance()).toBe(false);
+        futureComponent.submitAttendance();
+        expect(learningMock.createAttendanceRecord).not.toHaveBeenCalled();
+      });
+
+      it('filters paginated student history by recordedAt and loads linked session and group details', async () => {
+        await configure({ studentId: student.id });
+        const fixture = TestBed.createComponent(AttendanceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+
+        component.historyFilters.setValue({
+          from: '2026-03-10',
+          to: '2026-03-11',
+          status: 'late',
+        });
+        component.applyHistoryFilters();
+        expect(learningMock.listStudentAttendance).toHaveBeenLastCalledWith(
+          workspace._id,
+          student.id,
+          {
+            page: 1,
+            pageSize: 20,
+            from: localDateBoundaryToIso('2026-03-10'),
+            to: localDateBoundaryToIso('2026-03-11', true),
+            status: 'late',
+          },
+        );
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('وقت التسجيل');
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(session.title);
+        component.changeHistoryPage(2);
+        expect(learningMock.listStudentAttendance).toHaveBeenLastCalledWith(
+          workspace._id,
+          student.id,
+          expect.objectContaining({ page: 2, status: 'late' }),
+        );
+      });
+
+      it('shows loading, empty, and API error states for session attendance', async () => {
+        const response = new RxSubject<PageResult<AttendanceRecord>>();
+        learningMock.listSessionAttendance.mockReturnValue(response);
+        await configure({ sessionId: session.id });
+        const fixture = TestBed.createComponent(AttendanceComponent);
+        fixture.detectChanges();
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+          'جارٍ تحميل سجلات الحضور',
+        );
+
+        response.next(pageResult([]));
+        response.complete();
+        fixture.detectChanges();
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+          'لا توجد سجلات حضور مطابقة',
+        );
+
+        TestBed.resetTestingModule();
+        learningMock.listSessionAttendance.mockReturnValue(
+          throwError(
+            () =>
+              new HttpErrorResponse({
+                status: 500,
+                error: { message: 'Attendance service unavailable' },
+              }),
+          ),
+        );
+        await configure({ sessionId: session.id });
+        const failedFixture = TestBed.createComponent(AttendanceComponent);
+        failedFixture.detectChanges();
+        expect((failedFixture.nativeElement as HTMLElement).textContent).toContain(
+          'تعذر تحميل سجلات الجلسة',
+        );
+        expect((failedFixture.nativeElement as HTMLElement).textContent).toContain(
+          'Attendance service unavailable',
+        );
+      });
     });
   });
 });

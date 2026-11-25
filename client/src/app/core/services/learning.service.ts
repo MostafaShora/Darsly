@@ -4,6 +4,10 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   ApiEnvelope,
+  AttendanceRecord,
+  AttendanceRecordUpdate,
+  AttendanceRecordWrite,
+  AttendanceStatus,
   Enrollment,
   EnrollmentUpdate,
   EnrollmentWrite,
@@ -15,9 +19,11 @@ import {
   StudyGroupUpdate,
   StudyGroupWrite,
   Session,
+  SessionAttendanceQuery,
   SessionQuery,
   SessionUpdate,
   SessionWrite,
+  StudentAttendanceQuery,
   Subject,
   SubjectQuery,
   SubjectUpdate,
@@ -203,6 +209,69 @@ export class LearningService {
         `${this.workspaceUrl(workspaceId)}/sessions/${encodeURIComponent(sessionId)}`,
         input,
         { withCredentials: true },
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  listSessionAttendance(
+    workspaceId: string,
+    sessionId: string,
+    query: SessionAttendanceQuery,
+  ): Observable<PageResult<AttendanceRecord>> {
+    let params = this.pageParams(query);
+    if (query.status) params = params.set('status', query.status);
+
+    return this.http
+      .get<ApiEnvelope<PageResult<AttendanceRecord>>>(
+        `${this.workspaceUrl(workspaceId)}/sessions/${encodeURIComponent(sessionId)}/attendance`,
+        { withCredentials: true, params },
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  createAttendanceRecord(
+    workspaceId: string,
+    sessionId: string,
+    input: AttendanceRecordWrite,
+  ): Observable<AttendanceRecord> {
+    return this.http
+      .post<ApiEnvelope<AttendanceRecord>>(
+        `${this.workspaceUrl(workspaceId)}/sessions/${encodeURIComponent(sessionId)}/attendance`,
+        input,
+        { withCredentials: true },
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  updateAttendanceRecord(
+    workspaceId: string,
+    sessionId: string,
+    attendanceId: string,
+    input: AttendanceRecordUpdate,
+  ): Observable<AttendanceRecord> {
+    return this.http
+      .patch<ApiEnvelope<AttendanceRecord>>(
+        `${this.workspaceUrl(workspaceId)}/sessions/${encodeURIComponent(sessionId)}/attendance/${encodeURIComponent(attendanceId)}`,
+        input,
+        { withCredentials: true },
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  listStudentAttendance(
+    workspaceId: string,
+    studentId: string,
+    query: StudentAttendanceQuery,
+  ): Observable<PageResult<AttendanceRecord>> {
+    let params = this.pageParams(query);
+    if (query.status) params = params.set('status', query.status);
+    if (query.from) params = params.set('from', query.from);
+    if (query.to) params = params.set('to', query.to);
+
+    return this.http
+      .get<ApiEnvelope<PageResult<AttendanceRecord>>>(
+        `${this.workspaceUrl(workspaceId)}/students/${encodeURIComponent(studentId)}/attendance`,
+        { withCredentials: true, params },
       )
       .pipe(map((response) => response.data));
   }

@@ -28,6 +28,11 @@
           >أولياء الأمور</a
         >
         <a
+          routerLink="/attendance"
+          class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+          >الحضور</a
+        >
+        <a
           routerLink="/reports"
           class="min-h-10 rounded-xl px-3 py-3 text-[#51695e] hover:bg-[#f2f7f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
           >التقارير</a
@@ -442,13 +447,20 @@
                 >{{ statusLabel(currentStudent.status) }}</span
               >
             </div>
-            <button
-              type="button"
-              class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
-              (click)="beginEdit()"
-            >
-              تعديل البيانات
-            </button>
+            <div class="flex flex-wrap gap-2">
+              <a
+                [routerLink]="['/attendance/students', currentStudent.id]"
+                class="inline-flex min-h-10 items-center rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                >سجل الحضور</a
+              >
+              <button
+                type="button"
+                class="min-h-10 rounded-xl border border-[#dce8df] px-4 text-xs font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                (click)="beginEdit()"
+              >
+                تعديل البيانات
+              </button>
+            </div>
           </div>
           <dl class="mt-5 grid gap-3 text-xs sm:grid-cols-2">
             <div class="rounded-xl bg-[#f8faf8] p-3">

@@ -3,6 +3,7 @@ export type StudyGroupStatus = 'active' | 'inactive' | 'archived';
 export type EnrollmentStatus = 'active' | 'paused' | 'completed' | 'cancelled';
 export type NewEnrollmentStatus = Extract<EnrollmentStatus, 'active' | 'paused'>;
 export type SessionStatus = 'scheduled' | 'completed' | 'cancelled';
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 
 export interface PageQuery {
   page: number;
@@ -142,5 +143,41 @@ export interface SessionUpdate {
   endsAt?: string;
   title?: string;
   status?: SessionStatus;
+  notes?: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  sessionId: string;
+  studentId: string;
+  status: AttendanceStatus;
+  lateMinutes: number;
+  notes: string;
+  recordedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SessionAttendanceQuery {
+  page: number;
+  pageSize: number;
+  status?: AttendanceStatus;
+}
+
+export interface StudentAttendanceQuery extends SessionAttendanceQuery {
+  from?: string;
+  to?: string;
+}
+
+export interface AttendanceRecordWrite {
+  studentId: string;
+  status?: AttendanceStatus;
+  lateMinutes?: number;
+  notes?: string;
+}
+
+export interface AttendanceRecordUpdate {
+  status?: AttendanceStatus;
+  lateMinutes?: number;
   notes?: string;
 }
