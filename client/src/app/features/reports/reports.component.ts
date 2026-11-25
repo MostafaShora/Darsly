@@ -1,14 +1,42 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import {
-  AttendanceReport,
-  FinanceReport,
-  ReportService,
-} from '../../core/services/report.service';
+import { AttendanceReport, FinanceReport, ReportCollection, ReportService } from '../../core/services/report.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { formatMoneyExact } from '../../core/utils/finance';
+
+type ReportFilters = {
+  from?: string;
+  to?: string;
+  studentId?: string;
+  groupId?: string;
+  timezone: string;
+};
+
+type ReportPagination = AttendanceReport['pagination'];
+
+interface ReportCollectionState<T> {
+  items: T[];
+  pagination: ReportPagination;
+  loading: boolean;
+  error: string;
+}
+
+const EMPTY_PAGINATION: ReportPagination = {
+  page: 1,
+  pageSize: 20,
+  totalItems: 0,
+  totalPages: 0,
+};
+
+const emptyCollection = <T>(): ReportCollectionState<T> => ({
+  items: [],
+  pagination: { ...EMPTY_PAGINATION },
+  loading: false,
+  error: '',
+});
 
 export const formatReportDateForTimezone = (
   value: string,
@@ -43,14 +71,29 @@ export const formatReportTimestampForTimezone = (
 export class ReportsComponent {
   private readonly workspaceService = inject(WorkspaceService);
   private readonly reportService = inject(ReportService);
+  private readonly destroyRef = inject(DestroyRef);
   private workspaceId = '';
+  private appliedFilters: ReportFilters | null = null;
+  private filterRevision = 0;
+  private attendanceRequestId = 0;
+  private readonly financeRequestIds = {
+    payments: 0,
+    invoices: 0,
+    allocations: 0,
+  };
 
   readonly activeTab = signal<'attendance' | 'finance'>('attendance');
-  readonly loading = signal(false);
+  readonly workspaceLoading = signal(true);
+  readonly workspaceError = signal('');
+  readonly attendanceLoading = signal(false);
+  readonly attendanceError = signal('');
   readonly exporting = signal(false);
   readonly error = signal('');
   readonly attendance = signal<AttendanceReport | null>(null);
   readonly finance = signal<FinanceReport | null>(null);
+  readonly payments = signal(emptyCollection<FinanceReport['payments']['items'][number]>());
+  readonly invoices = signal(emptyCollection<FinanceReport['invoices']['items'][number]>());
+  readonly allocations = signal(emptyCollection<FinanceReport['allocations']['items'][number]>());
 
   readonly filters = new FormGroup({
     from: new FormControl(this.toDateInput(new Date(new Date().getFullYear(), new Date().getMonth(), 1))),
@@ -60,81 +103,350 @@ export class ReportsComponent {
   });
 
   constructor() {
-    this.workspaceService.getActiveWorkspace().subscribe({
-      next: (workspace) => {
-        if (workspace?._id) {
-          this.workspaceId = workspace._id;
+    this.appliedFilters = this.readFormFilters();
+    this.workspaceService
+      .getActiveWorkspace()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (workspace) => {
+          const nextWorkspaceId = workspace?._id ?? '';
+          if (nextWorkspaceId === this.workspaceId && !this.workspaceLoading()) return;
+
+          this.workspaceId = nextWorkspaceId;
+          this.invalidateRequests();
+          this.clearReportData();
+          this.workspaceLoading.set(false);
+          this.workspaceError.set('');
+          if (!this.workspaceId) {
+            this.workspaceError.set('لا توجد مساحة عمل نشطة.');
+            return;
+          }
+          this.appliedFilters = this.readFormFilters();
           this.load();
-        } else {
-          this.error.set('لا توجد مساحة عمل متاحة.');
-        }
-      },
-      error: () => this.error.set('تعذر تحميل مساحة العمل.'),
-    });
+        },
+        error: () => {
+          this.workspaceLoading.set(false);
+          this.workspaceError.set('تعذر تحميل مساحة العمل.');
+        },
+      });
   }
 
   setTab(tab: 'attendance' | 'finance'): void {
+    if (this.activeTab() === tab) return;
     this.activeTab.set(tab);
-    this.load();
+    if (tab === 'attendance' && !this.attendance()) this.load();
+    if (tab === 'finance' && !this.finance()) this.load();
   }
 
   load(): void {
-    if (!this.workspaceId) return;
-    this.loading.set(true);
-    this.error.set('');
-    const from = this.localDateToIso(this.filters.controls.from.value);
-    const to = this.localDateToIso(this.filters.controls.to.value, true);
-    const studentId = this.filters.controls.studentId.value?.trim() || undefined;
-    const groupId = this.filters.controls.groupId.value?.trim() || undefined;
-    const timezone = this.getTimezone();
-    if (!timezone) {
-      this.error.set('تعذر تحديد المنطقة الزمنية لهذا الجهاز.');
-      this.loading.set(false);
+    if (!this.workspaceId || !this.appliedFilters) return;
+    if (!this.appliedFilters.timezone) {
+      const message = 'تعذر تحديد المنطقة الزمنية لهذا الجهاز.';
+      if (this.activeTab() === 'attendance') {
+        this.attendanceLoading.set(false);
+        this.attendanceError.set(message);
+      } else {
+        this.payments.update((state) => ({ ...state, loading: false, error: message }));
+        this.invoices.update((state) => ({ ...state, loading: false, error: message }));
+        this.allocations.update((state) => ({ ...state, loading: false, error: message }));
+      }
       return;
     }
-
     if (this.activeTab() === 'attendance') {
-      this.reportService.getAttendance(this.workspaceId, {
-        from,
-        to,
-        studentId,
-        groupId,
-        timezone,
-        page: 1,
-        pageSize: 100,
-      }).subscribe({
-        next: (report) => {
-          this.attendance.set(report);
-          this.loading.set(false);
-        },
-        error: () => {
-          this.error.set('تعذر تحميل تقرير الحضور.');
-          this.loading.set(false);
-        },
-      });
+      this.loadAttendancePage(1);
     } else {
-      this.reportService.getFinance(this.workspaceId, {
-        from,
-        to,
-        studentId,
-        timezone,
-        page: 1,
-        pageSize: 100,
-      }).subscribe({
+      this.loadFinancePage(1);
+    }
+  }
+
+  applyFilters(): void {
+    this.error.set('');
+    this.appliedFilters = this.readFormFilters();
+    this.invalidateRequests();
+    this.clearReportData();
+    this.load();
+  }
+
+  changeAttendancePage(page: number): void {
+    const pagination = this.attendance()?.pagination;
+    if (!pagination || this.attendanceLoading() || page < 1 || page > pagination.totalPages || page === pagination.page) {
+      return;
+    }
+    this.loadAttendancePage(page);
+  }
+
+  retryAttendancePage(): void {
+    this.loadAttendancePage(this.attendance()?.pagination.page ?? 1);
+  }
+
+  changeFinancePage(collection: 'payments' | 'invoices' | 'allocations', page: number): void {
+    const state = this.financeCollectionState(collection);
+    if (state.loading || page < 1 || page > state.pagination.totalPages || page === state.pagination.page) {
+      return;
+    }
+    this.loadFinanceCollectionPage(collection, page);
+  }
+
+  retryFinanceCollection(collection: 'payments' | 'invoices' | 'allocations'): void {
+    this.loadFinanceCollectionPage(collection, this.financeCollectionState(collection).pagination.page);
+  }
+
+  pageCount(pagination: ReportPagination): number {
+    return Math.max(pagination.totalPages, 1);
+  }
+
+  private loadAttendancePage(page: number): void {
+    if (!this.workspaceId || !this.appliedFilters) return;
+    if (!this.appliedFilters.timezone) {
+      this.attendanceLoading.set(false);
+      this.attendanceError.set('تعذر تحديد المنطقة الزمنية لهذا الجهاز.');
+      return;
+    }
+    const workspaceId = this.workspaceId;
+    const revision = this.filterRevision;
+    const requestId = ++this.attendanceRequestId;
+    this.attendanceLoading.set(true);
+    this.attendanceError.set('');
+    if (page !== 1 || this.attendance()) {
+      this.attendance.update((report) =>
+        report
+          ? {
+              ...report,
+              items: [],
+              pagination: { ...report.pagination, page },
+            }
+          : null,
+      );
+    }
+
+    this.reportService
+      .getAttendance(workspaceId, {
+        ...this.appliedFilters,
+        page,
+        pageSize: EMPTY_PAGINATION.pageSize,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
         next: (report) => {
-          this.finance.set(report);
-          this.loading.set(false);
+          if (requestId !== this.attendanceRequestId || revision !== this.filterRevision || workspaceId !== this.workspaceId) return;
+          this.attendance.set(report);
+          this.attendanceLoading.set(false);
         },
         error: () => {
-          this.error.set('تعذر تحميل التقرير المالي.');
-          this.loading.set(false);
+          if (requestId !== this.attendanceRequestId || revision !== this.filterRevision || workspaceId !== this.workspaceId) return;
+          this.attendanceLoading.set(false);
+          this.attendanceError.set('تعذر تحميل صفحة تقرير الحضور.');
         },
       });
+  }
+
+  private loadFinancePage(page: number): void {
+    if (!this.workspaceId || !this.appliedFilters) return;
+    this.setFinanceCollectionsLoading(true);
+    const requestIds = {
+      payments: ++this.financeRequestIds.payments,
+      invoices: ++this.financeRequestIds.invoices,
+      allocations: ++this.financeRequestIds.allocations,
+    };
+    const workspaceId = this.workspaceId;
+    const revision = this.filterRevision;
+
+    this.reportService
+      .getFinance(workspaceId, {
+        from: this.appliedFilters.from,
+        to: this.appliedFilters.to,
+        studentId: this.appliedFilters.studentId,
+        timezone: this.appliedFilters.timezone,
+        page,
+        pageSize: EMPTY_PAGINATION.pageSize,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (report) => {
+          if (revision !== this.filterRevision || workspaceId !== this.workspaceId) return;
+          this.finance.set(report);
+          if (requestIds.payments === this.financeRequestIds.payments) {
+            this.payments.set(this.toCollectionState(report.payments));
+          }
+          if (requestIds.invoices === this.financeRequestIds.invoices) {
+            this.invoices.set(this.toCollectionState(report.invoices));
+          }
+          if (requestIds.allocations === this.financeRequestIds.allocations) {
+            this.allocations.set(this.toCollectionState(report.allocations));
+          }
+        },
+        error: () => {
+          if (revision !== this.filterRevision || workspaceId !== this.workspaceId) return;
+          if (requestIds.payments === this.financeRequestIds.payments) {
+            this.payments.update((state) => ({
+              ...state,
+              loading: false,
+              error: 'تعذر تحميل المدفوعات.',
+            }));
+          }
+          if (requestIds.invoices === this.financeRequestIds.invoices) {
+            this.invoices.update((state) => ({
+              ...state,
+              loading: false,
+              error: 'تعذر تحميل الفواتير.',
+            }));
+          }
+          if (requestIds.allocations === this.financeRequestIds.allocations) {
+            this.allocations.update((state) => ({
+              ...state,
+              loading: false,
+              error: 'تعذر تحميل التخصيصات.',
+            }));
+          }
+        },
+      });
+  }
+
+  private loadFinanceCollectionPage(collection: 'payments' | 'invoices' | 'allocations', page: number): void {
+    if (!this.workspaceId || !this.appliedFilters) return;
+    if (!this.appliedFilters.timezone) {
+      this.setFinanceCollectionError(collection);
+      return;
     }
+    const workspaceId = this.workspaceId;
+    const revision = this.filterRevision;
+    const requestId = ++this.financeRequestIds[collection];
+    this.setFinanceCollectionPageLoading(collection, page);
+
+    this.reportService
+      .getFinance(workspaceId, {
+        from: this.appliedFilters.from,
+        to: this.appliedFilters.to,
+        studentId: this.appliedFilters.studentId,
+        timezone: this.appliedFilters.timezone,
+        page,
+        pageSize: EMPTY_PAGINATION.pageSize,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (report) => {
+          if (requestId !== this.financeRequestIds[collection] || revision !== this.filterRevision || workspaceId !== this.workspaceId) return;
+          if (!this.finance()) this.finance.set(report);
+          this.setFinanceCollectionResponse(collection, report);
+        },
+        error: () => {
+          if (requestId !== this.financeRequestIds[collection] || revision !== this.filterRevision || workspaceId !== this.workspaceId) return;
+          this.setFinanceCollectionError(collection);
+        },
+      });
+  }
+
+  private readFormFilters(): ReportFilters {
+    const timezone = this.getTimezone();
+    return {
+      from: this.localDateToIso(this.filters.controls.from.value),
+      to: this.localDateToIso(this.filters.controls.to.value, true),
+      studentId: this.filters.controls.studentId.value?.trim() || undefined,
+      groupId: this.filters.controls.groupId.value?.trim() || undefined,
+      timezone: timezone ?? '',
+    };
+  }
+
+  private setFinanceCollectionPageLoading(collection: 'payments' | 'invoices' | 'allocations', page: number): void {
+    if (collection === 'payments') {
+      this.payments.update((state) => ({
+        ...state,
+        items: [],
+        pagination: { ...state.pagination, page },
+        loading: true,
+        error: '',
+      }));
+    } else if (collection === 'invoices') {
+      this.invoices.update((state) => ({
+        ...state,
+        items: [],
+        pagination: { ...state.pagination, page },
+        loading: true,
+        error: '',
+      }));
+    } else {
+      this.allocations.update((state) => ({
+        ...state,
+        items: [],
+        pagination: { ...state.pagination, page },
+        loading: true,
+        error: '',
+      }));
+    }
+  }
+
+  private financeCollectionState(collection: 'payments' | 'invoices' | 'allocations') {
+    if (collection === 'payments') return this.payments();
+    if (collection === 'invoices') return this.invoices();
+    return this.allocations();
+  }
+
+  private setFinanceCollectionResponse(collection: 'payments' | 'invoices' | 'allocations', report: FinanceReport): void {
+    if (collection === 'payments') this.payments.set(this.toCollectionState(report.payments));
+    if (collection === 'invoices') this.invoices.set(this.toCollectionState(report.invoices));
+    if (collection === 'allocations') {
+      this.allocations.set(this.toCollectionState(report.allocations));
+    }
+  }
+
+  private setFinanceCollectionError(collection: 'payments' | 'invoices' | 'allocations'): void {
+    const error = this.financeCollectionError(collection);
+    if (collection === 'payments') {
+      this.payments.update((state) => ({ ...state, loading: false, error }));
+    } else if (collection === 'invoices') {
+      this.invoices.update((state) => ({ ...state, loading: false, error }));
+    } else {
+      this.allocations.update((state) => ({ ...state, loading: false, error }));
+    }
+  }
+
+  private toCollectionState<T>(collection: ReportCollection<T>): ReportCollectionState<T> {
+    return {
+      items: collection.items,
+      pagination: collection.pagination,
+      loading: false,
+      error: '',
+    };
+  }
+
+  private setFinanceCollectionsLoading(loading: boolean): void {
+    this.payments.update((state) => ({ ...state, loading, error: '' }));
+    this.invoices.update((state) => ({ ...state, loading, error: '' }));
+    this.allocations.update((state) => ({ ...state, loading, error: '' }));
+  }
+
+  private financeCollectionError(collection: 'payments' | 'invoices' | 'allocations'): string {
+    return {
+      payments: 'تعذر تحميل المدفوعات.',
+      invoices: 'تعذر تحميل الفواتير.',
+      allocations: 'تعذر تحميل التخصيصات.',
+    }[collection];
+  }
+
+  private invalidateRequests(): void {
+    this.filterRevision += 1;
+    this.attendanceRequestId += 1;
+    this.financeRequestIds.payments += 1;
+    this.financeRequestIds.invoices += 1;
+    this.financeRequestIds.allocations += 1;
+  }
+
+  private clearReportData(): void {
+    this.attendance.set(null);
+    this.attendanceLoading.set(false);
+    this.attendanceError.set('');
+    this.finance.set(null);
+    this.payments.set(emptyCollection());
+    this.invoices.set(emptyCollection());
+    this.allocations.set(emptyCollection());
   }
 
   async exportExcel(): Promise<void> {
     if (this.exporting()) return;
+    if (!this.workspaceId || !this.appliedFilters) {
+      this.error.set('لا تتوفر مساحة عمل نشطة لتصدير التقرير.');
+      return;
+    }
     this.exporting.set(true);
     this.error.set('');
     try {
@@ -163,6 +475,10 @@ export class ReportsComponent {
 
   async exportPdf(): Promise<void> {
     if (this.exporting()) return;
+    if (!this.workspaceId || !this.appliedFilters) {
+      this.error.set('لا تتوفر مساحة عمل نشطة لإعداد التقرير.');
+      return;
+    }
     const popup = window.open('', '_blank');
     if (!popup) {
       this.error.set('اسمح بفتح النافذة لإعداد نسخة الطباعة.');
@@ -301,15 +617,8 @@ export class ReportsComponent {
   }
 
   private getReportFilters() {
-    const timezone = this.getTimezone();
-    if (!timezone) throw new Error('timezone-unavailable');
-    return {
-      from: this.localDateToIso(this.filters.controls.from.value),
-      to: this.localDateToIso(this.filters.controls.to.value, true),
-      studentId: this.filters.controls.studentId.value?.trim() || undefined,
-      groupId: this.filters.controls.groupId.value?.trim() || undefined,
-      timezone,
-    };
+    if (!this.appliedFilters?.timezone) throw new Error('timezone-unavailable');
+    return this.appliedFilters;
   }
 
   private async fetchAllAttendance(): Promise<AttendanceReport> {

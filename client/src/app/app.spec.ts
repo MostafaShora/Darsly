@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Component, Type } from '@angular/core';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { of, Subject as RxSubject, throwError } from 'rxjs';
+import { Observable, of, Subject as RxSubject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { AppComponent } from './app';
 import { appConfig } from './app.config';
@@ -85,6 +85,29 @@ describe('App', () => {
     let financePage: (page: number) => FinanceReport;
     let attendanceRequests: number[];
     let financeRequests: number[];
+    let attendanceQueries: Array<{
+      workspaceId: string;
+      query: Parameters<ReportService['getAttendance']>[1];
+    }>;
+    let financeQueries: Array<{
+      workspaceId: string;
+      query: Parameters<ReportService['getFinance']>[1];
+    }>;
+    let attendanceFailure: boolean;
+    let financeFailure: boolean;
+    let pendingAttendanceResponses: RxSubject<AttendanceReport>[] | null;
+    let pendingAttendanceIndex: number;
+    let pendingFinanceResponse: RxSubject<FinanceReport> | null;
+    let activeWorkspaceStream: Observable<Workspace | null>;
+
+    const reportWorkspace: Workspace = {
+      _id: 'workspace-1',
+      name: 'Workspace',
+      slug: 'workspace',
+      status: 'active',
+      currency: 'EGP',
+      description: '',
+    };
 
     const attendanceItem = (id: string): AttendanceReport['items'][number] => ({
       id,
@@ -146,6 +169,14 @@ describe('App', () => {
     beforeEach(async () => {
       attendanceRequests = [];
       financeRequests = [];
+      attendanceQueries = [];
+      financeQueries = [];
+      attendanceFailure = false;
+      financeFailure = false;
+      pendingAttendanceResponses = null;
+      pendingAttendanceIndex = 0;
+      pendingFinanceResponse = null;
+      activeWorkspaceStream = of(reportWorkspace);
       attendancePage = () => emptyAttendance();
       financePage = () => emptyFinance();
 
@@ -156,27 +187,32 @@ describe('App', () => {
           {
             provide: WorkspaceService,
             useValue: {
-              getActiveWorkspace: () => of({
-                _id: 'workspace-1',
-                name: 'Workspace',
-                slug: 'workspace',
-                status: 'active',
-                currency: 'EGP',
-                description: '',
-              }),
+              getActiveWorkspace: () => activeWorkspaceStream,
             },
           },
           {
             provide: ReportService,
             useValue: {
-              getAttendance: (_workspaceId: string, query: { page?: number }) => {
+              getAttendance: (workspaceId: string, query: Parameters<ReportService['getAttendance']>[1]) => {
                 const page = query.page ?? 1;
                 attendanceRequests.push(page);
+                attendanceQueries.push({ workspaceId, query: { ...query } });
+                if (pendingAttendanceResponses) {
+                  return pendingAttendanceResponses[pendingAttendanceIndex++].asObservable();
+                }
+                if (attendanceFailure) {
+                  return throwError(() => new Error('attendance unavailable'));
+                }
                 return of(attendancePage(page));
               },
-              getFinance: (_workspaceId: string, query: { page?: number }) => {
+              getFinance: (workspaceId: string, query: Parameters<ReportService['getFinance']>[1]) => {
                 const page = query.page ?? 1;
                 financeRequests.push(page);
+                financeQueries.push({ workspaceId, query: { ...query } });
+                if (pendingFinanceResponse) return pendingFinanceResponse.asObservable();
+                if (financeFailure) {
+                  return throwError(() => new Error('finance unavailable'));
+                }
                 return of(financePage(page));
               },
             },
@@ -351,6 +387,9 @@ describe('App', () => {
       };
       component.setTab('finance');
       financeRequests = [];
+      component.changeFinancePage('invoices', 2);
+      expect(component.invoices().pagination.page).toBe(2);
+      financeRequests = [];
       const blobs: Blob[] = [];
       vi.stubGlobal('URL', {
         createObjectURL: (blob: Blob) => {
@@ -379,6 +418,267 @@ describe('App', () => {
       expect(financeRequests).toEqual([1, 2]);
       expect(blobs).toHaveLength(1);
       expect(component.error()).toContain('تصدير التقرير بالكامل');
+    });
+
+    it('paginates attendance, preserves applied filters, and resets to page one on filter apply', () => {
+      attendancePage = (page) => ({
+        ...emptyAttendance(),
+        items: [attendanceItem(`attendance-page-${page}`)],
+        pagination: { page, pageSize: 20, totalItems: 35, totalPages: 2 },
+      });
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      component.filters.patchValue({ studentId: 'student-filter', groupId: 'group-filter' });
+      component.applyFilters();
+      component.changeAttendancePage(2);
+      fixture.detectChanges();
+
+      expect(component.attendance()?.items[0].id).toBe('attendance-page-2');
+      expect(component.attendance()?.pagination.totalItems).toBe(35);
+      expect(fixture.nativeElement.textContent).toContain('صفحة 2 من 2');
+      expect(fixture.nativeElement.textContent).toContain('إجمالي السجلات: 35');
+      expect(attendanceQueries.at(-1)).toEqual(
+        expect.objectContaining({
+          workspaceId: reportWorkspace._id,
+          query: expect.objectContaining({
+            page: 2,
+            pageSize: 20,
+            studentId: 'student-filter',
+            groupId: 'group-filter',
+          }),
+        }),
+      );
+
+      component.filters.patchValue({ studentId: 'another-student' });
+      component.applyFilters();
+
+      expect(component.attendance()?.pagination.page).toBe(1);
+      expect(attendanceQueries.at(-1)?.query).toEqual(
+        expect.objectContaining({
+          page: 1,
+          studentId: 'another-student',
+          groupId: 'group-filter',
+        }),
+      );
+    });
+
+    it('renders all finance collections and paginates each one independently', () => {
+      financePage = (page) => {
+        const report = emptyFinance();
+        return {
+          ...report,
+          payments: {
+            items: [
+              {
+                id: `payment-${page}`,
+                studentId: 'student-1',
+                amount: '25.50',
+                method: 'cash',
+                receivedAt: '2026-03-01T08:00:00.000Z',
+              },
+            ],
+            pagination: { page, pageSize: 20, totalItems: 25, totalPages: 2 },
+          },
+          invoices: {
+            items: [
+              {
+                id: `invoice-${page}`,
+                invoiceNumber: `INV-${page}`,
+                studentId: 'student-1',
+                issuedAt: '2026-03-01T08:00:00.000Z',
+                totalAmount: '80.00',
+                status: 'issued',
+              },
+            ],
+            pagination: { page, pageSize: 20, totalItems: 45, totalPages: 3 },
+          },
+          allocations: {
+            items: [
+              {
+                id: `allocation-${page}`,
+                paymentId: 'payment-1',
+                invoiceId: 'invoice-1',
+                amount: '20.00',
+                createdAt: '2026-03-01T08:00:00.000Z',
+              },
+            ],
+            pagination: { page, pageSize: 20, totalItems: 45, totalPages: 3 },
+          },
+        };
+      };
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.setTab('finance');
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.textContent).toContain('المدفوعات');
+      expect(fixture.nativeElement.textContent).toContain('الفواتير');
+      expect(fixture.nativeElement.textContent).toContain('تخصيصات المدفوعات');
+      expect(component.payments().items[0].id).toBe('payment-1');
+      expect(component.invoices().items[0].invoiceNumber).toBe('INV-1');
+      expect(component.allocations().items[0].paymentId).toBe('payment-1');
+      expect(fixture.nativeElement.textContent).toContain('إجمالي المدفوعات: 25');
+      expect(fixture.nativeElement.textContent).toContain('إجمالي الفواتير: 45');
+
+      component.filters.patchValue({ studentId: 'student-filter' });
+      component.applyFilters();
+      component.changeFinancePage('invoices', 2);
+      expect(component.invoices().pagination.page).toBe(2);
+      expect(component.payments().pagination.page).toBe(1);
+      expect(component.allocations().pagination.page).toBe(1);
+
+      component.changeFinancePage('payments', 2);
+      expect(component.payments().pagination.page).toBe(2);
+      expect(component.invoices().pagination.page).toBe(2);
+      expect(component.allocations().pagination.page).toBe(1);
+
+      component.changeFinancePage('allocations', 3);
+      expect(component.allocations().pagination.page).toBe(3);
+      expect(component.payments().pagination.page).toBe(2);
+      expect(component.invoices().pagination.page).toBe(2);
+      expect(financeQueries.slice(-3).map(({ query }) => query.page)).toEqual([2, 2, 3]);
+      expect(financeQueries.slice(-3).every(({ workspaceId, query }) => workspaceId === reportWorkspace._id && query.studentId === 'student-filter')).toBe(true);
+
+      component.filters.patchValue({ studentId: 'updated-filter' });
+      component.applyFilters();
+      expect(component.payments().pagination.page).toBe(1);
+      expect(component.invoices().pagination.page).toBe(1);
+      expect(component.allocations().pagination.page).toBe(1);
+      expect(financeQueries.at(-1)?.query).toEqual(
+        expect.objectContaining({
+          page: 1,
+          studentId: 'updated-filter',
+        }),
+      );
+    });
+
+    it('shows empty collections and retries failed report requests', () => {
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      financePage = () => emptyFinance();
+      component.setTab('finance');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('لا توجد مدفوعات في الفترة المحددة');
+      expect(fixture.nativeElement.textContent).toContain('لا توجد فواتير صادرة في الفترة المحددة');
+      expect(fixture.nativeElement.textContent).toContain('لا توجد تخصيصات في الفترة المحددة');
+      expect(fixture.nativeElement.textContent).toContain('صفحة 1 من 1');
+      expect(fixture.nativeElement.textContent).toContain('إجمالي المدفوعات: 0');
+
+      component.setTab('attendance');
+      attendanceFailure = true;
+      component.applyFilters();
+      fixture.detectChanges();
+      expect(component.attendanceError()).toBeTruthy();
+      expect(fixture.nativeElement.textContent).toContain('تعذر تحميل صفحة تقرير الحضور');
+
+      attendanceFailure = false;
+      component.retryAttendancePage();
+      expect(component.attendanceError()).toBe('');
+      expect(component.attendance()).not.toBeNull();
+
+      financeFailure = true;
+      component.setTab('finance');
+      fixture.detectChanges();
+      expect(component.payments().error).toBeTruthy();
+      expect(component.invoices().error).toBeTruthy();
+      expect(component.allocations().error).toBeTruthy();
+      expect(fixture.nativeElement.textContent).toContain('تعذر تحميل المدفوعات');
+
+      financeFailure = false;
+      component.retryFinanceCollection('invoices');
+      expect(component.invoices().error).toBe('');
+      expect(component.payments().error).toBeTruthy();
+      expect(component.allocations().error).toBeTruthy();
+    });
+
+    it('shows loading states while Finance collections are pending', () => {
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      const pendingResponse = new RxSubject<FinanceReport>();
+      pendingFinanceResponse = pendingResponse;
+
+      component.setTab('finance');
+      fixture.detectChanges();
+
+      expect(component.payments().loading).toBe(true);
+      expect(component.invoices().loading).toBe(true);
+      expect(component.allocations().loading).toBe(true);
+      expect(fixture.nativeElement.textContent).toContain('جارٍ تحميل المدفوعات');
+      expect(fixture.nativeElement.textContent).toContain('جارٍ تحميل الفواتير');
+      expect(fixture.nativeElement.textContent).toContain('جارٍ تحميل التخصيصات');
+
+      pendingResponse.next(emptyFinance());
+      pendingResponse.complete();
+      fixture.detectChanges();
+      expect(component.payments().loading).toBe(false);
+      expect(component.invoices().loading).toBe(false);
+      expect(component.allocations().loading).toBe(false);
+    });
+
+    it('ignores stale filter and workspace responses', () => {
+      const workspaceChanges = new RxSubject<Workspace | null>();
+      activeWorkspaceStream = workspaceChanges.asObservable();
+      pendingAttendanceResponses = [new RxSubject<AttendanceReport>(), new RxSubject<AttendanceReport>(), new RxSubject<AttendanceReport>()];
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      workspaceChanges.next(reportWorkspace);
+      expect(component.attendanceLoading()).toBe(true);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('جارٍ تحميل سجلات الحضور');
+      component.filters.patchValue({ studentId: 'new-filter' });
+      component.applyFilters();
+
+      const secondWorkspace = { ...reportWorkspace, _id: 'workspace-2' };
+      workspaceChanges.next(secondWorkspace);
+      expect(component.attendance()).toBeNull();
+
+      const makeReport = (id: string): AttendanceReport => ({
+        ...emptyAttendance(),
+        items: [attendanceItem(id)],
+        pagination: { page: 1, pageSize: 20, totalItems: 1, totalPages: 1 },
+      });
+      pendingAttendanceResponses[2].next(makeReport('current-workspace-row'));
+      pendingAttendanceResponses[1].next(makeReport('stale-filter-row'));
+      pendingAttendanceResponses[0].next(makeReport('stale-workspace-row'));
+
+      expect(attendanceQueries.map(({ workspaceId }) => workspaceId)).toEqual([reportWorkspace._id, reportWorkspace._id, secondWorkspace._id]);
+      expect(component.attendance()?.items[0].id).toBe('current-workspace-row');
+      expect(component.attendanceLoading()).toBe(false);
+    });
+
+    it('keeps export pagination independent from the selected interactive page', async () => {
+      attendancePage = (page) => ({
+        ...emptyAttendance(),
+        items: page === 1 ? Array.from({ length: 100 }, (_, index) => attendanceItem(`export-${index}`)) : [attendanceItem('export-last')],
+        pagination: { page, pageSize: 100, totalItems: 101, totalPages: 2 },
+      });
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      component.changeAttendancePage(2);
+      attendanceRequests = [];
+      const blobs: Blob[] = [];
+      vi.stubGlobal('URL', {
+        createObjectURL: (blob: Blob) => {
+          blobs.push(blob);
+          return 'blob:report';
+        },
+        revokeObjectURL: () => undefined,
+      });
+      vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+      await component.exportExcel();
+
+      expect(attendanceRequests).toEqual([1, 2]);
+      expect(blobs).toHaveLength(1);
+      expect(await blobs[0].text()).toContain('export-last');
     });
   });
 
