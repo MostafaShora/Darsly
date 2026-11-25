@@ -26,4 +26,12 @@ export const routes: Routes = [
         (module) => module.DashboardComponent,
       ),
   },
+  {
+    path: 'reports',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/reports/reports.component').then(
+        (module) => module.ReportsComponent,
+      ),
+  },
 ];

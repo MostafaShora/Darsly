@@ -19,6 +19,17 @@ import studentRoutes from "./student.route";
 import { requireWorkspaceAccess } from "../middlewares/workspace-access.middleware";
 import invoiceRoutes from "./invoice.route";
 import paymentRoutes from "./payment.route";
+import {
+  getAttendanceReportController,
+  getDashboardSummaryController,
+  getFinanceReportController,
+} from "../controllers/report.controller";
+import { validateRequest } from "../middlewares/validate-request.middleware";
+import {
+  attendanceReportQuerySchema,
+  financeReportQuerySchema,
+  reportRangeQuerySchema,
+} from "../validators/report.validation";
 
 const workspaceRoutes = Router();
 
@@ -34,6 +45,26 @@ workspaceRoutes
   .use("/:workspaceId/subjects", requireWorkspaceAccess(), subjectRoutes)
   .use("/:workspaceId/groups", requireWorkspaceAccess(), studyGroupRoutes)
   .use("/:workspaceId/enrollments", requireWorkspaceAccess(), enrollmentRoutes);
+
+workspaceRoutes
+  .get(
+    "/:workspaceId/dashboard/summary",
+    requireWorkspaceAccess(),
+    validateRequest({ query: reportRangeQuerySchema }),
+    getDashboardSummaryController,
+  )
+  .get(
+    "/:workspaceId/reports/attendance",
+    requireWorkspaceAccess(),
+    validateRequest({ query: attendanceReportQuerySchema }),
+    getAttendanceReportController,
+  )
+  .get(
+    "/:workspaceId/reports/finance",
+    requireWorkspaceAccess(),
+    validateRequest({ query: financeReportQuerySchema }),
+    getFinanceReportController,
+  );
 
 workspaceRoutes
   .post("/", createWorkspaceController)

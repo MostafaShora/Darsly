@@ -2,6 +2,8 @@ import { Component, HostListener, computed, inject, signal } from '@angular/core
 import { Router, RouterLink } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { AuthService } from '../../core/services/auth.service';
+import { WorkspaceService } from '../../core/services/workspace.service';
+import { DashboardSummary, ReportService } from '../../core/services/report.service';
 
 type DashboardSection =
   'overview' | 'students' | 'groups' | 'schedule' | 'attendance' | 'payments' | 'reports';
@@ -64,17 +66,17 @@ const DASHBOARD_FEATURES: readonly DashboardFeature[] = [
   {
     id: 'attendance',
     label: 'الحضور',
-    description: 'لا توجد واجهة برمجية متاحة لملخص الحضور أو سجلاته حتى الآن.',
+    description: 'تقرير الحضور والحالات حسب الفترة والمجموعة والطالب.',
   },
   {
     id: 'payments',
     label: 'المدفوعات',
-    description: 'لا تتوفر بيانات هذا القسم في لوحة التحكم بعد.',
+    description: 'التحصيل والأرصدة المستحقة والمدفوعات غير المخصّصة.',
   },
   {
     id: 'reports',
     label: 'التقارير والأداء',
-    description: 'لا تتوفر واجهة للتقارير أو إحصاءات الأداء في المشروع حاليًا.',
+    description: 'عرض تقارير الحضور والمالية وتصديرها إلى Excel أو PDF.',
   },
 ];
 
@@ -122,6 +124,54 @@ export class DashboardComponent {
   readonly isMobileNavigationOpen = signal(false);
   readonly isSigningOut = signal(false);
   readonly signOutError = signal('');
+  readonly summary = signal<DashboardSummary | null>(null);
+  readonly dashboardLoading = signal(false);
+  readonly dashboardError = signal('');
+  private readonly workspaceService = inject(WorkspaceService);
+  private readonly reportService = inject(ReportService);
+
+  constructor() {
+    this.loadDashboard();
+  }
+
+  private loadDashboard(): void {
+    this.dashboardLoading.set(true);
+    this.dashboardError.set('');
+    this.workspaceService.getMyWorkspaces().subscribe({
+      next: (workspaces) => {
+        const workspace = workspaces.find((item) => item.status === 'active') ?? workspaces[0];
+        if (!workspace?._id) {
+          this.dashboardLoading.set(false);
+          this.dashboardError.set('لا تتوفر مساحة عمل نشطة.');
+          return;
+        }
+        const now = new Date();
+        const from = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          1,
+          0,
+          0,
+          0,
+        ).toISOString();
+        const to = now.toISOString();
+        this.reportService.getDashboard(workspace._id, from, to).subscribe({
+          next: (summary) => {
+            this.summary.set(summary);
+            this.dashboardLoading.set(false);
+          },
+          error: () => {
+            this.dashboardError.set('تعذر تحميل ملخص لوحة التحكم.');
+            this.dashboardLoading.set(false);
+          },
+        });
+      },
+      error: () => {
+        this.dashboardError.set('تعذر تحميل مساحة العمل.');
+        this.dashboardLoading.set(false);
+      },
+    });
+  }
 
   toggleMobileNavigation(): void {
     this.isMobileNavigationOpen.update((isOpen) => !isOpen);
@@ -159,5 +209,22 @@ export class DashboardComponent {
         this.signOutError.set('تعذر تسجيل الخروج. تحقق من اتصالك وحاول مرة أخرى.');
       },
     });
+  }
+
+  formatMoney(value: string | undefined): string {
+    if (!value) return '0';
+    const number = Number(value);
+    if (!Number.isFinite(number)) return value;
+    return new Intl.NumberFormat('ar-EG', {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+    }).format(number);
+  }
+
+  formatRate(value: number | null | undefined): string {
+    if (value === null || value === undefined) return 'غير متاح';
+    return `${new Intl.NumberFormat('ar-EG', {
+      maximumFractionDigits: 1,
+    }).format(value)}٪`;
   }
 }

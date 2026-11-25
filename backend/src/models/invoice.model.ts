@@ -12,6 +12,7 @@ export interface InvoiceDocument extends Document {
     periodEnd: Date;
     totalAmount: Types.Decimal128;
     dueDate: Date | null;
+    issuedAt: Date | null;
     status: "draft" | "issued" | "void";
     description: string;
     notes: string;
@@ -76,6 +77,10 @@ const invoiceSchema = new Schema<InvoiceDocument>(
             type: Date,
             default: null,
         },
+        issuedAt: {
+            type: Date,
+            default: null,
+        },
 
         status: {
             type: String,
@@ -128,6 +133,12 @@ invoiceSchema.index({
     workspaceId: 1,
     groupId: 1,
     periodStart: 1,
+});
+
+invoiceSchema.index({
+    workspaceId: 1,
+    status: 1,
+    issuedAt: 1,
 });
 
 const InvoiceModel = mongoose.model<InvoiceDocument>(

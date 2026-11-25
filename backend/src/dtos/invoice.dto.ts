@@ -23,6 +23,7 @@ export interface InvoiceDto {
     periodEnd: string;
     totalAmount: string;
     dueDate: string | null;
+    issuedAt: string | null;
     status: InvoiceDocument["status"];
     paymentStatus: InvoicePaymentStatus;
     allocatedAmount: string;
@@ -46,6 +47,7 @@ export const toInvoiceDto = (
     periodEnd: serializeDate(invoice.periodEnd).slice(0, 10),
     totalAmount: serializeDecimal128(invoice.totalAmount),
     dueDate: invoice.dueDate ? serializeDate(invoice.dueDate) : null,
+    issuedAt: invoice.issuedAt ? serializeDate(invoice.issuedAt) : null,
     status: invoice.status,
     paymentStatus: summary.paymentStatus,
     allocatedAmount: summary.allocatedAmount,
