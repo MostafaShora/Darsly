@@ -164,11 +164,31 @@ db.paymentallocations.createIndex({
 });
 ```
 
-Run this only after confirming the deployed collection and index name and
-following the environment's database change procedure. No database was accessed
-or migration executed as part of this phase. If the unique index remains, a
-second incremental allocation for the same pair will still fail in that
-database, notwithstanding the updated application schema.
+Before migrating, inspect and verify the exact target database/deployment,
+the current collection name, and all existing indexes. Record the old index
+name and key pattern; do not assume it is named as shown above. Schedule a
+controlled maintenance window and back out or postpone if the index cannot be
+verified. On the target database, complete the following in a controlled run:
+
+1. Inspect `db.paymentallocations.getIndexes()` and confirm the unique compound
+   key pattern belongs to PaymentAllocation and has `unique: true`.
+2. Drop only that exact verified unique index.
+3. Create the non-unique replacement with
+   `{ workspaceId: 1, paymentId: 1, invoiceId: 1 }`.
+4. Inspect `getIndexes()` again and verify `unique` is absent or false for the
+   replacement.
+5. Run an isolated allocation test only in an approved environment.
+
+Rollback is to restore the previously captured index definition after
+application traffic is stopped or rolled back. If the target index is missing,
+the wrong index name/key pattern is found, or data cannot be verified, stop;
+do not drop indexes speculatively.
+
+No database was accessed or migration executed as part of this phase. The
+migration must be completed before repeated allocations for the same
+Payment/Invoice pair are enabled in that database. If the unique index remains,
+a second incremental allocation for the pair will still fail even though the
+Mongoose schema changed.
 
 ## Tests and known limitations
 

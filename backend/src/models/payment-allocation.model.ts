@@ -1,5 +1,6 @@
 
 import mongoose, { Schema, Types, Document } from "mongoose";
+import { compareDecimalStrings } from "../utils/money";
 
 export interface PaymentAllocationDocument extends Document {
     workspaceId: Types.ObjectId;
@@ -33,7 +34,11 @@ const paymentAllocationSchema = new Schema<PaymentAllocationDocument>(
         amount: {
             type: Schema.Types.Decimal128,
             required: true,
-            min: 0,
+            validate: {
+                validator: (value: Types.Decimal128) =>
+                    compareDecimalStrings(value.toString(), "0") > 0,
+                message: "Payment allocation amount must be greater than zero",
+            },
         },
     },
     {

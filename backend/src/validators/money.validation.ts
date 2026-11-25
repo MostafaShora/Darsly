@@ -6,6 +6,11 @@ const decimalStringSchema = z
     .max(128)
     .regex(/^\d+(?:\.\d+)?$/, "Amount must be a non-negative decimal string")
     .refine(
+        (value) =>
+            (value.split(".")[1]?.length ?? 0) <= 2,
+        "Amount must not exceed two fractional digits"
+    )
+    .refine(
         (value) => value.replace(".", "").replace(/^0+/, "").length <= 34,
         "Amount exceeds Decimal128 precision"
     );

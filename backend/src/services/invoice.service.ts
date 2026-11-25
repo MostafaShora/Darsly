@@ -125,25 +125,29 @@ const getInvoiceReferences = async (
 
 const assertInvoiceReferences = async (
     workspaceId: Types.ObjectId,
-    invoices: InvoiceDocument[]
+    invoices: InvoiceDocument[],
+    session?: ClientSession
 ): Promise<void> => {
     if (invoices.length === 0) {
         return;
     }
 
-    const [students, enrollments, groups] = await Promise.all([
-        StudentModel.find({
+    const studentQuery = StudentModel.find({
             workspaceId,
             _id: { $in: invoices.map((invoice) => invoice.studentId) },
-        }),
-        EnrollmentModel.find({
+        });
+    const enrollmentQuery = EnrollmentModel.find({
             workspaceId,
             _id: { $in: invoices.map((invoice) => invoice.enrollmentId) },
-        }),
-        StudyGroupModel.find({
+        });
+    const groupQuery = StudyGroupModel.find({
             workspaceId,
             _id: { $in: invoices.map((invoice) => invoice.groupId) },
-        }),
+        });
+    const [students, enrollments, groups] = await Promise.all([
+        session ? studentQuery.session(session) : studentQuery,
+        session ? enrollmentQuery.session(session) : enrollmentQuery,
+        session ? groupQuery.session(session) : groupQuery,
     ]);
     const studentIds = new Set(students.map((student) => student._id.toString()));
     const enrollmentById = new Map(
@@ -164,7 +168,8 @@ const assertInvoiceReferences = async (
                 !groupIds.has(invoice.groupId.toString()) ||
                 !enrollment ||
                 !enrollment.studentId.equals(invoice.studentId) ||
-                !enrollment.groupId.equals(invoice.groupId)
+                !enrollment.groupId.equals(invoice.groupId) ||
+                !invoice.groupId.equals(enrollment.groupId)
             );
         })
     ) {
@@ -375,6 +380,16 @@ export const updateInvoiceService = async (
             const studentId = input.studentId ?? currentInvoice.studentId;
             const enrollmentId =
                 input.enrollmentId ?? currentInvoice.enrollmentId;
+            const currentReferences = await getInvoiceReferences(
+                workspaceId,
+                currentInvoice.studentId,
+                currentInvoice.enrollmentId,
+                session,
+                false
+            );
+            if (!currentInvoice.groupId.equals(currentReferences.enrollment.groupId)) {
+                throw new NotFoundException("Invoice relationship is inconsistent");
+            }
             const periodStart =
                 input.periodStart ?? getDateOnly(currentInvoice.periodStart);
             const periodEnd =
@@ -452,6 +467,7 @@ const changeInvoiceStatus = async (
             if (!currentInvoice) {
                 throw new NotFoundException("Invoice not found");
             }
+            await assertInvoiceReferences(workspaceId, [currentInvoice], session);
 
             if (status === "issued") {
                 if (currentInvoice.status !== "draft") {

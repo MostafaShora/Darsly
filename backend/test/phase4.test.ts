@@ -17,6 +17,7 @@ import UserModel from "../src/models/user.model";
 import WorkspaceMemberModel from "../src/models/workspace-member.model";
 import WorkspaceModel from "../src/models/workspace.model";
 import { calculateProratedInvoiceAmount } from "../src/utils/money";
+import { positiveDecimalStringSchema } from "../src/validators/money.validation";
 
 const TEST_JWT_SECRET = "phase-four-test-secret-with-at-least-32-bytes";
 const principalId = new Types.ObjectId();
@@ -436,6 +437,74 @@ test("financial indexes retain invoice-number uniqueness and permit incremental 
     assert.equal(counterIndex?.[1].unique, true);
     assert.ok(allocationPairIndex);
     assert.notEqual(allocationPairIndex[1].unique, true);
+});
+
+test("invoice and allocation models reject zero and negative Decimal128 amounts", async () => {
+    const InvoiceModelImport = InvoiceModel;
+    const allocationCases = ["0", "-0.01"];
+
+    for (const amount of allocationCases) {
+        const allocation = new PaymentAllocationModel({
+            workspaceId,
+            paymentId: new Types.ObjectId(),
+            invoiceId: new Types.ObjectId(),
+            amount: Types.Decimal128.fromString(amount),
+        });
+        await assert.rejects(
+            allocation.validate(),
+            (error: unknown) =>
+                error instanceof mongoose.Error.ValidationError &&
+                Boolean(error.errors.amount)
+        );
+    }
+
+    const positiveAllocation = new PaymentAllocationModel({
+        workspaceId,
+        paymentId: new Types.ObjectId(),
+        invoiceId: new Types.ObjectId(),
+        amount: Types.Decimal128.fromString("0.01"),
+    });
+    await positiveAllocation.validate();
+
+    for (const amount of allocationCases) {
+        const invoice = new InvoiceModelImport({
+            workspaceId,
+            invoiceNumber: "INV-000001",
+            studentId: new Types.ObjectId(),
+            enrollmentId: new Types.ObjectId(),
+            groupId: new Types.ObjectId(),
+            periodStart: new Date("2026-01-01T00:00:00.000Z"),
+            periodEnd: new Date("2026-01-31T00:00:00.000Z"),
+            totalAmount: Types.Decimal128.fromString(amount),
+        });
+        await assert.rejects(
+            invoice.validate(),
+            (error: unknown) =>
+                error instanceof mongoose.Error.ValidationError &&
+                Boolean(error.errors.totalAmount)
+        );
+    }
+
+    const draft = new InvoiceModelImport({
+        workspaceId,
+        invoiceNumber: "INV-000001",
+        studentId: new Types.ObjectId(),
+        enrollmentId: new Types.ObjectId(),
+        groupId: new Types.ObjectId(),
+        periodStart: new Date("2026-01-01T00:00:00.000Z"),
+        periodEnd: new Date("2026-01-31T00:00:00.000Z"),
+        totalAmount: Types.Decimal128.fromString("1.00"),
+    });
+    await draft.validate();
+    assert.equal(draft.status, "draft");
+});
+
+test("money validation rejects excessive fractional scale without rounding", () => {
+    assert.equal(positiveDecimalStringSchema.safeParse("1.23").success, true);
+    assert.equal(positiveDecimalStringSchema.safeParse("1.230").success, false);
+    assert.equal(positiveDecimalStringSchema.safeParse("1.234").success, false);
+    assert.equal(positiveDecimalStringSchema.safeParse("0.01").success, true);
+    assert.equal(positiveDecimalStringSchema.safeParse("0").success, false);
 });
 
 test("invoice creation calculates the total, assigns a workspace sequence, and scopes its references", async (t) => {
@@ -860,6 +929,7 @@ test("draft invoice patches recalculate totals and cannot edit issued invoices",
     t.mock.method(StudyGroupModel, "findOne", () =>
         makeQuery(group) as never
     );
+    mockInvoiceReferenceLists(t, student, enrollment, group);
     t.mock.method(
         InvoiceModel,
         "findOneAndUpdate",
@@ -944,6 +1014,7 @@ test("issuing a draft is explicit, workspace-scoped, and requires an active enro
     t.mock.method(StudyGroupModel, "findOne", () =>
         makeQuery(group) as never
     );
+    mockInvoiceReferenceLists(t, student, enrollment, group);
     t.mock.method(
         InvoiceModel,
         "findOneAndUpdate",
@@ -988,6 +1059,7 @@ test("issuing a draft is explicit, workspace-scoped, and requires an active enro
     t.mock.method(StudyGroupModel, "findOne", () =>
         makeQuery(group) as never
     );
+    mockInvoiceReferenceLists(t, student, enrollment, group);
     const blockedUpdate = t.mock.method(
         InvoiceModel,
         "findOneAndUpdate",
@@ -999,6 +1071,40 @@ test("issuing a draft is explicit, workspace-scoped, and requires an active enro
     );
     assert.equal(blocked.status, 409);
     assert.equal(blockedUpdate.mock.callCount(), 0);
+
+    t.mock.restoreAll();
+    mockWorkspaceAccess(t);
+    mockTransactions(t);
+    const mismatchGroup = makeGroup(student._id);
+    const mismatchInvoice = makeInvoice(
+        student._id,
+        enrollment._id,
+        mismatchGroup._id,
+        { status: "draft" }
+    );
+    t.mock.method(InvoiceModel, "findOne", () =>
+        makeQuery(mismatchInvoice) as never
+    );
+    t.mock.method(StudentModel, "find", () =>
+        makeQuery([student]) as never
+    );
+    t.mock.method(EnrollmentModel, "find", () =>
+        makeQuery([enrollment]) as never
+    );
+    t.mock.method(StudyGroupModel, "find", () =>
+        makeQuery([group]) as never
+    );
+    const mismatchUpdate = t.mock.method(
+        InvoiceModel,
+        "findOneAndUpdate",
+        (() => makeQuery(mismatchInvoice)) as never
+    );
+    const mismatch = await request(
+        `/api/workspaces/${workspaceId}/invoices/${mismatchInvoice._id}/issue`,
+        "POST"
+    );
+    assert.equal(mismatch.status, 404);
+    assert.equal(mismatchUpdate.mock.callCount(), 0);
 });
 
 test("issued invoices with allocations cannot be voided; void is terminal", async (t) => {
@@ -1019,6 +1125,7 @@ test("issued invoices with allocations cannot be voided; void is terminal", asyn
     t.mock.method(PaymentAllocationModel, "exists", () =>
         makeQuery({ _id: new Types.ObjectId() }) as never
     );
+    mockInvoiceReferenceLists(t, student, enrollment, group);
     const voidUpdate = t.mock.method(
         InvoiceModel,
         "findOneAndUpdate",
@@ -1049,6 +1156,7 @@ test("issued invoices with allocations cannot be voided; void is terminal", asyn
     t.mock.method(InvoiceModel, "findOne", () =>
         makeQuery(voided) as never
     );
+    mockInvoiceReferenceLists(t, student, enrollment, group);
     const terminalUpdate = t.mock.method(
         InvoiceModel,
         "findOneAndUpdate",

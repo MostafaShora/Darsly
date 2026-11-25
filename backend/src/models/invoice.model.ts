@@ -1,5 +1,6 @@
 
 import mongoose, { Schema, Types, Document } from "mongoose";
+import { compareDecimalStrings } from "../utils/money";
 
 export interface InvoiceDocument extends Document {
     workspaceId: Types.ObjectId;
@@ -64,7 +65,11 @@ const invoiceSchema = new Schema<InvoiceDocument>(
         totalAmount: {
             type: Schema.Types.Decimal128,
             required: true,
-            min: 0,
+            validate: {
+                validator: (value: Types.Decimal128) =>
+                    compareDecimalStrings(value.toString(), "0") > 0,
+                message: "Invoice total amount must be greater than zero",
+            },
         },
 
         dueDate: {
@@ -75,7 +80,7 @@ const invoiceSchema = new Schema<InvoiceDocument>(
         status: {
             type: String,
             enum: ["draft", "issued", "void"],
-            default: "issued",
+            default: "draft",
             required: true,
         },
 
