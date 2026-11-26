@@ -10,6 +10,9 @@ export class WorkspaceSelectorComponent {
   private readonly workspaceService = inject(WorkspaceService);
 
   readonly state = computed(() => this.workspaceService.workspaceAccessState?.() ?? null);
+  readonly selectionPersistenceError = computed(
+    () => this.workspaceService.selectionPersistenceError?.() ?? '',
+  );
   readonly selectedWorkspaceId = computed(
     () => this.workspaceService.selectedWorkspaceId?.() ?? null,
   );

@@ -3820,12 +3820,26 @@ describe('App', () => {
   });
 
   describe('WorkspaceService API contracts', () => {
+    const workspaceSelectionKey = 'darsly.active-workspace.teacher-1';
+
     beforeEach(async () => {
       TestBed.resetTestingModule();
       await TestBed.configureTestingModule({
         imports: [WorkspaceSelectorComponent],
         providers: [provideHttpClient(), provideHttpClientTesting(), WorkspaceService],
       }).compileComponents();
+      TestBed.inject(AuthService).currentUser.set({
+        id: 'teacher-1',
+        name: 'Teacher',
+        email: 'teacher@example.com',
+        status: 'active',
+        lastLoginAt: null,
+      });
+      localStorage.removeItem(workspaceSelectionKey);
+    });
+
+    afterEach(() => {
+      localStorage.removeItem(workspaceSelectionKey);
     });
 
     it('uses the existing mine, create, and details endpoints with credentials', () => {
@@ -3936,6 +3950,128 @@ describe('App', () => {
       expect(fixture.nativeElement.querySelector('select')).toBeNull();
     });
 
+    it('restores a stored Workspace when it is still an active membership', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const defaultWorkspace: Workspace = {
+        _id: 'workspace-default',
+        name: 'الافتراضية',
+        slug: 'workspace-default',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      const storedWorkspace: Workspace = {
+        ...defaultWorkspace,
+        _id: 'workspace-stored',
+        name: 'المحفوظة',
+        slug: 'workspace-stored',
+      };
+      localStorage.setItem(workspaceSelectionKey, storedWorkspace._id);
+      let state: WorkspaceAccessState | undefined;
+
+      service.getWorkspaceAccessState().subscribe((result) => (state = result));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [defaultWorkspace, storedWorkspace],
+      });
+
+      expect(state?.activeWorkspace).toEqual(storedWorkspace);
+      expect(service.selectedWorkspaceId()).toBe(storedWorkspace._id);
+      expect(localStorage.getItem(workspaceSelectionKey)).toBe(storedWorkspace._id);
+      httpTesting.verify();
+    });
+
+    it('uses the default active Workspace and removes an inaccessible stored ID', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const defaultWorkspace: Workspace = {
+        _id: 'workspace-default',
+        name: 'الافتراضية',
+        slug: 'workspace-default',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      localStorage.setItem(workspaceSelectionKey, 'workspace-not-accessible');
+      let state: WorkspaceAccessState | undefined;
+
+      service.getWorkspaceAccessState().subscribe((result) => (state = result));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [defaultWorkspace],
+      });
+
+      expect(state?.activeWorkspace).toEqual(defaultWorkspace);
+      expect(service.selectedWorkspaceId()).toBe(defaultWorkspace._id);
+      expect(localStorage.getItem(workspaceSelectionKey)).toBeNull();
+      httpTesting.verify();
+    });
+
+    it('uses the default active Workspace and removes a stored suspended Workspace', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const defaultWorkspace: Workspace = {
+        _id: 'workspace-default',
+        name: 'الافتراضية',
+        slug: 'workspace-default',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      const suspendedWorkspace: Workspace = {
+        ...defaultWorkspace,
+        _id: 'workspace-suspended',
+        name: 'المعلّقة',
+        slug: 'workspace-suspended',
+        status: 'suspended',
+      };
+      localStorage.setItem(workspaceSelectionKey, suspendedWorkspace._id);
+      let state: WorkspaceAccessState | undefined;
+
+      service.getWorkspaceAccessState().subscribe((result) => (state = result));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [suspendedWorkspace, defaultWorkspace],
+      });
+
+      expect(state?.activeWorkspace).toEqual(defaultWorkspace);
+      expect(service.selectedWorkspaceId()).toBe(defaultWorkspace._id);
+      expect(localStorage.getItem(workspaceSelectionKey)).toBeNull();
+      httpTesting.verify();
+    });
+
+    it('uses the default active Workspace when no saved selection exists', () => {
+      const service = TestBed.inject(WorkspaceService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      const defaultWorkspace: Workspace = {
+        _id: 'workspace-default',
+        name: 'الافتراضية',
+        slug: 'workspace-default',
+        status: 'active',
+        currency: 'EGP',
+        description: '',
+      };
+      const otherWorkspace: Workspace = {
+        ...defaultWorkspace,
+        _id: 'workspace-other',
+        name: 'الأخرى',
+        slug: 'workspace-other',
+      };
+      let state: WorkspaceAccessState | undefined;
+
+      service.getWorkspaceAccessState().subscribe((result) => (state = result));
+      httpTesting.expectOne('/api/workspaces/mine').flush({
+        message: 'ok',
+        data: [defaultWorkspace, otherWorkspace],
+      });
+
+      expect(state?.activeWorkspace).toEqual(defaultWorkspace);
+      expect(service.selectedWorkspaceId()).toBe(defaultWorkspace._id);
+      expect(localStorage.getItem(workspaceSelectionKey)).toBeNull();
+      httpTesting.verify();
+    });
+
     it('defaults to the first active membership, permits switching to another active one, and disables suspended options', () => {
       const service = TestBed.inject(WorkspaceService);
       const httpTesting = TestBed.inject(HttpTestingController);
@@ -3984,6 +4120,7 @@ describe('App', () => {
 
       expect(service.workspaceAccessState()?.activeWorkspace).toEqual(otherWorkspace);
       expect(service.selectedWorkspaceId()).toBe(otherWorkspace._id);
+      expect(localStorage.getItem(workspaceSelectionKey)).toBe(otherWorkspace._id);
       expect(selected.map((workspace) => workspace?._id)).toEqual([
         newestWorkspace._id,
         otherWorkspace._id,

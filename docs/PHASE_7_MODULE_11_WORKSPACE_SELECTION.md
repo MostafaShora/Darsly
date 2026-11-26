@@ -12,16 +12,17 @@ No existing browser-storage convention was present for Workspace selection. Exis
 
 - Added a shared navigation selector. It lists available Workspaces, labels suspended entries, and disables them. With only one membership, it shows the current Workspace without an unnecessary dropdown.
 - The default is the first active membership in the API's existing newest-first order.
-- A user's explicit choice is retained across `/mine` refreshes and route changes. It is reset when the authenticated user changes. If that chosen Workspace is no longer active, the service does not silently choose another; the UI requests an explicit active selection.
+- An explicit choice is saved in `localStorage` under a key scoped to the authenticated user ID. On initialization, the service waits for the latest `/api/workspaces/mine` response and restores the saved ID only when it matches an active membership in that response. Missing selections use the default; inaccessible or suspended IDs are removed and also fall back to the default. Browser storage is only a preference, never an authorization source.
+- A user's explicit in-session choice is retained across `/mine` refreshes and route changes. It is reset when the authenticated user changes. If a previously valid choice later becomes unavailable during the same session, the service does not silently switch; the UI requests an explicit active selection.
 - Suspended-only and empty membership states continue through the existing onboarding/suspended flow. Activation remains owner-authorized and uses the existing activation endpoint and server refresh/verification behavior.
 - Dashboard, Reports, Finance, Students, Guardians, Subjects, Groups/Enrollments, Sessions, Attendance, Invoices, and Payments now observe shared Workspace changes. Workspace-specific display state is cleared before data is loaded for the newly selected Workspace.
 - Existing request-generation guards invalidate earlier reads so late responses from the previous Workspace cannot replace current results. APIs continue to receive the currently selected Workspace ID; the selector does not replace backend authorization.
 
 ## Tests
 
-Focused coverage was added to the existing Angular test suite for empty and single-membership states, default and explicit selection, suspended-option rejection, preserving an explicit choice when it disappears, Dashboard and Students stale-response handling, and Workspace selector behavior. Existing onboarding, suspended-Workspace, and active-Workspace tests remain in the suite.
+Focused coverage was added to the existing Angular test suite for empty and single-membership states, valid stored selection, missing, invalid, and suspended stored selections, default and explicit selection, suspended-option rejection, preserving an explicit choice when it disappears, Dashboard and Students stale-response handling, and Workspace selector behavior. Existing onboarding, suspended-Workspace, and active-Workspace tests remain in the suite.
 
-`npm test -- --watch=false` — **passed: 101 tests**.
+`npm test -- --watch=false` — **passed: 105 tests**.
 
 ## Verification
 
@@ -31,6 +32,4 @@ Focused coverage was added to the existing Angular test suite for empty and sing
 
 ## Limitations
 
-The selected Workspace is shared in-memory state, consistent with the existing application convention. It survives in-app navigation and Workspace list refreshes but resets on a full page reload; the API's safe newest-first active default is then applied again. Browser persistence was not added because the project had no existing Workspace persistence convention.
-
-Live API and browser verification were not performed.
+If browser storage is unavailable or blocked, the selected Workspace still switches in shared in-memory state for the current page session; the selector reports that it could not persist the choice. Live API and browser verification were not performed.

@@ -47,12 +47,15 @@ export class WorkspaceService {
   private readonly workspaceStateSubject = new BehaviorSubject<WorkspaceAccessState | null>(null);
   private readonly workspaceAccessStateSignal = signal<WorkspaceAccessState | null>(null);
   private readonly selectedWorkspaceIdSignal = signal<string | null>(null);
+  private readonly selectionPersistenceErrorSignal = signal('');
   private selectedWorkspaceIdValue: string | null = null;
   private selectionIsExplicit = false;
   private selectionUserId: string | null = null;
+  private readonly selectionStorageKeyPrefix = 'darsly.active-workspace.';
 
   readonly workspaceAccessState = this.workspaceAccessStateSignal.asReadonly();
   readonly selectedWorkspaceId = this.selectedWorkspaceIdSignal.asReadonly();
+  readonly selectionPersistenceError = this.selectionPersistenceErrorSignal.asReadonly();
 
   getMyWorkspaces(): Observable<Workspace[]> {
     return this.http
@@ -126,7 +129,8 @@ export class WorkspaceService {
 
   selectWorkspace(workspaceId: string): boolean {
     const state = this.workspaceState;
-    if (!state || this.selectionUserId !== (this.authService.currentUser()?.id ?? null)) {
+    const userId = this.authService.currentUser()?.id;
+    if (!state || !userId || this.selectionUserId !== userId) {
       return false;
     }
 
@@ -138,6 +142,7 @@ export class WorkspaceService {
     this.selectedWorkspaceIdValue = workspace._id;
     this.selectionIsExplicit = true;
     this.updateWorkspaceState(state.workspaces);
+    this.persistSelection(userId, workspace._id);
     return true;
   }
 
@@ -193,6 +198,21 @@ export class WorkspaceService {
       this.selectedWorkspaceIdValue = null;
       this.selectionIsExplicit = false;
       this.selectionUserId = userId;
+      this.selectionPersistenceErrorSignal.set('');
+
+      if (userId) {
+        const storedWorkspaceId = this.readStoredSelection(userId);
+        const storedWorkspace = workspaces.find(
+          (workspace) =>
+            workspace._id === storedWorkspaceId && workspace.status === 'active',
+        );
+        if (storedWorkspace) {
+          this.selectedWorkspaceIdValue = storedWorkspace._id;
+          this.selectionIsExplicit = true;
+        } else if (storedWorkspaceId) {
+          this.removeStoredSelection(userId);
+        }
+      }
     }
 
     if (!this.selectionIsExplicit) {
@@ -213,6 +233,66 @@ export class WorkspaceService {
     this.workspaceAccessStateSignal.set(state);
     this.selectedWorkspaceIdSignal.set(this.selectedWorkspaceIdValue);
     this.workspaceStateSubject.next(state);
+  }
+
+  private readStoredSelection(userId: string): string | null {
+    try {
+      const storage = globalThis.localStorage;
+      if (!storage) {
+        this.selectionPersistenceErrorSignal.set(
+          'تعذر قراءة مساحة العمل المحفوظة. سيتم استخدام مساحة العمل النشطة الافتراضية.',
+        );
+        return null;
+      }
+      const selectedWorkspaceId = storage.getItem(this.selectionStorageKey(userId));
+      this.selectionPersistenceErrorSignal.set('');
+      return selectedWorkspaceId;
+    } catch {
+      this.selectionPersistenceErrorSignal.set(
+        'تعذر قراءة مساحة العمل المحفوظة. سيتم استخدام مساحة العمل النشطة الافتراضية.',
+      );
+      return null;
+    }
+  }
+
+  private persistSelection(userId: string, workspaceId: string): void {
+    try {
+      const storage = globalThis.localStorage;
+      if (!storage) {
+        this.selectionPersistenceErrorSignal.set(
+          'تعذر حفظ اختيار مساحة العمل على هذا الجهاز. سيبقى الاختيار الحالي حتى إعادة تحميل الصفحة.',
+        );
+        return;
+      }
+      storage.setItem(this.selectionStorageKey(userId), workspaceId);
+      this.selectionPersistenceErrorSignal.set('');
+    } catch {
+      this.selectionPersistenceErrorSignal.set(
+        'تعذر حفظ اختيار مساحة العمل على هذا الجهاز. سيبقى الاختيار الحالي حتى إعادة تحميل الصفحة.',
+      );
+    }
+  }
+
+  private removeStoredSelection(userId: string): void {
+    try {
+      const storage = globalThis.localStorage;
+      if (!storage) {
+        this.selectionPersistenceErrorSignal.set(
+          'تعذر إزالة اختيار مساحة العمل غير الصالح من هذا الجهاز.',
+        );
+        return;
+      }
+      storage.removeItem(this.selectionStorageKey(userId));
+      this.selectionPersistenceErrorSignal.set('');
+    } catch {
+      this.selectionPersistenceErrorSignal.set(
+        'تعذر إزالة اختيار مساحة العمل غير الصالح من هذا الجهاز.',
+      );
+    }
+  }
+
+  private selectionStorageKey(userId: string): string {
+    return `${this.selectionStorageKeyPrefix}${encodeURIComponent(userId)}`;
   }
 
   private toAvailability(state: WorkspaceAccessState): WorkspaceAvailability {
