@@ -7,7 +7,7 @@
     "dev": "nodemon",
     "build": "tsc && cp ./package.json ./dist",
     "start": "node dist/index.js",
-    "test": "tsc --noEmit -p tsconfig.test.json && tsx --test test/foundation.test.ts test/phase1.test.ts test/phase2.test.ts test/phase3.test.ts test/phase4.test.ts test/phase6.test.ts test/phase7.test.ts test/phase8.test.ts test/phase8-2.test.ts test/phase8-3.test.ts test/phase8-4.test.ts test/phase8-6.test.ts"
+    "test": "tsc --noEmit -p tsconfig.test.json && tsx --test test/foundation.test.ts test/phase1.test.ts test/phase2.test.ts test/phase3.test.ts test/phase4.test.ts test/phase6.test.ts test/phase7.test.ts test/phase8.test.ts test/phase8-2.test.ts test/phase8-3.test.ts test/phase8-4.test.ts test/phase8-6.test.ts test/phase8-8.test.ts"
   },
   "keywords": [],
   "author": "",

@@ -5,6 +5,7 @@ import { loginSchema, registerSchema } from "../validators/auth.validation";
 import { loginService, registerService } from "../services/auth.service";
 import { clearJwtAuthCookie, setJwtAuthCookie } from "../utils/cookie";
 import { HTTPSTATUS } from "../config/http.config";
+import { getAccountCapabilitiesService } from "../services/user-capability.service";
 
 
 type SafeUserInput = {
@@ -82,7 +83,10 @@ export const authStatusController = asyncHandler(
 
         return res.status(HTTPSTATUS.OK).json({
             message: "Authenticated user",
-            user: toSafeUser(user),
+            user: {
+                ...toSafeUser(user),
+                capabilities: await getAccountCapabilitiesService(user),
+            },
         });
     }
 );

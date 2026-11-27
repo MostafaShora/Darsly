@@ -1941,13 +1941,16 @@ describe('App', () => {
     await fixture.whenStable();
     const navigation = router.navigateByUrl('/dashboard');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const request = TestBed.inject(HttpTestingController).expectOne('/api/auth/status');
+    const statusRequests = TestBed.inject(HttpTestingController).match('/api/auth/status');
 
-    expect(request.request.withCredentials).toBe(true);
-    request.flush(
-      { message: 'Authentication required' },
-      { status: 401, statusText: 'Unauthorized' },
-    );
+    expect(statusRequests).toHaveLength(2);
+    for (const request of statusRequests) {
+      expect(request.request.withCredentials).toBe(true);
+      request.flush(
+        { message: 'Authentication required' },
+        { status: 401, statusText: 'Unauthorized' },
+      );
+    }
 
     await navigation;
     expect(router.url).toBe('/sign-in?reason=session');
@@ -1988,6 +1991,65 @@ describe('App', () => {
     }
   });
 
+  it('should validate the selected StudentAccountLink before rendering the Student Portal', async () => {
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges();
+    const router = TestBed.inject(Router);
+    const httpTesting = TestBed.inject(HttpTestingController);
+    localStorage.removeItem('darsly.active-student-context.student-user-1');
+    const navigation = router.navigateByUrl('/student/overview');
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    httpTesting.expectOne('/api/auth/status').flush({
+      message: 'Authenticated user',
+      user: {
+        id: 'student-user-1',
+        name: 'Student User',
+        email: 'student@example.test',
+        status: 'active',
+        lastLoginAt: null,
+        capabilities: { teacher: false, student: true, owner: false },
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    httpTesting.expectOne('/api/student-contexts').flush({
+      message: 'Student contexts retrieved successfully',
+      data: [
+        {
+          studentAccountLinkId: 'owned-active-link',
+          studentName: 'Student One',
+          workspaceName: 'Workspace One',
+        },
+      ],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const selectionRequest = httpTesting.expectOne(
+      '/api/student-contexts/selection',
+    );
+    expect(selectionRequest.request.method).toBe('POST');
+    expect(selectionRequest.request.body).toEqual({
+      studentAccountLinkId: 'owned-active-link',
+    });
+    selectionRequest.flush({
+      message: 'Student context validated successfully',
+      data: {
+        studentAccountLinkId: 'owned-active-link',
+        studentName: 'Student One',
+        workspaceName: 'Workspace One',
+      },
+    });
+
+    await navigation;
+    fixture.detectChanges();
+    expect(router.url).toBe('/student/overview');
+    expect(fixture.nativeElement.textContent).toContain(
+      'مرحبًا بك في بوابة الطالب',
+    );
+    localStorage.removeItem('darsly.active-student-context.student-user-1');
+  });
+
   it('should render the authenticated teacher in the Arabic RTL dashboard', async () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
@@ -1996,9 +2058,8 @@ describe('App', () => {
     await fixture.whenStable();
     const navigation = router.navigateByUrl('/dashboard');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const request = TestBed.inject(HttpTestingController).expectOne('/api/auth/status');
-
-    request.flush({
+    const statusRequests = TestBed.inject(HttpTestingController).match('/api/auth/status');
+    const authenticatedResponse = {
       message: 'Authenticated user',
       user: {
         id: 'teacher-1',
@@ -2007,7 +2068,11 @@ describe('App', () => {
         status: 'active',
         lastLoginAt: null,
       },
-    });
+    };
+    expect(statusRequests).toHaveLength(2);
+    for (const request of statusRequests) {
+      request.flush(authenticatedResponse);
+    }
 
     const workspaceRequest = TestBed.inject(HttpTestingController).expectOne('/api/workspaces/mine');
     workspaceRequest.flush({

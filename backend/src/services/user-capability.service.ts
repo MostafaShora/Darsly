@@ -2,7 +2,15 @@ import UserModel, {
     UserCapability,
     UserDocument,
 } from "../models/user.model";
+import WorkspaceMemberModel from "../models/workspace-member.model";
+import WorkspaceModel from "../models/workspace.model";
 import { ForbiddenException, NotFoundException } from "../utils/app-error";
+
+export interface AccountCapabilities {
+    teacher: boolean;
+    student: boolean;
+    owner: boolean;
+}
 
 export const hasUserCapability = (
     user: Pick<UserDocument, "capabilities">,
@@ -13,6 +21,32 @@ export const hasUserCapability = (
     }
 
     return user.capabilities.includes(capability);
+};
+
+export const getAccountCapabilitiesService = async (
+    user: Pick<UserDocument, "_id" | "capabilities">
+): Promise<AccountCapabilities> => {
+    const teacher = hasUserCapability(user, "teacher");
+    const student = hasUserCapability(user, "student");
+
+    if (!teacher) {
+        return { teacher, student, owner: false };
+    }
+
+    const ownerWorkspace = await WorkspaceModel.findOne({
+        ownerId: user._id,
+        status: "active",
+    }).select("_id");
+    const ownerMembership = ownerWorkspace
+        ? await WorkspaceMemberModel.exists({
+              workspaceId: ownerWorkspace._id,
+              userId: user._id,
+              role: "owner",
+              status: "active",
+          })
+        : null;
+
+    return { teacher, student, owner: Boolean(ownerMembership) };
 };
 
 export const requireUserCapability = (

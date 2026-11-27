@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { studentAccessGuard } from '../../core/guards/student-access.guard';
 
 export const STUDENT_PORTAL_ROUTES: Routes = [
   {
@@ -15,6 +16,7 @@ export const STUDENT_PORTAL_ROUTES: Routes = [
     children: [
       {
         path: 'overview',
+        canActivate: [studentAccessGuard],
         loadComponent: () =>
           import('./pages/overview/student-portal-overview.component').then(
             (module) => module.StudentPortalOverviewComponent,
@@ -22,6 +24,7 @@ export const STUDENT_PORTAL_ROUTES: Routes = [
       },
       {
         path: 'profile',
+        canActivate: [studentAccessGuard],
         loadComponent: () =>
           import('./pages/profile/student-portal-profile.component').then(
             (module) => module.StudentPortalProfileComponent,
@@ -29,6 +32,7 @@ export const STUDENT_PORTAL_ROUTES: Routes = [
       },
       {
         path: 'groups',
+        canActivate: [studentAccessGuard],
         loadComponent: () =>
           import('./pages/groups/student-portal-groups.component').then(
             (module) => module.StudentPortalGroupsComponent,
@@ -36,6 +40,7 @@ export const STUDENT_PORTAL_ROUTES: Routes = [
       },
       {
         path: 'schedule',
+        canActivate: [studentAccessGuard],
         loadComponent: () =>
           import('./pages/schedule/student-portal-schedule.component').then(
             (module) => module.StudentPortalScheduleComponent,
@@ -43,9 +48,17 @@ export const STUDENT_PORTAL_ROUTES: Routes = [
       },
       {
         path: 'attendance',
+        canActivate: [studentAccessGuard],
         loadComponent: () =>
           import('./pages/attendance/student-portal-attendance.component').then(
             (module) => module.StudentPortalAttendanceComponent,
+          ),
+      },
+      {
+        path: 'select-context',
+        loadComponent: () =>
+          import('./pages/context-selection/student-context-selection.component').then(
+            (module) => module.StudentContextSelectionComponent,
           ),
       },
     ],

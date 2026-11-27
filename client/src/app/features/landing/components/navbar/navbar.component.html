@@ -1,85 +1,303 @@
 <header
-  class="relative z-20 mx-auto flex h-[70px] w-[calc(100%-32px)] max-w-[1240px] items-center justify-between border-b border-[#e8f0eb] md:h-[82px] md:w-[calc(100%-48px)]"
+  class="relative z-20 mx-auto flex h-[70px] w-[calc(100%-32px)] items-center justify-between border-b border-[#e8f0eb] md:h-[82px] md:w-[calc(100%-48px)] md:max-w-[1240px]"
+  dir="rtl"
+  lang="ar"
 >
-  <a class="flex h-[70px] w-[105px] shrink-0 items-center md:h-[82px] md:w-[123px]" href="/">
+  <a
+    class="flex h-[70px] w-[105px] shrink-0 items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 md:h-[82px] md:w-[123px]"
+    routerLink="/"
+    aria-label="دارسلي - الصفحة الرئيسية"
+  >
     <img
       class="h-full w-full scale-[1.3] object-contain md:scale-[1.27]"
       src="assets/images/logo/Darsly-Logo.png"
       alt="شعار منصة دارسلي"
     />
   </a>
+
   <nav
     class="hidden items-center gap-[38px] text-[14px] font-bold text-[#60766d] md:flex"
     aria-label="القائمة الرئيسية"
   >
-    <a class="transition-colors hover:text-[#079b70]" href="#features">المميزات</a>
-    <a class="transition-colors hover:text-[#079b70]" href="#journey">طريقة العمل</a>
-    <a class="transition-colors hover:text-[#079b70]" href="#about">عن Darsly</a>
+    <a
+      class="rounded-md transition-colors hover:text-[#079b70] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+      href="#features"
+      >المميزات</a
+    >
+    <a
+      class="rounded-md transition-colors hover:text-[#079b70] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+      href="#journey"
+      >طريقة العمل</a
+    >
+    <a
+      class="rounded-md transition-colors hover:text-[#079b70] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+      href="#about"
+      >عن Darsly</a
+    >
   </nav>
-  <div class="hidden shrink-0 items-center gap-[8px] md:flex">
-    <a
-      class="whitespace-nowrap rounded-[12px] px-[12px] py-[10px] text-[13px] font-extrabold text-[#07845f] transition hover:bg-[#e5f6ee] md:px-[14px] md:text-[14px]"
-      routerLink="/sign-in"
-      >تسجيل الدخول</a
+
+  <div class="flex shrink-0 items-center gap-2 md:gap-3">
+    @if (accountState() === 'checking') {
+      <span class="hidden text-xs font-semibold text-[#71847a] sm:inline" role="status">
+        جارٍ التحقق من الحساب...
+      </span>
+    } @else if (accountState() === 'anonymous') {
+      <div class="hidden items-center gap-[8px] md:flex">
+        <a
+          class="whitespace-nowrap rounded-[12px] px-[12px] py-[10px] text-[13px] font-extrabold text-[#07845f] transition hover:bg-[#e5f6ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none md:px-[14px] md:text-[14px]"
+          routerLink="/sign-in"
+          >تسجيل الدخول</a
+        >
+        <a
+          class="whitespace-nowrap rounded-[12px] bg-[#0ca879] px-[14px] py-[10px] text-[13px] font-extrabold text-white transition hover:bg-[#078f68] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none md:px-[17px] md:text-[14px]"
+          routerLink="/sign-up"
+          >إنشاء حساب</a
+        >
+      </div>
+    } @else if (accountState() === 'unavailable') {
+      <div class="flex items-center gap-2">
+        <button
+          class="hidden max-w-48 text-start text-[11px] font-semibold leading-5 text-[#8d3931] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 md:block"
+          type="button"
+          (click)="retryAccountSummary()"
+        >
+          {{ accountError() }} أعد المحاولة
+        </button>
+        <a
+          class="hidden rounded-xl px-3 py-2 text-xs font-extrabold text-[#087b59] hover:bg-[#e5f6ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 md:inline-flex"
+          routerLink="/sign-in"
+          >تسجيل الدخول</a
+        >
+        <a
+          class="hidden rounded-xl bg-[#0ca879] px-3 py-2 text-xs font-extrabold text-white hover:bg-[#078f68] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 md:inline-flex"
+          routerLink="/sign-up"
+          >إنشاء حساب</a
+        >
+      </div>
+    } @else if (accountState() === 'authenticated') {
+      <div class="relative" #accountMenuContainer>
+        <button
+          #accountMenuTrigger
+          class="flex min-h-10 items-center gap-2 rounded-xl border border-[#dcebe1] bg-white px-2.5 text-[#38554a] transition-colors hover:border-[#c5dfce] hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none sm:px-3"
+          type="button"
+          aria-controls="darsly-account-menu"
+          [attr.aria-expanded]="accountMenuOpen()"
+          [attr.aria-label]="accountMenuOpen() ? 'إغلاق قائمة الحساب' : 'فتح قائمة الحساب'"
+          (click)="toggleAccountMenu()"
+        >
+          <span
+            class="grid size-8 shrink-0 place-items-center rounded-lg border border-[#d6ebdd] bg-[#eaf6ee] text-[#087b59]"
+            aria-hidden="true"
+          >
+            <svg lucideIcon="users-round" [size]="17"></svg>
+          </span>
+          <span class="hidden min-w-0 text-start md:block">
+            <span class="block max-w-36 truncate text-xs font-extrabold">{{ user()?.name }}</span>
+            <span class="block max-w-36 truncate text-[10px] text-[#71847a]" dir="ltr">
+              {{ user()?.email }}
+            </span>
+          </span>
+        </button>
+
+        @if (accountMenuOpen()) {
+          <section
+            id="darsly-account-menu"
+            class="absolute end-0 top-[calc(100%+10px)] z-50 max-h-[min(76dvh,640px)] w-[min(88vw,340px)] overflow-y-auto rounded-2xl border border-[#e1ebe4] bg-white p-4 shadow-xl shadow-[#173b32]/10"
+            aria-label="قائمة الحساب"
+          >
+            <div class="border-b border-[#edf2ee] pb-3">
+              <p class="truncate text-sm font-extrabold text-[#29483d]">{{ user()?.name }}</p>
+              <p class="mt-1 truncate text-xs text-[#71847a]" dir="ltr">{{ user()?.email }}</p>
+            </div>
+
+            <section class="py-4" aria-labelledby="account-capabilities-heading">
+              <h2
+                id="account-capabilities-heading"
+                class="text-xs font-extrabold text-[#29483d]"
+              >
+                صلاحيات حسابك
+              </h2>
+              @if (user()?.capabilities; as capabilities) {
+                <div class="mt-3 flex flex-wrap gap-2">
+                  @if (capabilities.teacher) {
+                    <span
+                      class="rounded-full border border-[#d8eddf] bg-[#f2faf4] px-3 py-1 text-[11px] font-bold text-[#087b59]"
+                      >معلم</span
+                    >
+                  }
+                  @if (capabilities.student) {
+                    <span
+                      class="rounded-full border border-[#d8eddf] bg-[#f2faf4] px-3 py-1 text-[11px] font-bold text-[#087b59]"
+                      >طالب</span
+                    >
+                  }
+                  @if (capabilities.owner) {
+                    <span
+                      class="rounded-full border border-[#e8e2c9] bg-[#fbf8eb] px-3 py-1 text-[11px] font-bold text-[#806b25]"
+                      >مالك مساحة عمل</span
+                    >
+                  }
+                  @if (!capabilities.teacher && !capabilities.student && !capabilities.owner) {
+                    <p class="mt-2 text-xs leading-5 text-[#71847a]" role="status">
+                      لا توجد صلاحيات مفعّلة لهذا الحساب.
+                    </p>
+                  }
+                </div>
+              } @else {
+                <p class="mt-2 text-xs leading-5 text-[#8d3931]" role="alert">
+                  تعذّر تحميل صلاحيات الحساب.
+                </p>
+              }
+            </section>
+
+            <nav class="grid gap-1 border-y border-[#edf2ee] py-3" aria-label="مساحات الحساب">
+              @if (teacherAreaState() === 'available') {
+                <a
+                  class="flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs font-bold text-[#38554a] transition-colors hover:bg-[#f2faf4] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+                  routerLink="/dashboard"
+                  (click)="closeAccountMenu()"
+                >
+                  <svg lucideIcon="layout-dashboard" [size]="17" aria-hidden="true"></svg>
+                  مساحة المعلم
+                </a>
+              } @else if (teacherAreaState() === 'loading') {
+                <p class="px-3 py-2 text-xs text-[#71847a]" role="status">
+                  جارٍ التحقق من مساحة المعلم...
+                </p>
+              } @else if (teacherAreaState() === 'empty') {
+                <p class="px-3 py-2 text-xs leading-5 text-[#71847a]" role="status">
+                  لا توجد مساحة عمل نشطة للحساب حاليًا.
+                </p>
+              } @else if (teacherAreaState() === 'error') {
+                <p class="px-3 py-2 text-xs leading-5 text-[#8d3931]" role="alert">
+                  تعذّر التحقق من مساحة المعلم.
+                </p>
+              }
+
+              @if (studentAreaState() === 'available') {
+                <a
+                  class="flex min-h-11 items-center gap-3 rounded-xl px-3 text-xs font-bold text-[#38554a] transition-colors hover:bg-[#f2faf4] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+                  routerLink="/student/overview"
+                  (click)="closeAccountMenu()"
+                >
+                  <svg lucideIcon="book-open" [size]="17" aria-hidden="true"></svg>
+                  بوابة الطالب
+                </a>
+              } @else if (studentAreaState() === 'loading') {
+                <p class="px-3 py-2 text-xs text-[#71847a]" role="status">
+                  جارٍ التحقق من ملفات الطالب...
+                </p>
+              } @else if (studentAreaState() === 'empty') {
+                <p class="px-3 py-2 text-xs leading-5 text-[#71847a]" role="status">
+                  لا يوجد ملف طالب نشط مرتبط بهذا الحساب.
+                </p>
+              } @else if (studentAreaState() === 'error') {
+                <p class="px-3 py-2 text-xs leading-5 text-[#8d3931]" role="alert">
+                  تعذّر التحقق من ملفات الطالب.
+                </p>
+              }
+            </nav>
+
+            @if (teacherAreaState() === 'error' || studentAreaState() === 'error') {
+              <button
+                class="mt-2 min-h-10 rounded-xl px-3 text-start text-xs font-bold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                type="button"
+                (click)="retryDestinations()"
+              >
+                إعادة التحقق من المساحات
+              </button>
+            }
+
+            <div class="grid gap-1 pt-3">
+              <button
+                class="flex min-h-10 w-full cursor-not-allowed items-center rounded-xl px-3 text-start text-xs font-semibold text-[#9aa79f]"
+                type="button"
+                disabled
+                aria-disabled="true"
+              >
+                إعدادات الحساب — غير متاحة بعد
+              </button>
+              @if (signOutError()) {
+                <p class="px-3 py-2 text-xs leading-5 text-[#8d3931]" role="alert">
+                  {{ signOutError() }}
+                </p>
+              }
+              <button
+                class="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-start text-xs font-bold text-[#8d3931] transition-colors hover:bg-[#fff7f6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60 motion-reduce:transition-none"
+                type="button"
+                [disabled]="isSigningOut()"
+                [attr.aria-busy]="isSigningOut()"
+                (click)="signOut()"
+              >
+                <svg lucideIcon="log-out" [size]="17" aria-hidden="true"></svg>
+                {{ isSigningOut() ? 'جارٍ تسجيل الخروج...' : 'تسجيل الخروج' }}
+              </button>
+            </div>
+          </section>
+        }
+      </div>
+    }
+
+    <button
+      type="button"
+      class="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[12px] border border-[#dcebe1] bg-white text-[#0ca879] transition hover:bg-[#e5f6ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none md:hidden"
+      [attr.aria-expanded]="mobileMenuOpen()"
+      aria-controls="mobile-navigation"
+      [attr.aria-label]="mobileMenuOpen() ? 'إغلاق القائمة' : 'فتح القائمة'"
+      (click)="toggleMobileMenu()"
+      (keydown.escape)="closeMobileMenu()"
     >
-    <a
-      class="whitespace-nowrap rounded-[12px] bg-[#0ca879] px-[14px] py-[10px] text-[13px] font-extrabold text-white shadow-[0_8px_18px_#0ca87925] transition hover:bg-[#078f68] md:px-[17px] md:text-[14px]"
-      routerLink="/sign-up"
-      >إنشاء حساب</a
-    >
+      <span class="flex flex-col gap-[4px]" aria-hidden="true">
+        <span class="h-[2px] w-[18px] rounded bg-current"></span>
+        <span class="h-[2px] w-[18px] rounded bg-current"></span>
+        <span class="h-[2px] w-[18px] rounded bg-current"></span>
+      </span>
+    </button>
   </div>
-  <button
-    type="button"
-    class="grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[12px] border border-[#dcebe1] bg-white text-[#0ca879] transition hover:bg-[#e5f6ee] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] md:hidden"
-    [attr.aria-expanded]="mobileMenuOpen()"
-    aria-controls="mobile-navigation"
-    [attr.aria-label]="mobileMenuOpen() ? 'إغلاق القائمة' : 'فتح القائمة'"
-    (click)="toggleMobileMenu()"
-    (keydown.escape)="closeMobileMenu()"
-  >
-    <span class="flex flex-col gap-[4px]" aria-hidden="true">
-      <span class="h-[2px] w-[18px] rounded bg-current"></span>
-      <span class="h-[2px] w-[18px] rounded bg-current"></span>
-      <span class="h-[2px] w-[18px] rounded bg-current"></span>
-    </span>
-  </button>
+
+  @if (accountState() === 'unavailable') {
+    <p class="sr-only" role="status">{{ accountError() }}</p>
+  }
+
   <nav
     id="mobile-navigation"
-    class="absolute top-full right-0 left-0 z-30 gap-[4px] rounded-b-[14px] border border-t-0 border-[#e8f0eb] bg-[#f7fbf8] p-[8px] shadow-[0_12px_25px_#214d3612] md:hidden"
+    class="absolute top-full end-0 start-0 z-30 gap-[4px] rounded-b-[14px] border border-t-0 border-[#e8f0eb] bg-[#f7fbf8] p-[8px] shadow-[0_12px_25px_#214d3612] md:hidden"
     [class.hidden]="!mobileMenuOpen()"
     [class.grid]="mobileMenuOpen()"
     aria-label="القائمة الرئيسية"
     (keydown.escape)="closeMobileMenu()"
   >
     <a
-      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59]"
+      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
       href="#features"
       (click)="closeMobileMenu()"
       >المميزات</a
     >
     <a
-      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59]"
+      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
       href="#journey"
       (click)="closeMobileMenu()"
       >طريقة العمل</a
     >
     <a
-      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59]"
+      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#60766d] hover:bg-[#e5f6ee] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
       href="#about"
       (click)="closeMobileMenu()"
       >عن Darsly</a
     >
-    <a
-      class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#07845f] hover:bg-[#e5f6ee]"
-      routerLink="/sign-in"
-      (click)="closeMobileMenu()"
-      >تسجيل الدخول</a
-    >
-    <a
-      class="rounded-[10px] bg-[#0ca879] px-[12px] py-[10px] text-[14px] font-extrabold text-white hover:bg-[#078f68]"
-      routerLink="/sign-up"
-      (click)="closeMobileMenu()"
-      >إنشاء حساب</a
-    >
+    @if (accountState() === 'anonymous' || accountState() === 'unavailable') {
+      <a
+        class="rounded-[10px] px-[12px] py-[10px] text-[14px] font-bold text-[#07845f] hover:bg-[#e5f6ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        routerLink="/sign-in"
+        (click)="closeMobileMenu()"
+        >تسجيل الدخول</a
+      >
+      <a
+        class="rounded-[10px] bg-[#0ca879] px-[12px] py-[10px] text-[14px] font-extrabold text-white hover:bg-[#078f68] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        routerLink="/sign-up"
+        (click)="closeMobileMenu()"
+        >إنشاء حساب</a
+      >
+    }
   </nav>
 </header>

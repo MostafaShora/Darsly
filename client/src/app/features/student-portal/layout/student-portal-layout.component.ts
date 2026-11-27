@@ -1,6 +1,7 @@
-import { Component, HostListener, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LucideDynamicIcon } from '@lucide/angular';
+import { StudentContextService } from '../../../core/services/student-context.service';
 
 type StudentPortalIcon =
   | 'layout-dashboard'
@@ -22,7 +23,9 @@ interface StudentPortalNavigationItem {
   templateUrl: './student-portal-layout.component.html',
 })
 export class StudentPortalLayoutComponent {
+  private readonly studentContextService = inject(StudentContextService);
   readonly isMobileNavigationOpen = signal(false);
+  readonly selectedContext = this.studentContextService.selectedContext;
   readonly navigationItems: readonly StudentPortalNavigationItem[] = [
     { label: 'نظرة عامة', path: '/student/overview', icon: 'layout-dashboard' },
     { label: 'ملفي الشخصي', path: '/student/profile', icon: 'users-round' },

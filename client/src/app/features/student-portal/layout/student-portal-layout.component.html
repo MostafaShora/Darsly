@@ -56,10 +56,25 @@
       </nav>
 
       <div class="mt-auto rounded-2xl border border-[#e3ece5] bg-[#f7faf8] p-4">
-        <p class="text-xs font-extrabold text-[#29483d]">سياق الطالب</p>
-        <p class="mt-2 text-xs leading-6 text-[#687d72]">
-          اختيار وربط ملف الطالب غير متصل بعد.
-        </p>
+        @if (selectedContext(); as context) {
+          <p class="text-xs font-extrabold text-[#29483d]">الملف الحالي</p>
+          <p class="mt-2 truncate text-xs font-bold text-[#087b59]">{{ context.studentName }}</p>
+          <p class="mt-1 truncate text-[11px] leading-5 text-[#687d72]">
+            {{ context.workspaceName }}
+          </p>
+          <a
+            class="mt-3 inline-flex min-h-9 items-center rounded-lg px-2 text-[11px] font-bold text-[#087b59] hover:bg-[#eaf5ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+            routerLink="/student/select-context"
+            (click)="closeMobileNavigation()"
+          >
+            تغيير الملف
+          </a>
+        } @else {
+          <p class="text-xs font-extrabold text-[#29483d]">سياق الطالب</p>
+          <p class="mt-2 text-xs leading-6 text-[#687d72]">
+            لم يتم اختيار ملف طالب معتمد.
+          </p>
+        }
       </div>
     </aside>
 
@@ -96,7 +111,9 @@
           aria-live="polite"
         >
           <span class="size-2 shrink-0 rounded-full bg-[#9aab9f]" aria-hidden="true"></span>
-          <span class="truncate">السياق الطلابي غير متصل بعد</span>
+          <span class="truncate">
+            {{ selectedContext()?.studentName ?? 'لا يوجد ملف طالب محدد' }}
+          </span>
         </div>
       </header>
 

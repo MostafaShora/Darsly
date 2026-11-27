@@ -11,12 +11,19 @@ export interface LoginRequest {
 
 export type AuthUserStatus = 'active' | 'pending' | 'suspended';
 
+export interface AccountCapabilities {
+  teacher: boolean;
+  student: boolean;
+  owner: boolean;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
   status: AuthUserStatus;
   lastLoginAt: string | null;
+  capabilities?: AccountCapabilities;
 }
 
 export interface AuthenticatedResponse {

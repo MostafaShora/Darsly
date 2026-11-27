@@ -50,6 +50,14 @@ export class AuthService {
     );
   }
 
+  getAccountStatus(): Observable<AuthenticatedResponse> {
+    return this.http
+      .get<AuthenticatedResponse>(`${this.authApiUrl}/status`, {
+        withCredentials: true,
+      })
+      .pipe(tap(({ user }) => this.currentUser.set(user)));
+  }
+
   clearCurrentUser(): void {
     this.currentUser.set(null);
   }
