@@ -25,6 +25,7 @@ export const registerService = async (body: RegisterSchemaType) => {
         name,
         email,
         passwordHash,
+        capabilities: ["teacher"],
     });
 
     return newUser;

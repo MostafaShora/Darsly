@@ -1,9 +1,12 @@
 import mongoose, { Schema, type Document } from "mongoose";
 
+export type UserCapability = "teacher" | "student";
+
 export interface UserDocument extends Document {
     name: string;
     email: string;
     passwordHash: string;
+    capabilities?: UserCapability[];
     status: "active" | "suspended" | "pending";
     lastLoginAt: Date | null;
     createdAt: Date;
@@ -31,6 +34,15 @@ const userSchema = new Schema<UserDocument>(
             type: String,
             required: true,
             select: false,
+        },
+        capabilities: {
+            type: [
+                {
+                    type: String,
+                    enum: ["teacher", "student"],
+                },
+            ],
+            default: undefined,
         },
         status: {
             type: String,

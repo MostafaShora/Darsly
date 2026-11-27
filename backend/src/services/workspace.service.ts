@@ -2,12 +2,14 @@ import mongoose, { Types } from "mongoose";
 
 import WorkspaceModel from "../models/workspace.model";
 import WorkspaceMemberModel from "../models/workspace-member.model";
+import type { UserDocument } from "../models/user.model";
 import {
     assertValidObjectId,
     getActiveMembership,
     getActiveUser,
     resolveWorkspaceAccess,
 } from "./workspace-access.service";
+import { requireUserCapability } from "./user-capability.service";
 
 import {
     BadRequestException,
@@ -125,8 +127,9 @@ const getActiveWorkspace = async (workspaceId: string) => {
 const requireOwner = async (
     userId: string,
     workspaceId: string,
+    user: Pick<UserDocument, "capabilities">,
 ) => {
-    const membership = await getActiveMembership(userId, workspaceId);
+    const membership = await getActiveMembership(userId, workspaceId, user);
     const workspace = await WorkspaceModel.findById(workspaceId);
 
     if (
@@ -148,7 +151,8 @@ export const createWorkspaceService = async (
     userId: string,
     data: CreateWorkspaceInput,
 ) => {
-    await getActiveUser(userId);
+    const user = await getActiveUser(userId);
+    requireUserCapability(user, "teacher");
 
     const name = data.name?.trim();
     const description = data.description?.trim() ?? "";
@@ -255,7 +259,8 @@ export const createWorkspaceService = async (
 // 2. GET MY WORKSPACES
 
 export const getMyWorkspacesService = async (userId: string) => {
-    await getActiveUser(userId);
+    const user = await getActiveUser(userId);
+    requireUserCapability(user, "teacher");
 
     const memberships = await WorkspaceMemberModel.find({
         userId,
@@ -295,11 +300,11 @@ export const updateWorkspaceService = async (
     workspaceId: string,
     data: UpdateWorkspaceInput,
 ) => {
-    await getActiveUser(userId);
+    const user = await getActiveUser(userId);
     assertValidObjectId(workspaceId, "workspace ID");
 
     const workspace = await getActiveWorkspace(workspaceId);
-    const membership = await getActiveMembership(userId, workspaceId);
+    const membership = await getActiveMembership(userId, workspaceId, user);
 
     if (
         membership.role !== "owner" ||
@@ -396,10 +401,10 @@ export const suspendWorkspaceService = async (
     userId: string,
     workspaceId: string,
 ) => {
-    await getActiveUser(userId);
+    const user = await getActiveUser(userId);
     assertValidObjectId(workspaceId, "workspace ID");
 
-    const { workspace } = await requireOwner(userId, workspaceId);
+    const { workspace } = await requireOwner(userId, workspaceId, user);
 
     if (workspace.status === "suspended") {
         throw new ConflictException(
@@ -424,10 +429,10 @@ export const activateWorkspaceService = async (
     userId: string,
     workspaceId: string,
 ) => {
-    await getActiveUser(userId);
+    const user = await getActiveUser(userId);
     assertValidObjectId(workspaceId, "workspace ID");
 
-    const { workspace } = await requireOwner(userId, workspaceId);
+    const { workspace } = await requireOwner(userId, workspaceId, user);
 
     if (workspace.status === "active") {
         throw new ConflictException(
