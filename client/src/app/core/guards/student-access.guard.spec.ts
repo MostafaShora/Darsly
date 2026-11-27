@@ -25,6 +25,7 @@ describe('studentAccessGuard', () => {
     contexts: ActiveStudentContext[],
     savedId: string | null,
     loadError?: HttpErrorResponse,
+    selectionError?: HttpErrorResponse,
   ) => {
     const contextService = {
       getActiveContexts: vi.fn(() =>
@@ -32,7 +33,9 @@ describe('studentAccessGuard', () => {
       ),
       getSavedSelectionId: vi.fn(() => savedId),
       selectContext: vi.fn((id: string) =>
-        of(contexts.find((item) => item.studentAccountLinkId === id) ?? context),
+        selectionError
+          ? throwError(() => selectionError)
+          : of(contexts.find((item) => item.studentAccountLinkId === id) ?? context),
       ),
       clearSelection: vi.fn(),
       selectionWasStale: { set: vi.fn() },
@@ -70,7 +73,7 @@ describe('studentAccessGuard', () => {
   });
 
   it('redirects an authenticated account with no active contexts to context selection', async () => {
-    setup([], null);
+    const { contextService } = setup([], null);
 
     const result = await activate();
     const router = TestBed.inject(Router);
@@ -78,6 +81,7 @@ describe('studentAccessGuard', () => {
     expect(router.serializeUrl(result as UrlTree)).toBe(
       '/student/select-context',
     );
+    expect(contextService.selectContext).not.toHaveBeenCalled();
   });
 
   it('requires explicit selection when multiple active contexts have no saved hint', async () => {
@@ -105,6 +109,21 @@ describe('studentAccessGuard', () => {
     expect(contextService.selectContext).toHaveBeenCalledWith(
       context.studentAccountLinkId,
     );
+  });
+
+  it('does not activate a Student route when backend selection validation rejects the link', async () => {
+    const { contextService } = setup(
+      [context],
+      context.studentAccountLinkId,
+      undefined,
+      new HttpErrorResponse({ status: 404 }),
+    );
+
+    const result = await activate();
+    const router = TestBed.inject(Router);
+
+    expect(router.serializeUrl(result as UrlTree)).toBe('/student/select-context');
+    expect(contextService.selectContext).toHaveBeenCalledWith(context.studentAccountLinkId);
   });
 
   it('redirects an expired authenticated session through the existing sign-in convention', async () => {

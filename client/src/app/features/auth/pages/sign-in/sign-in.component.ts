@@ -45,8 +45,15 @@ export class SignInComponent {
     this.authService.login(this.form.getRawValue()).subscribe({
       next: () => {
         this.isSubmitting.set(false);
-        this.successMessage.set('تم تسجيل الدخول بنجاح. جارٍ نقلك إلى لوحة التحكم.');
-        window.setTimeout(() => void this.router.navigateByUrl('/dashboard'), 900);
+        const capabilities = this.authService.currentUser()?.capabilities;
+        const studentOnly = capabilities?.student === true && capabilities.teacher !== true;
+        const destination = studentOnly ? '/student/overview' : '/dashboard';
+        this.successMessage.set(
+          studentOnly
+            ? 'تم تسجيل الدخول بنجاح. جارٍ نقلك إلى بوابة الطالب.'
+            : 'تم تسجيل الدخول بنجاح. جارٍ نقلك إلى لوحة التحكم.',
+        );
+        window.setTimeout(() => void this.router.navigateByUrl(destination), 900);
       },
       error: (error: unknown) => {
         this.isSubmitting.set(false);
