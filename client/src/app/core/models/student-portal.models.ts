@@ -42,3 +42,17 @@ export interface StudentPortalGroup {
   enrolledAt: string;
   status: 'active';
 }
+
+export interface StudentPortalScheduleSession {
+  title: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: 'scheduled' | 'completed';
+  groupName: string;
+  subjectName: string | null;
+}
+
+export interface StudentPortalSchedule {
+  upcoming: StudentPortalScheduleSession[];
+  past: StudentPortalScheduleSession[];
+}

@@ -2,7 +2,7 @@ import AttendanceRecordModel, {
     AttendanceRecordDocument,
 } from "../models/attendance-record.model";
 import EnrollmentModel from "../models/enrollment.model";
-import SessionModel from "../models/session.model";
+import SessionModel, { SessionDocument } from "../models/session.model";
 import StudentModel from "../models/student.model";
 import StudyGroupModel from "../models/study-group.model";
 import SubjectModel from "../models/subject.model";
@@ -11,6 +11,8 @@ import {
     StudentOverviewDto,
     StudentProfileDto,
     StudentPortalGroupDto,
+    StudentPortalScheduleDto,
+    StudentPortalScheduleSessionDto,
     toStudentProfileDto,
     toStudentRecentAttendanceDto,
 } from "../dtos/student-portal.dto";
@@ -19,6 +21,7 @@ import { serializeDate } from "../utils/serialization";
 
 const STUDENT_ACCESS_NOT_FOUND = "Student access not found";
 const RECENT_ATTENDANCE_LIMIT = 5;
+const MAX_STUDENT_SCHEDULE_SESSIONS = 100;
 
 const getActiveStudent = async (
     context: StudentAccessContext,
@@ -47,10 +50,10 @@ export const getStudentProfileService = async (
     return toStudentProfileDto(student);
 };
 
-export const getStudentGroupsService = async (
-    context: StudentAccessContext
-): Promise<StudentPortalGroupDto[]> => {
-    const now = new Date();
+const getCurrentStudentGroups = async (
+    context: StudentAccessContext,
+    now: Date
+) => {
     const workspaceId = context.workspaceId;
     const studentId = context.studentId;
     const enrollments = await EnrollmentModel.find({
@@ -63,7 +66,7 @@ export const getStudentGroupsService = async (
         .sort({ enrolledAt: -1, _id: 1 });
 
     if (enrollments.length === 0) {
-        return [];
+        return { enrollments, groups: [] };
     }
 
     const groups = await StudyGroupModel.find({
@@ -74,10 +77,22 @@ export const getStudentGroupsService = async (
         .select("_id name subjectId")
         .sort({ name: 1, _id: 1 });
 
+    return { enrollments, groups };
+};
+
+export const getStudentGroupsService = async (
+    context: StudentAccessContext
+): Promise<StudentPortalGroupDto[]> => {
+    const { enrollments, groups } = await getCurrentStudentGroups(
+        context,
+        new Date()
+    );
+
     if (groups.length === 0) {
         return [];
     }
 
+    const workspaceId = context.workspaceId;
     const subjects = await SubjectModel.find({
         _id: { $in: groups.map((group) => group.subjectId) },
         workspaceId,
@@ -108,6 +123,95 @@ export const getStudentGroupsService = async (
             },
         ];
     });
+};
+
+export const getStudentScheduleService = async (
+    context: StudentAccessContext
+): Promise<StudentPortalScheduleDto> => {
+    const now = new Date();
+    const { enrollments, groups } = await getCurrentStudentGroups(context, now);
+    if (groups.length === 0) {
+        return { upcoming: [], past: [] };
+    }
+
+    const workspaceId = context.workspaceId;
+    const groupIds = groups.map((group) => group._id);
+    const groupById = new Map(
+        groups.map((group) => [
+            group._id.toString(),
+            { name: group.name, subjectId: group.subjectId },
+        ])
+    );
+    const pastSessionScopes = enrollments.map((enrollment) => ({
+        groupId: enrollment.groupId,
+        startsAt: { $gte: enrollment.enrolledAt, $lte: now },
+    }));
+    const [subjects, upcomingSessions, pastSessions] = await Promise.all([
+        SubjectModel.find({
+            _id: { $in: groups.map((group) => group.subjectId) },
+            workspaceId,
+        }).select("_id name"),
+        SessionModel.find({
+            workspaceId,
+            groupId: { $in: groupIds },
+            status: "scheduled",
+            startsAt: { $gt: now },
+        })
+            .select("_id groupId title startsAt endsAt status")
+            .sort({ startsAt: 1, _id: 1 })
+            .limit(MAX_STUDENT_SCHEDULE_SESSIONS),
+        SessionModel.find({
+            workspaceId,
+            $or: pastSessionScopes,
+            status: { $in: ["scheduled", "completed"] },
+        })
+            .select("_id groupId title startsAt endsAt status")
+            .sort({ startsAt: -1, _id: -1 })
+            .limit(MAX_STUDENT_SCHEDULE_SESSIONS),
+    ]);
+    const subjectNameById = new Map(
+        subjects.map((subject) => [subject._id.toString(), subject.name])
+    );
+    const toDto = (
+        session: SessionDocument
+    ): StudentPortalScheduleSessionDto | null => {
+        const group = groupById.get(session.groupId.toString());
+        if (!group || session.status === "cancelled") {
+            return null;
+        }
+
+        return {
+            title: session.title.trim() || null,
+            startsAt: serializeDate(session.startsAt),
+            endsAt: serializeDate(session.endsAt),
+            status: session.status,
+            groupName: group.name,
+            subjectName: subjectNameById.get(group.subjectId.toString()) ?? null,
+        };
+    };
+
+    const upcoming = upcomingSessions.flatMap((session) => {
+        if (
+            session.status !== "scheduled" ||
+            session.startsAt.getTime() <= now.getTime()
+        ) {
+            return [];
+        }
+        const dto = toDto(session);
+        return dto ? [dto] : [];
+    });
+    const past = pastSessions.flatMap((session) => {
+        if (
+            session.startsAt.getTime() > now.getTime() ||
+            session.status === "cancelled"
+        ) {
+            return [];
+        }
+        const dto = toDto(session);
+        return dto ? [dto] : [];
+    });
+
+    return { upcoming, past };
 };
 
 export const getStudentOverviewService = async (

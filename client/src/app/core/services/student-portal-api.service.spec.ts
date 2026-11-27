@@ -69,7 +69,7 @@ describe('StudentPortalApiService', () => {
     expect(selectedContextHeaders).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the selected StudentAccountLink header for Overview and Profile requests', () => {
+  it('uses the selected StudentAccountLink header for Overview, Profile, and Schedule requests', () => {
     service.getOverview().subscribe();
     const overviewRequest = httpTesting.expectOne(
       `${environment.apiBaseUrl}/student-portal/overview`,
@@ -108,6 +108,23 @@ describe('StudentPortalApiService', () => {
         grade: null,
       },
     });
-    expect(selectedContextHeaders).toHaveBeenCalledTimes(2);
+
+    let schedule: unknown;
+    service.getSchedule().subscribe((result) => {
+      schedule = result;
+    });
+    const scheduleRequest = httpTesting.expectOne(
+      `${environment.apiBaseUrl}/student-portal/schedule`,
+    );
+    expect(scheduleRequest.request.method).toBe('GET');
+    expect(scheduleRequest.request.withCredentials).toBe(true);
+    expect(scheduleRequest.request.headers.get('X-Student-Account-Link')).toBe(linkId);
+    expect(scheduleRequest.request.body).toBeNull();
+    scheduleRequest.flush({
+      message: 'Student schedule retrieved successfully',
+      data: { upcoming: [], past: [] },
+    });
+    expect(schedule).toEqual({ upcoming: [], past: [] });
+    expect(selectedContextHeaders).toHaveBeenCalledTimes(3);
   });
 });

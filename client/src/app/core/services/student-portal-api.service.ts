@@ -6,6 +6,7 @@ import {
   StudentOverview,
   StudentProfile,
   StudentPortalGroup,
+  StudentPortalSchedule,
 } from '../models/student-portal.models';
 import { StudentContextService } from './student-context.service';
 
@@ -41,6 +42,15 @@ export class StudentPortalApiService {
   getProfile(): Observable<StudentProfile> {
     return this.http
       .get<ApiResponse<StudentProfile>>(`${this.baseUrl}/profile`, {
+        headers: this.studentContextService.selectedContextHeaders(),
+        withCredentials: true,
+      })
+      .pipe(map((response) => response.data));
+  }
+
+  getSchedule(): Observable<StudentPortalSchedule> {
+    return this.http
+      .get<ApiResponse<StudentPortalSchedule>>(`${this.baseUrl}/schedule`, {
         headers: this.studentContextService.selectedContextHeaders(),
         withCredentials: true,
       })

@@ -9,11 +9,13 @@ type CookieInput = {
     userId: string;
 };
 
+const isProduction = Env.NODE_ENV === "production";
+
 const authCookieOptions: CookieOptions = {
     path: "/",
     httpOnly: true,
-    secure: Env.NODE_ENV === "production",
-    sameSite: Env.NODE_ENV === "production" ? "strict" : "lax",
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
 };
 
 export const setJwtAuthCookie = ({ res, userId }: CookieInput) => {

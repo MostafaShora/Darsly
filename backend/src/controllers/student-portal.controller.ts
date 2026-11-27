@@ -6,6 +6,7 @@ import {
     getStudentGroupsService,
     getStudentOverviewService,
     getStudentProfileService,
+    getStudentScheduleService,
 } from "../services/student-portal.service";
 
 export const getStudentGroupsController = asyncHandler(
@@ -42,6 +43,19 @@ export const getStudentProfileController = asyncHandler(
 
         res.status(HTTPSTATUS.OK).json({
             message: "Student profile retrieved successfully",
+            data,
+        });
+    }
+);
+
+export const getStudentScheduleController = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+        const data = await getStudentScheduleService(
+            getStudentAccessContext(req)
+        );
+
+        res.status(HTTPSTATUS.OK).json({
+            message: "Student schedule retrieved successfully",
             data,
         });
     }

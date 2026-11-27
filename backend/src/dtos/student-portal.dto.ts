@@ -17,6 +17,20 @@ export interface StudentPortalGroupDto {
     status: "active";
 }
 
+export interface StudentPortalScheduleSessionDto {
+    title: string | null;
+    startsAt: string;
+    endsAt: string;
+    status: "scheduled" | "completed";
+    groupName: string;
+    subjectName: string | null;
+}
+
+export interface StudentPortalScheduleDto {
+    upcoming: StudentPortalScheduleSessionDto[];
+    past: StudentPortalScheduleSessionDto[];
+}
+
 export interface StudentOverviewDto {
     studentName: string;
     activeGroupCount: number;

@@ -5,13 +5,159 @@
       جدولي
     </h2>
     <p class="mt-2 text-xs leading-7 text-[#5f7469] sm:text-sm">
-      ستظهر مواعيدك بعد ربط واجهة الجدول بسياق الطالب المعتمد.
+      حصص مجموعاتك النشطة مرتبة حسب وقت بدايتها.
     </p>
   </header>
 
-  <app-student-portal-pending-state
-    icon="calendar-days"
-    heading="الجدول غير متصل بعد"
-    description="لا توجد حاليًا واجهة طالب لقراءة مواعيد الحصص بأمان."
-  />
+  @if (isLoading()) {
+    <div class="grid gap-5 xl:grid-cols-2" aria-live="polite" aria-busy="true">
+      @for (section of [1, 2]; track section) {
+        <section class="rounded-2xl border border-[#e2ebe4] bg-white p-5">
+          <div class="h-4 w-28 animate-pulse rounded-full bg-[#edf2ee] motion-reduce:animate-none"></div>
+          <div class="mt-5 grid gap-3">
+            @for (card of [1, 2, 3]; track card) {
+              <div class="h-32 animate-pulse rounded-xl border border-[#edf2ee] bg-[#fafcfb] motion-reduce:animate-none"></div>
+            }
+          </div>
+        </section>
+      }
+      <p class="sr-only">جارٍ تحميل جدولك...</p>
+    </div>
+  } @else if (errorMessage()) {
+    <section
+      class="rounded-2xl border border-[#f1d7d2] bg-white p-6 text-center"
+      role="alert"
+      aria-labelledby="student-schedule-error"
+    >
+      <h3 id="student-schedule-error" class="text-sm font-extrabold text-[#8d3c32]">
+        تعذّر تحميل الجدول
+      </h3>
+      <p class="mt-2 text-xs leading-6 text-[#765b56]">{{ errorMessage() }}</p>
+      <button
+        class="mt-4 min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white transition-colors hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+        type="button"
+        (click)="loadSchedule()"
+      >
+        إعادة المحاولة
+      </button>
+    </section>
+  } @else if (schedule(); as data) {
+    <div class="grid gap-5 xl:grid-cols-2">
+      <section
+        class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-6"
+        aria-labelledby="upcoming-sessions-heading"
+      >
+        <div class="mb-4 flex items-center gap-2">
+          <svg lucideIcon="calendar-days" [size]="18" class="text-[#087b59]" aria-hidden="true"></svg>
+          <h3 id="upcoming-sessions-heading" class="text-sm font-extrabold text-[#29483d]">
+            الحصص القادمة
+          </h3>
+        </div>
+
+        @if (data.upcoming.length > 0) {
+          <ul class="grid gap-3">
+            @for (session of data.upcoming; track session.startsAt + session.groupName) {
+              <li class="rounded-xl border border-[#e6eee8] bg-[#fbfdfb] p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <h4 class="min-w-0 text-sm font-extrabold leading-6 text-[#29483d]">
+                    {{ session.title || session.groupName }}
+                  </h4>
+                  <span class="shrink-0 rounded-full border border-[#d8eddf] bg-[#f2faf4] px-2.5 py-1 text-[10px] font-extrabold text-[#087b59]">
+                    {{ sessionStatusLabel(session.status) }}
+                  </span>
+                </div>
+                <p class="mt-2 text-xs font-semibold text-[#5f7469]">
+                  {{ session.groupName }}
+                  <span class="mx-1" aria-hidden="true">·</span>
+                  {{ session.subjectName ?? 'المادة غير متاحة' }}
+                </p>
+                <dl class="mt-4 grid gap-2 border-t border-[#edf2ee] pt-3 text-[11px] sm:grid-cols-2">
+                  <div class="flex flex-col gap-1">
+                    <dt class="font-bold text-[#71847a]">تبدأ</dt>
+                    <dd>
+                      <time [attr.datetime]="session.startsAt">
+                        {{ formatDateTime(session.startsAt) }}
+                      </time>
+                    </dd>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <dt class="font-bold text-[#71847a]">تنتهي</dt>
+                    <dd>
+                      <time [attr.datetime]="session.endsAt">
+                        {{ formatDateTime(session.endsAt) }}
+                      </time>
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            }
+          </ul>
+        } @else {
+          <app-student-portal-pending-state
+            icon="calendar-days"
+            heading="لا توجد حصص قادمة"
+            description="ستظهر هنا الحصص المجدولة لمجموعاتك النشطة."
+          />
+        }
+      </section>
+
+      <section
+        class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-6"
+        aria-labelledby="past-sessions-heading"
+      >
+        <div class="mb-4 flex items-center gap-2">
+          <svg lucideIcon="calendar-days" [size]="18" class="text-[#73877b]" aria-hidden="true"></svg>
+          <h3 id="past-sessions-heading" class="text-sm font-extrabold text-[#29483d]">
+            الحصص السابقة
+          </h3>
+        </div>
+
+        @if (data.past.length > 0) {
+          <ul class="grid gap-3">
+            @for (session of data.past; track session.startsAt + session.groupName) {
+              <li class="rounded-xl border border-[#e6eee8] bg-[#fbfdfb] p-4">
+                <div class="flex items-start justify-between gap-3">
+                  <h4 class="min-w-0 text-sm font-extrabold leading-6 text-[#29483d]">
+                    {{ session.title || session.groupName }}
+                  </h4>
+                  <span class="shrink-0 rounded-full border border-[#e4ece6] bg-[#f5f8f6] px-2.5 py-1 text-[10px] font-extrabold text-[#63786d]">
+                    {{ sessionStatusLabel(session.status) }}
+                  </span>
+                </div>
+                <p class="mt-2 text-xs font-semibold text-[#5f7469]">
+                  {{ session.groupName }}
+                  <span class="mx-1" aria-hidden="true">·</span>
+                  {{ session.subjectName ?? 'المادة غير متاحة' }}
+                </p>
+                <dl class="mt-4 grid gap-2 border-t border-[#edf2ee] pt-3 text-[11px] sm:grid-cols-2">
+                  <div class="flex flex-col gap-1">
+                    <dt class="font-bold text-[#71847a]">بدأت</dt>
+                    <dd>
+                      <time [attr.datetime]="session.startsAt">
+                        {{ formatDateTime(session.startsAt) }}
+                      </time>
+                    </dd>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <dt class="font-bold text-[#71847a]">انتهت</dt>
+                    <dd>
+                      <time [attr.datetime]="session.endsAt">
+                        {{ formatDateTime(session.endsAt) }}
+                      </time>
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            }
+          </ul>
+        } @else {
+          <app-student-portal-pending-state
+            icon="calendar-days"
+            heading="لا توجد حصص سابقة"
+            description="ستظهر هنا الجلسات التي بدأت بعد تسجيلك في المجموعة."
+          />
+        }
+      </section>
+    </div>
+  }
 </section>
