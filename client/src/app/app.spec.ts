@@ -2043,9 +2043,27 @@ describe('App', () => {
 
     await navigation;
     fixture.detectChanges();
+    httpTesting.expectOne('/api/student-portal/overview').flush({
+      message: 'Student overview retrieved successfully',
+      data: {
+        studentName: 'Student One',
+        activeGroupCount: 0,
+        upcomingSessionCount: 0,
+        upcomingSessions: [],
+        attendanceSummary: {
+          total: 0,
+          present: 0,
+          absent: 0,
+          late: 0,
+          excused: 0,
+        },
+        recentAttendance: [],
+      },
+    });
+    fixture.detectChanges();
     expect(router.url).toBe('/student/overview');
     expect(fixture.nativeElement.textContent).toContain(
-      'مرحبًا بك في بوابة الطالب',
+      'مرحبًا بك، Student One',
     );
     localStorage.removeItem('darsly.active-student-context.student-user-1');
   });

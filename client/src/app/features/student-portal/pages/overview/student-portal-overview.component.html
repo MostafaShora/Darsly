@@ -1,70 +1,162 @@
 <section aria-labelledby="student-overview-heading">
-  <div
-    class="relative isolate overflow-hidden rounded-2xl border border-[#dcebe1] bg-white px-5 py-6 shadow-sm shadow-[#173b32]/[0.03] sm:px-8 sm:py-8"
-  >
-    <div
-      class="pointer-events-none absolute inset-y-0 end-0 -z-10 w-2/3 bg-gradient-to-l from-[#eff8f2] via-[#f7fbf8] to-transparent"
-    ></div>
-    <span
-      class="inline-flex items-center gap-2 rounded-full border border-[#d8eddf] bg-[#f2faf4] px-3 py-1.5 text-[11px] font-extrabold text-[#087b59]"
-    >
-      <svg lucideIcon="book-open" [size]="15" aria-hidden="true"></svg>
-      بوابة الطالب
-    </span>
-    <h2
-      id="student-overview-heading"
-      class="mt-4 text-2xl font-black leading-[1.5] text-[#183e32] sm:text-[30px]"
-    >
-      مرحبًا بك في بوابة الطالب
-    </h2>
-    <p class="mt-2 max-w-2xl text-xs leading-7 text-[#5f7469] sm:text-sm">
-      ستظهر هنا معلوماتك الدراسية بعد ربط واجهات البوابة والتحقق من سياق الطالب.
-    </p>
-  </div>
-
-  <section class="mt-6" aria-label="ملخص الطالب">
-    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      @for (metric of metrics; track metric.label) {
-        <article class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-5">
-          <div class="flex items-center justify-between gap-3">
-            <h3 class="text-xs font-extrabold text-[#5d7468]">{{ metric.label }}</h3>
-            <span
-              class="grid size-10 place-items-center rounded-xl border border-[#e4eee7] bg-[#f7faf8] text-[#73877b]"
-              aria-hidden="true"
-            >
-              <svg [lucideIcon]="metric.icon" [size]="19"></svg>
-            </span>
-          </div>
-          <p class="mt-4 text-2xl font-black text-[#9aab9f]" aria-label="غير متاح بعد">—</p>
-          <p class="mt-1 text-[11px] font-semibold text-[#84948a]">بانتظار ربط البيانات</p>
-        </article>
-      }
+  @if (isLoading()) {
+    <div aria-live="polite" aria-busy="true">
+      <div class="h-36 animate-pulse rounded-2xl border border-[#e2ebe4] bg-white"></div>
+      <div class="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        @for (item of [1, 2, 3]; track item) {
+          <div class="h-32 animate-pulse rounded-2xl border border-[#e2ebe4] bg-white"></div>
+        }
+      </div>
+      <div class="mt-6 grid gap-4 xl:grid-cols-2">
+        <div class="h-64 animate-pulse rounded-2xl border border-[#e2ebe4] bg-white"></div>
+        <div class="h-64 animate-pulse rounded-2xl border border-[#e2ebe4] bg-white"></div>
+      </div>
+      <p class="sr-only">جارٍ تحميل بيانات نظرة عامة الطالب...</p>
     </div>
-  </section>
+  } @else if (errorMessage()) {
+    <section
+      class="rounded-2xl border border-[#f1d7d2] bg-white p-6 text-center"
+      role="alert"
+      aria-labelledby="student-overview-error"
+    >
+      <h2 id="student-overview-error" class="text-sm font-extrabold text-[#8d3c32]">
+        تعذّر تحميل البيانات
+      </h2>
+      <p class="mt-2 text-xs leading-6 text-[#765b56]">{{ errorMessage() }}</p>
+      <button
+        class="mt-4 min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white transition-colors hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+        type="button"
+        (click)="loadOverview()"
+      >
+        إعادة المحاولة
+      </button>
+    </section>
+  } @else if (overview(); as data) {
+    <div
+      class="relative isolate overflow-hidden rounded-2xl border border-[#dcebe1] bg-white px-5 py-6 shadow-sm shadow-[#173b32]/[0.03] sm:px-8 sm:py-8"
+    >
+      <div
+        class="pointer-events-none absolute inset-y-0 end-0 -z-10 w-2/3 bg-gradient-to-l from-[#eff8f2] via-[#f7fbf8] to-transparent"
+      ></div>
+      <span
+        class="inline-flex items-center gap-2 rounded-full border border-[#d8eddf] bg-[#f2faf4] px-3 py-1.5 text-[11px] font-extrabold text-[#087b59]"
+      >
+        <svg lucideIcon="book-open" [size]="15" aria-hidden="true"></svg>
+        بوابة الطالب
+      </span>
+      <h2
+        id="student-overview-heading"
+        class="mt-4 text-2xl font-black leading-[1.5] text-[#183e32] sm:text-[30px]"
+      >
+        مرحبًا بك، {{ data.studentName }}
+      </h2>
+      <p class="mt-2 max-w-2xl text-xs leading-7 text-[#5f7469] sm:text-sm">
+        إليك ملخص بياناتك الدراسية المسجلة.
+      </p>
+    </div>
 
-  <div class="mt-6 grid gap-4 xl:grid-cols-2">
-    <section class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-6">
-      <div class="mb-4">
-        <h2 class="text-sm font-extrabold text-[#29483d]">الجدول القادم</h2>
-        <p class="mt-1 text-xs leading-6 text-[#71847a]">مواعيد الحصص ستظهر بعد ربط البيانات.</p>
+    <section class="mt-6" aria-label="ملخص الطالب">
+      <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        @for (metric of metrics(data); track metric.label) {
+          <article class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-xs font-extrabold text-[#5d7468]">{{ metric.label }}</h3>
+              <span
+                class="grid size-10 place-items-center rounded-xl border border-[#e4eee7] bg-[#f7faf8] text-[#73877b]"
+                aria-hidden="true"
+              >
+                <svg [lucideIcon]="metric.icon" [size]="19"></svg>
+              </span>
+            </div>
+            <p class="mt-4 text-2xl font-black text-[#183e32]">{{ metric.value }}</p>
+          </article>
+        }
       </div>
-      <app-student-portal-pending-state
-        icon="calendar-days"
-        heading="لا توجد بيانات للعرض بعد"
-        description="سيظهر جدولك هنا عند توفر واجهة آمنة لبيانات الطالب."
-      />
     </section>
 
-    <section class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-6">
-      <div class="mb-4">
-        <h2 class="text-sm font-extrabold text-[#29483d]">ملخص الحضور</h2>
-        <p class="mt-1 text-xs leading-6 text-[#71847a]">بيانات الحضور غير متصلة حاليًا.</p>
-      </div>
-      <app-student-portal-pending-state
-        icon="clipboard-check"
-        heading="سيظهر ملخص الحضور هنا"
-        description="لن يتم عرض بيانات حتى تتوفر واجهة مرتبطة بملف الطالب المعتمد."
-      />
-    </section>
-  </div>
+    <div class="mt-6 grid gap-4 xl:grid-cols-2">
+      <section
+        class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-6"
+        aria-labelledby="student-upcoming-heading"
+      >
+        <div class="mb-4">
+          <h2 id="student-upcoming-heading" class="text-sm font-extrabold text-[#29483d]">
+            الجدول القادم
+          </h2>
+          <p class="mt-1 text-xs leading-6 text-[#71847a]">
+            الحصص المجدولة لمجموعاتك النشطة.
+          </p>
+        </div>
+        @if (data.upcomingSessions.length > 0) {
+          <ul class="divide-y divide-[#edf2ee]">
+            @for (session of data.upcomingSessions; track session.startsAt + session.groupName) {
+              <li class="flex flex-col gap-1 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div class="min-w-0">
+                  <p class="truncate text-xs font-extrabold text-[#29483d]">
+                    {{ session.title || session.groupName }}
+                  </p>
+                  @if (session.title && session.groupName) {
+                    <p class="mt-1 truncate text-[11px] text-[#71847a]">{{ session.groupName }}</p>
+                  }
+                </div>
+                <time
+                  class="shrink-0 text-[11px] font-semibold text-[#5f7469]"
+                  [attr.datetime]="session.startsAt"
+                >
+                  {{ formatDate(session.startsAt) }}
+                </time>
+              </li>
+            }
+          </ul>
+        } @else {
+          <app-student-portal-pending-state
+            icon="calendar-days"
+            heading="لا توجد حصص قادمة"
+            description="ستظهر هنا الحصص عند تسجيلك في مجموعة نشطة وجدولة مواعيدها."
+          />
+        }
+      </section>
+
+      <section
+        class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-6"
+        aria-labelledby="student-attendance-heading"
+      >
+        <div class="mb-4">
+          <h2 id="student-attendance-heading" class="text-sm font-extrabold text-[#29483d]">
+            ملخص الحضور
+          </h2>
+          <p class="mt-1 text-xs leading-6 text-[#71847a]">
+            إجمالي السجلات: {{ data.attendanceSummary.total }}
+            <span class="mx-1" aria-hidden="true">·</span>
+            حاضر: {{ data.attendanceSummary.present }}
+            <span class="mx-1" aria-hidden="true">·</span>
+            غائب: {{ data.attendanceSummary.absent }}
+          </p>
+        </div>
+        @if (data.recentAttendance.length > 0) {
+          <ul class="divide-y divide-[#edf2ee]">
+            @for (record of data.recentAttendance; track record.recordedAt + record.status) {
+              <li class="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                <span class="text-xs font-bold text-[#29483d]">
+                  {{ attendanceLabel(record.status) }}
+                </span>
+                <time
+                  class="text-[11px] font-semibold text-[#71847a]"
+                  [attr.datetime]="record.recordedAt"
+                >
+                  {{ formatDate(record.recordedAt) }}
+                </time>
+              </li>
+            }
+          </ul>
+        } @else {
+          <app-student-portal-pending-state
+            icon="clipboard-check"
+            heading="لا توجد سجلات حضور بعد"
+            description="ستظهر سجلات الحضور هنا بعد تسجيلها للحصص."
+          />
+        }
+      </section>
+    </div>
+  }
 </section>
