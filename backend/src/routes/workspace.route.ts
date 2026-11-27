@@ -17,6 +17,8 @@ import studyGroupRoutes from "./study-group.route";
 import subjectRoutes from "./subject.route";
 import studentRoutes from "./student.route";
 import { requireWorkspaceAccess } from "../middlewares/workspace-access.middleware";
+import studentInvitationRoutes from "./student-invitation.route";
+import studentInvitationApprovalRoutes from "./student-invitation-approval.route";
 import invoiceRoutes from "./invoice.route";
 import paymentRoutes from "./payment.route";
 import {
@@ -42,6 +44,16 @@ workspaceRoutes.use(passportAuthenticateJwt);
 
 workspaceRoutes
   .use("/:workspaceId/students", requireWorkspaceAccess(), studentRoutes)
+  .use(
+    "/:workspaceId/student-invitations",
+    requireWorkspaceAccess(),
+    studentInvitationRoutes,
+  )
+  .use(
+    "/:workspaceId/student-invitation-approvals",
+    requireWorkspaceAccess(),
+    studentInvitationApprovalRoutes,
+  )
   .use("/:workspaceId/guardians", requireWorkspaceAccess(), guardianRoutes)
   .use("/:workspaceId/sessions", requireWorkspaceAccess(), sessionRoutes)
   .use("/:workspaceId/invoices", requireWorkspaceAccess(), invoiceRoutes)
