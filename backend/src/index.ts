@@ -2,12 +2,12 @@ import "dotenv/config";
 import path from "path";
 import http from "http";
 import dns from "dns";
-import cors from "cors";
 import express, { Request, Response } from "express";
 import cookieParser from "cookie-parser";
 import passport from "passport";
 
 import { Env } from "./config/env.config";
+import { corsMiddleware } from "./config/cors.config";
 import { HTTPSTATUS } from "./config/http.config";
 import connectDatabase from "./config/database.config";
 import { errorHandler } from "./middlewares/errorHandler.middleware";
@@ -22,12 +22,7 @@ const app = express();
 app.use(express.json({ limit: "10MB" }));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
-app.use(
-    cors({
-        origin: Env.FRONTEND_ORIGIN,
-        credentials: true,
-    })
-);
+app.use(corsMiddleware);
 
 app.use(passport.initialize());
 

@@ -271,7 +271,7 @@ const localToUtcIso = (date: string, hour: number, minute: number): string => {
     const offset = /GMT([+-])(\d{2}):(\d{2})/.exec(offsetName ?? "GMT");
     const offsetMinutes = offset
         ? (Number(offset[2]) * 60 + Number(offset[3])) *
-          (offset[1] === "+" ? 1 : -1)
+        (offset[1] === "+" ? 1 : -1)
         : 0;
     return new Date(roughUtc.getTime() - offsetMinutes * 60_000).toISOString();
 };
@@ -336,10 +336,10 @@ const attendance: AttendancePlan[] = sessions
                     outcome < 6
                         ? "present"
                         : outcome < 8
-                          ? "absent"
-                          : outcome === 8
-                            ? "late"
-                            : "excused";
+                            ? "absent"
+                            : outcome === 8
+                                ? "late"
+                                : "excused";
                 return {
                     key: `${session.key}:${enrollment.studentKey}`,
                     sessionKey: session.key,
@@ -1027,19 +1027,19 @@ const printPreview = (
 }
 
 const createCounts = (): Counts =>
-    ({
-        students: { created: 0, skipped: 0, updated: 0 },
-        guardians: { created: 0, skipped: 0, updated: 0 },
-        guardianLinks: { created: 0, skipped: 0, updated: 0 },
-        subjects: { created: 0, skipped: 0, updated: 0 },
-        groups: { created: 0, skipped: 0, updated: 0 },
-        enrollments: { created: 0, skipped: 0, updated: 0 },
-        sessions: { created: 0, skipped: 0, updated: 0 },
-        attendance: { created: 0, skipped: 0, updated: 0 },
-        invoices: { created: 0, skipped: 0, updated: 0 },
-        payments: { created: 0, skipped: 0, updated: 0 },
-        allocations: { created: 0, skipped: 0, updated: 0 },
-    });
+({
+    students: { created: 0, skipped: 0, updated: 0 },
+    guardians: { created: 0, skipped: 0, updated: 0 },
+    guardianLinks: { created: 0, skipped: 0, updated: 0 },
+    subjects: { created: 0, skipped: 0, updated: 0 },
+    groups: { created: 0, skipped: 0, updated: 0 },
+    enrollments: { created: 0, skipped: 0, updated: 0 },
+    sessions: { created: 0, skipped: 0, updated: 0 },
+    attendance: { created: 0, skipped: 0, updated: 0 },
+    invoices: { created: 0, skipped: 0, updated: 0 },
+    payments: { created: 0, skipped: 0, updated: 0 },
+    allocations: { created: 0, skipped: 0, updated: 0 },
+});
 
 const main = async (): Promise<void> => {
     const apply = process.argv.includes("--apply");
@@ -1059,9 +1059,9 @@ const main = async (): Promise<void> => {
     const password = await readHiddenInput("Teacher password (input hidden): ");
     const api = new ApiClient();
     await api.login(TARGET_EMAIL, password);
-
-    const status = await api.get<ApiEnvelope<{ user: ApiRecord }>>("/auth/status");
-    const user = status.data.user;
+    
+    const status = await api.get<{ user: ApiRecord }>("/auth/status");
+    const user = status.user;
     const userId = field(user, "id");
     if (
         field(user, "email").toLowerCase() !== TARGET_EMAIL ||
