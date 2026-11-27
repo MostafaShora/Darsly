@@ -15,6 +15,7 @@ export const passwordSchema = z
   .max(128, "Password cannot exceed 128 characters");
 
 export const registerSchema = z.object({
+  accountType: z.literal("teacher").optional(),
   name: z
     .string()
     .trim()

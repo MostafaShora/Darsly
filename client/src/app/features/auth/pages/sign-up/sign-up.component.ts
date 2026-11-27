@@ -54,7 +54,7 @@ export class SignUpComponent {
     this.isSubmitting.set(true);
     this.apiError.set('');
     const { name, email, password } = this.form.getRawValue();
-    this.authService.register({ name, email, password }).subscribe({
+    this.authService.register({ accountType: 'teacher', name, email, password }).subscribe({
       next: () => {
         this.isSubmitting.set(false);
         this.successMessage.set('تم إنشاء حسابك بنجاح. جارٍ نقلك إلى لوحة التحكم.');

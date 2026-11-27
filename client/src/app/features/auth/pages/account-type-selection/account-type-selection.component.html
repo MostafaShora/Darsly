@@ -1,0 +1,89 @@
+<main
+  class="flex min-h-screen items-center justify-center bg-[#f7fbf8] px-4 py-8 sm:px-6 sm:py-12"
+  dir="rtl"
+  lang="ar"
+>
+  <div class="w-full max-w-[620px]">
+    <section
+      class="rounded-[24px] border border-[#e4eee8] bg-white px-5 py-7 shadow-[0_24px_70px_#153d3210] sm:rounded-[28px] sm:px-9 sm:py-9"
+      aria-labelledby="account-type-heading"
+    >
+      <a
+        class="mx-auto mb-5 flex h-[64px] w-[110px] items-center justify-center rounded-[12px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0ca879]"
+        routerLink="/"
+        aria-label="العودة إلى الصفحة الرئيسية"
+      >
+        <img
+          class="h-full w-full object-contain"
+          src="assets/images/logo/Darsly-Logo.png"
+          alt="شعار منصة دارسلي"
+        />
+      </a>
+
+      <header class="mb-7 text-center">
+        <p class="mb-2 text-xs font-extrabold text-[#087b59]">خطوة واحدة للبدء</p>
+        <h1
+          id="account-type-heading"
+          class="m-0 text-[26px] font-extrabold leading-[1.5] text-[#153d32] sm:text-[30px]"
+        >
+          كيف ستستخدم Darsly؟
+        </h1>
+        <p class="mb-0 mt-2 text-sm leading-7 text-[#6c8077]">
+          اختر المسار المناسب لك. يمكنك إضافة سياق آخر إلى حسابك لاحقًا.
+        </p>
+      </header>
+
+      <nav class="grid gap-4 sm:grid-cols-2" aria-label="اختيار نوع الحساب">
+        <a
+          class="group flex min-h-48 flex-col rounded-2xl border border-[#dce9e1] bg-[#fbfdfb] p-5 transition-colors hover:border-[#0ca879] hover:bg-[#f4faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] motion-reduce:transition-none"
+          routerLink="/sign-up/student"
+        >
+          <span
+            class="grid size-11 place-items-center rounded-xl border border-[#d8eddf] bg-white text-[#087b59]"
+            aria-hidden="true"
+          >
+            <svg lucideIcon="book-open" [size]="21"></svg>
+          </span>
+          <span class="mt-4 text-base font-extrabold text-[#29483d]">طالب</span>
+          <span class="mt-2 text-xs leading-6 text-[#6c8077]">
+            لديّ دعوة من مدرّسي لإكمال ربط ملفي الدراسي.
+          </span>
+          <span class="mt-auto pt-4 text-xs font-extrabold text-[#087b59]">
+            المتابعة كطالب
+            <span class="mr-1" aria-hidden="true">←</span>
+          </span>
+        </a>
+
+        <a
+          class="group flex min-h-48 flex-col rounded-2xl border border-[#dce9e1] bg-[#fbfdfb] p-5 transition-colors hover:border-[#0ca879] hover:bg-[#f4faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] motion-reduce:transition-none"
+          routerLink="/sign-up/teacher"
+        >
+          <span
+            class="grid size-11 place-items-center rounded-xl border border-[#d8eddf] bg-white text-[#087b59]"
+            aria-hidden="true"
+          >
+            <svg lucideIcon="users-round" [size]="21"></svg>
+          </span>
+          <span class="mt-4 text-base font-extrabold text-[#29483d]">مدرس</span>
+          <span class="mt-2 text-xs leading-6 text-[#6c8077]">
+            أريد إنشاء حساب لإدارة طلابي ومجموعاتي.
+          </span>
+          <span class="mt-auto pt-4 text-xs font-extrabold text-[#087b59]">
+            المتابعة كمدرس
+            <span class="mr-1" aria-hidden="true">←</span>
+          </span>
+        </a>
+      </nav>
+
+      <p class="mb-0 mt-6 text-center text-[13px] leading-[1.8] text-[#6c8077]">
+        لديك حساب بالفعل؟
+        <a
+          class="font-extrabold text-[#07845f] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-[#0ca879]"
+          routerLink="/sign-in"
+        >
+          سجّل الدخول
+        </a>
+      </p>
+    </section>
+  </div>
+</main>

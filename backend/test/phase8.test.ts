@@ -187,6 +187,17 @@ test("public registration strips requested capabilities and creates a teacher Us
     let createdCapabilities: UserCapability[] | undefined;
 
     assert.deepEqual(Object.keys(parsedBody).sort(), ["email", "name", "password"]);
+    assert.equal(
+        registerSchema.parse({ ...createBody, accountType: "teacher" })
+            .accountType,
+        "teacher"
+    );
+    assert.throws(() =>
+        registerSchema.parse({ ...createBody, accountType: "student" })
+    );
+    assert.throws(() =>
+        registerSchema.parse({ ...createBody, accountType: "admin" })
+    );
 
     t.mock.method(UserModel, "findOne", (async () => null) as never);
     t.mock.method(bcrypt, "hash", (async () => "hashed-password") as never);

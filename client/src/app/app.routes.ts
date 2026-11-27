@@ -15,8 +15,26 @@ export const routes: Routes = [
   {
     path: 'sign-up',
     loadComponent: () =>
+      import(
+        './features/auth/pages/account-type-selection/account-type-selection.component'
+      ).then(
+        (module) => module.AccountTypeSelectionComponent,
+      ),
+  },
+  {
+    path: 'sign-up/teacher',
+    loadComponent: () =>
       import('./features/auth/pages/sign-up/sign-up.component').then(
         (module) => module.SignUpComponent,
+      ),
+  },
+  {
+    path: 'sign-up/student',
+    loadComponent: () =>
+      import(
+        './features/auth/pages/student-invitation-sign-up/student-invitation-sign-up.component'
+      ).then(
+        (module) => module.StudentInvitationSignUpComponent,
       ),
   },
   {

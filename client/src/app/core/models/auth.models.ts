@@ -1,4 +1,5 @@
 export interface RegisterRequest {
+  accountType?: 'teacher';
   name: string;
   email: string;
   password: string;

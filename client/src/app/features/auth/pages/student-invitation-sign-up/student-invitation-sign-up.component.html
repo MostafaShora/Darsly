@@ -1,0 +1,372 @@
+<main
+  class="flex min-h-screen items-center justify-center bg-[#f7fbf8] px-4 py-8 sm:px-6 sm:py-12"
+  dir="rtl"
+  lang="ar"
+>
+  <div class="w-full max-w-[500px]">
+    <section
+      class="rounded-[24px] border border-[#e4eee8] bg-white px-5 py-7 shadow-[0_24px_70px_#153d3210] sm:rounded-[28px] sm:px-10 sm:py-9"
+      aria-labelledby="student-sign-up-heading"
+    >
+      <a
+        class="mx-auto mb-4 flex h-[64px] w-[110px] items-center justify-center rounded-[12px] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#0ca879]"
+        routerLink="/"
+        aria-label="العودة إلى الصفحة الرئيسية"
+      >
+        <img
+          class="h-full w-full object-contain"
+          src="assets/images/logo/Darsly-Logo.png"
+          alt="شعار منصة دارسلي"
+        />
+      </a>
+
+      @if (step() === 'invitation') {
+        <a
+          class="mb-4 inline-flex min-h-9 items-center rounded-lg px-2 text-xs font-bold text-[#087b59] transition-colors hover:bg-[#f1f8f3] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] motion-reduce:transition-none"
+          routerLink="/sign-up"
+        >
+          تغيير نوع الحساب
+        </a>
+      }
+
+      <header class="mb-6 text-center">
+        <p class="mb-2 text-xs font-extrabold text-[#087b59]">تسجيل الطالب</p>
+        <h1
+          id="student-sign-up-heading"
+          class="m-0 text-[26px] font-extrabold leading-[1.5] text-[#153d32] sm:text-[29px]"
+        >
+          @switch (step()) {
+            @case ('invitation') {
+              أكمل دعوة مدرّسك
+            }
+            @case ('otp') {
+              تحقق من بريدك الإلكتروني
+            }
+            @case ('account') {
+              أكمل إعداد حسابك
+            }
+            @case ('waiting') {
+              طلبك قيد المراجعة
+            }
+            @case ('active') {
+              تم تفعيل حسابك
+            }
+            @case ('rejected') {
+              تعذّر تفعيل الطلب
+            }
+          }
+        </h1>
+        <p class="mb-0 mt-2 text-sm leading-7 text-[#6c8077]">
+          @switch (step()) {
+            @case ('invitation') {
+              تحتاج إلى رمز دعوة صالح من مدرّسك لربط حسابك بملف الطالب الموجود.
+            }
+            @case ('otp') {
+              أرسلنا الرمز إلى البريد الإلكتروني المسجل لدى مدرّسك. لا تشارك الرمز مع أحد.
+            }
+            @case ('account') {
+              أنشئ كلمة مرور جديدة أو اربط حسابًا موجودًا بالبريد المسجل لدى مدرّسك.
+            }
+            @case ('waiting') {
+              لن يتم تفعيل الوصول إلى بيانات الطالب قبل اكتمال موافقة المدرّس.
+            }
+            @case ('active') {
+              أصبح بإمكانك متابعة بوابة الطالب بعد تسجيل الدخول.
+            }
+            @case ('rejected') {
+              تواصل مع مدرّسك بشأن الدعوة. لا تنشئ طلبًا جديدًا دون دعوة صالحة.
+            }
+          }
+        </p>
+      </header>
+
+      @if (errorMessage()) {
+        <p
+          class="mb-4 rounded-[12px] bg-[#fff1f0] px-4 py-3 text-[13px] leading-[1.8] text-[#b42318]"
+          role="alert"
+        >
+          {{ errorMessage() }}
+        </p>
+      }
+      @if (statusMessage()) {
+        <p
+          class="mb-4 rounded-[12px] bg-[#eaf8f0] px-4 py-3 text-[13px] leading-[1.8] text-[#087b59]"
+          role="status"
+          aria-live="polite"
+        >
+          {{ statusMessage() }}
+        </p>
+      }
+
+      @if (step() === 'invitation') {
+        <form
+          class="grid gap-4"
+          [formGroup]="invitationForm"
+          (ngSubmit)="startRedemption()"
+          novalidate
+        >
+          <div>
+            <label
+              for="student-invitation-secret"
+              class="mb-2 block text-[13px] font-bold text-[#29483d]"
+            >
+              رمز الدعوة
+            </label>
+            <input
+              id="student-invitation-secret"
+              class="w-full rounded-[12px] border border-[#dce9e1] bg-white px-4 py-3 text-left text-sm text-[#173b32] outline-none transition focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10 disabled:bg-[#f5f8f6]"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              dir="ltr"
+              formControlName="invitationSecret"
+              [attr.aria-invalid]="
+                invitationForm.controls.invitationSecret.invalid &&
+                invitationForm.controls.invitationSecret.touched
+              "
+              aria-describedby="student-invitation-hint"
+            />
+            <p id="student-invitation-hint" class="mb-0 mt-2 text-xs leading-6 text-[#71857b]">
+              أدخل الرمز الذي حصلت عليه من مدرّسك.
+            </p>
+            @if (
+              invitationForm.controls.invitationSecret.invalid &&
+              invitationForm.controls.invitationSecret.touched
+            ) {
+              <p class="mb-0 mt-2 text-xs text-[#b42318]" role="alert">أدخل رمز دعوة صالحًا.</p>
+            }
+          </div>
+          <button
+            class="mt-1 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0ca879] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#078f68] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] disabled:cursor-wait disabled:opacity-70 motion-reduce:transition-none"
+            type="submit"
+            [disabled]="isSubmitting()"
+          >
+            {{ isSubmitting() ? 'جارٍ التحقق...' : 'متابعة الدعوة' }}
+          </button>
+        </form>
+      } @else if (step() === 'otp') {
+        <form class="grid gap-4" [formGroup]="otpForm" (ngSubmit)="verifyOtp()" novalidate>
+          <div>
+            <label
+              for="student-invitation-otp"
+              class="mb-2 block text-[13px] font-bold text-[#29483d]"
+            >
+              رمز التحقق المكوّن من 6 أرقام
+            </label>
+            <input
+              id="student-invitation-otp"
+              class="w-full rounded-[12px] border border-[#dce9e1] bg-white px-4 py-3 text-center text-lg tracking-[0.3em] text-[#173b32] outline-none transition focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10 disabled:bg-[#f5f8f6]"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              dir="ltr"
+              formControlName="otp"
+              [attr.aria-invalid]="otpForm.controls.otp.invalid && otpForm.controls.otp.touched"
+            />
+            @if (otpForm.controls.otp.invalid && otpForm.controls.otp.touched) {
+              <p class="mb-0 mt-2 text-xs text-[#b42318]" role="alert">
+                أدخل رمزًا مكوّنًا من 6 أرقام.
+              </p>
+            }
+          </div>
+          <button
+            class="flex min-h-12 w-full items-center justify-center rounded-xl bg-[#0ca879] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#078f68] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] disabled:cursor-wait disabled:opacity-70 motion-reduce:transition-none"
+            type="submit"
+            [disabled]="isSubmitting()"
+          >
+            {{ isSubmitting() ? 'جارٍ التحقق...' : 'تأكيد الرمز' }}
+          </button>
+          <button
+            class="min-h-10 rounded-xl border border-[#dce9e1] px-4 py-2 text-xs font-extrabold text-[#087b59] transition-colors hover:bg-[#f4faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] disabled:opacity-60 motion-reduce:transition-none"
+            type="button"
+            [disabled]="isSendingOtp()"
+            (click)="requestOtp()"
+          >
+            {{ isSendingOtp() ? 'جارٍ إرسال الرمز...' : 'إعادة إرسال رمز التحقق' }}
+          </button>
+        </form>
+      } @else if (step() === 'account') {
+        <div
+          class="mb-4 grid grid-cols-2 rounded-xl bg-[#f2f7f3] p-1"
+          role="group"
+          aria-label="طريقة ربط الحساب"
+        >
+          <button
+            class="min-h-10 rounded-lg px-2 text-xs font-extrabold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0ca879] motion-reduce:transition-none"
+            [class.bg-white]="!useExistingAccount()"
+            [class.text-[#087b59]]="!useExistingAccount()"
+            [class.text-[#6c8077]]="useExistingAccount()"
+            type="button"
+            [attr.aria-pressed]="!useExistingAccount()"
+            (click)="useExistingAccount.set(false); errorMessage.set('')"
+          >
+            حساب جديد
+          </button>
+          <button
+            class="min-h-10 rounded-lg px-2 text-xs font-extrabold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#0ca879] motion-reduce:transition-none"
+            [class.bg-white]="useExistingAccount()"
+            [class.text-[#087b59]]="useExistingAccount()"
+            [class.text-[#6c8077]]="!useExistingAccount()"
+            type="button"
+            [attr.aria-pressed]="useExistingAccount()"
+            (click)="useExistingAccount.set(true); errorMessage.set('')"
+          >
+            لدي حساب بالفعل
+          </button>
+        </div>
+
+        @if (useExistingAccount()) {
+          <form
+            class="grid gap-4"
+            [formGroup]="existingAccountForm"
+            (ngSubmit)="claimExistingAccount()"
+            novalidate
+          >
+            <div>
+              <label
+                for="existing-student-email"
+                class="mb-2 block text-[13px] font-bold text-[#29483d]"
+              >
+                البريد الإلكتروني
+              </label>
+              <input
+                id="existing-student-email"
+                class="w-full rounded-[12px] border border-[#dce9e1] bg-white px-4 py-3 text-left text-sm text-[#173b32] outline-none transition focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10 disabled:bg-[#f5f8f6]"
+                type="email"
+                autocomplete="email"
+                dir="ltr"
+                formControlName="email"
+              />
+            </div>
+            <div>
+              <label
+                for="existing-student-password"
+                class="mb-2 block text-[13px] font-bold text-[#29483d]"
+              >
+                كلمة المرور
+              </label>
+              <input
+                id="existing-student-password"
+                class="w-full rounded-[12px] border border-[#dce9e1] bg-white px-4 py-3 text-left text-sm text-[#173b32] outline-none transition focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10 disabled:bg-[#f5f8f6]"
+                type="password"
+                autocomplete="current-password"
+                dir="ltr"
+                formControlName="password"
+              />
+            </div>
+            <button
+              class="min-h-12 rounded-xl bg-[#0ca879] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#078f68] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] disabled:cursor-wait disabled:opacity-70 motion-reduce:transition-none"
+              type="submit"
+              [disabled]="isSubmitting()"
+            >
+              {{ isSubmitting() ? 'جارٍ التحقق والربط...' : 'تسجيل الدخول وربط الحساب' }}
+            </button>
+          </form>
+        } @else {
+          <form
+            class="grid gap-4"
+            [formGroup]="accountForm"
+            (ngSubmit)="completeRegistration()"
+            novalidate
+          >
+            <div>
+              <label
+                for="new-student-password"
+                class="mb-2 block text-[13px] font-bold text-[#29483d]"
+              >
+                كلمة المرور
+              </label>
+              <input
+                id="new-student-password"
+                class="w-full rounded-[12px] border border-[#dce9e1] bg-white px-4 py-3 text-left text-sm text-[#173b32] outline-none transition focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10 disabled:bg-[#f5f8f6]"
+                type="password"
+                autocomplete="new-password"
+                dir="ltr"
+                formControlName="password"
+              />
+              <p class="mb-0 mt-2 text-xs leading-6 text-[#71857b]">استخدم 8 أحرف على الأقل.</p>
+            </div>
+            <div>
+              <label
+                for="confirm-student-password"
+                class="mb-2 block text-[13px] font-bold text-[#29483d]"
+              >
+                تأكيد كلمة المرور
+              </label>
+              <input
+                id="confirm-student-password"
+                class="w-full rounded-[12px] border border-[#dce9e1] bg-white px-4 py-3 text-left text-sm text-[#173b32] outline-none transition focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10 disabled:bg-[#f5f8f6]"
+                type="password"
+                autocomplete="new-password"
+                dir="ltr"
+                formControlName="confirmPassword"
+                [attr.aria-invalid]="
+                  accountForm.hasError('passwordMismatch') &&
+                  accountForm.controls.confirmPassword.touched
+                "
+              />
+              @if (
+                accountForm.hasError('passwordMismatch') &&
+                accountForm.controls.confirmPassword.touched
+              ) {
+                <p class="mb-0 mt-2 text-xs text-[#b42318]" role="alert">
+                  كلمتا المرور غير متطابقتين.
+                </p>
+              }
+            </div>
+            <button
+              class="min-h-12 rounded-xl bg-[#0ca879] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#078f68] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] disabled:cursor-wait disabled:opacity-70 motion-reduce:transition-none"
+              type="submit"
+              [disabled]="isSubmitting()"
+            >
+              {{ isSubmitting() ? 'جارٍ إنشاء الحساب...' : 'إنشاء حساب الطالب' }}
+            </button>
+          </form>
+        }
+      } @else if (step() === 'waiting') {
+        <div class="grid gap-3">
+          <button
+            class="min-h-12 rounded-xl bg-[#0ca879] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#078f68] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] disabled:cursor-wait disabled:opacity-70 motion-reduce:transition-none"
+            type="button"
+            [disabled]="isCheckingStatus()"
+            (click)="refreshApprovalStatus()"
+          >
+            {{ isCheckingStatus() ? 'جارٍ التحقق...' : 'التحقق من حالة الموافقة' }}
+          </button>
+          <a
+            class="min-h-10 rounded-xl px-4 py-2 text-center text-xs font-extrabold text-[#087b59] underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0ca879]"
+            routerLink="/sign-in"
+          >
+            تسجيل الدخول لاحقًا
+          </a>
+        </div>
+      } @else if (step() === 'active') {
+        <button
+          class="min-h-12 w-full rounded-xl bg-[#0ca879] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#078f68] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] motion-reduce:transition-none"
+          type="button"
+          (click)="openStudentPortal()"
+        >
+          {{ authService.currentUser() ? 'فتح بوابة الطالب' : 'تسجيل الدخول' }}
+        </button>
+      } @else {
+        <a
+          class="flex min-h-12 items-center justify-center rounded-xl border border-[#dce9e1] px-4 py-3 text-sm font-extrabold text-[#087b59] transition-colors hover:bg-[#f4faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0ca879] motion-reduce:transition-none"
+          routerLink="/sign-in"
+        >
+          تسجيل الدخول
+        </a>
+      }
+
+      <p class="mb-0 mt-5 text-center text-[13px] leading-[1.8] text-[#6c8077]">
+        لديك حساب بالفعل؟
+        <a
+          class="font-extrabold text-[#07845f] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-[#0ca879]"
+          routerLink="/sign-in"
+        >
+          سجّل الدخول
+        </a>
+      </p>
+    </section>
+  </div>
+</main>
