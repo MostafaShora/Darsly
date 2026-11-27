@@ -5,10 +5,12 @@ import EnrollmentModel from "../models/enrollment.model";
 import SessionModel from "../models/session.model";
 import StudentModel from "../models/student.model";
 import StudyGroupModel from "../models/study-group.model";
+import SubjectModel from "../models/subject.model";
 import type { StudentAccessContext } from "./student-context.service";
 import {
     StudentOverviewDto,
     StudentProfileDto,
+    StudentPortalGroupDto,
     toStudentProfileDto,
     toStudentRecentAttendanceDto,
 } from "../dtos/student-portal.dto";
@@ -43,6 +45,69 @@ export const getStudentProfileService = async (
         "_id name email phone schoolName grade"
     );
     return toStudentProfileDto(student);
+};
+
+export const getStudentGroupsService = async (
+    context: StudentAccessContext
+): Promise<StudentPortalGroupDto[]> => {
+    const now = new Date();
+    const workspaceId = context.workspaceId;
+    const studentId = context.studentId;
+    const enrollments = await EnrollmentModel.find({
+        workspaceId,
+        studentId,
+        status: "active",
+        enrolledAt: { $lte: now },
+    })
+        .select("groupId enrolledAt")
+        .sort({ enrolledAt: -1, _id: 1 });
+
+    if (enrollments.length === 0) {
+        return [];
+    }
+
+    const groups = await StudyGroupModel.find({
+        _id: { $in: enrollments.map((enrollment) => enrollment.groupId) },
+        workspaceId,
+        status: "active",
+    })
+        .select("_id name subjectId")
+        .sort({ name: 1, _id: 1 });
+
+    if (groups.length === 0) {
+        return [];
+    }
+
+    const subjects = await SubjectModel.find({
+        _id: { $in: groups.map((group) => group.subjectId) },
+        workspaceId,
+    }).select("_id name");
+    const subjectNameById = new Map(
+        subjects.map((subject) => [subject._id.toString(), subject.name])
+    );
+    const enrollmentByGroupId = new Map(
+        enrollments.map((enrollment) => [
+            enrollment.groupId.toString(),
+            enrollment,
+        ])
+    );
+
+    return groups.flatMap((group) => {
+        const enrollment = enrollmentByGroupId.get(group._id.toString());
+        if (!enrollment) {
+            return [];
+        }
+
+        return [
+            {
+                name: group.name,
+                subjectName:
+                    subjectNameById.get(group.subjectId.toString()) ?? null,
+                enrolledAt: serializeDate(enrollment.enrolledAt),
+                status: "active" as const,
+            },
+        ];
+    });
 };
 
 export const getStudentOverviewService = async (

@@ -10,6 +10,13 @@ export interface StudentProfileDto {
     grade: string | null;
 }
 
+export interface StudentPortalGroupDto {
+    name: string;
+    subjectName: string | null;
+    enrolledAt: string;
+    status: "active";
+}
+
 export interface StudentOverviewDto {
     studentName: string;
     activeGroupCount: number;

@@ -35,3 +35,10 @@ export interface StudentProfile {
   schoolName: string | null;
   grade: string | null;
 }
+
+export interface StudentPortalGroup {
+  name: string;
+  subjectName: string | null;
+  enrolledAt: string;
+  status: 'active';
+}

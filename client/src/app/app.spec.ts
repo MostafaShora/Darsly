@@ -2065,6 +2065,37 @@ describe('App', () => {
     expect(fixture.nativeElement.textContent).toContain(
       'مرحبًا بك، Student One',
     );
+
+    const groupsNavigation = router.navigateByUrl('/student/groups');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    httpTesting.expectOne('/api/student-contexts').flush({
+      message: 'Student contexts retrieved successfully',
+      data: [
+        {
+          studentAccountLinkId: 'owned-active-link',
+          studentName: 'Student One',
+          workspaceName: 'Workspace One',
+        },
+      ],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    httpTesting.expectOne('/api/student-contexts/selection').flush({
+      message: 'Student context validated successfully',
+      data: {
+        studentAccountLinkId: 'owned-active-link',
+        studentName: 'Student One',
+        workspaceName: 'Workspace One',
+      },
+    });
+    await groupsNavigation;
+    fixture.detectChanges();
+    httpTesting.expectOne('/api/student-portal/groups').flush({
+      message: 'Student groups retrieved successfully',
+      data: [],
+    });
+    fixture.detectChanges();
+    expect(router.url).toBe('/student/groups');
+    expect(fixture.nativeElement.textContent).toContain('لا توجد مجموعات نشطة');
     localStorage.removeItem('darsly.active-student-context.student-user-1');
   });
 

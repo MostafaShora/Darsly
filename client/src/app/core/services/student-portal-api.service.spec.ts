@@ -35,6 +35,40 @@ describe('StudentPortalApiService', () => {
 
   afterEach(() => httpTesting.verify());
 
+  it('uses the selected StudentAccountLink header for Groups requests', () => {
+    let groups: unknown;
+    service.getGroups().subscribe((result) => {
+      groups = result;
+    });
+    const request = httpTesting.expectOne(
+      `${environment.apiBaseUrl}/student-portal/groups`,
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.withCredentials).toBe(true);
+    expect(request.request.headers.get('X-Student-Account-Link')).toBe(linkId);
+    expect(request.request.body).toBeNull();
+    request.flush({
+      message: 'Student groups retrieved successfully',
+      data: [
+        {
+          name: 'Algebra Group',
+          subjectName: 'Mathematics',
+          enrolledAt: '2026-10-01T00:00:00.000Z',
+          status: 'active',
+        },
+      ],
+    });
+    expect(groups).toEqual([
+      {
+        name: 'Algebra Group',
+        subjectName: 'Mathematics',
+        enrolledAt: '2026-10-01T00:00:00.000Z',
+        status: 'active',
+      },
+    ]);
+    expect(selectedContextHeaders).toHaveBeenCalledTimes(1);
+  });
+
   it('uses the selected StudentAccountLink header for Overview and Profile requests', () => {
     service.getOverview().subscribe();
     const overviewRequest = httpTesting.expectOne(

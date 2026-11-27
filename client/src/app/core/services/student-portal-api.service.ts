@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import {
   StudentOverview,
   StudentProfile,
+  StudentPortalGroup,
 } from '../models/student-portal.models';
 import { StudentContextService } from './student-context.service';
 
@@ -18,6 +19,15 @@ export class StudentPortalApiService {
   private readonly http = inject(HttpClient);
   private readonly studentContextService = inject(StudentContextService);
   private readonly baseUrl = `${environment.apiBaseUrl}/student-portal`;
+
+  getGroups(): Observable<StudentPortalGroup[]> {
+    return this.http
+      .get<ApiResponse<StudentPortalGroup[]>>(`${this.baseUrl}/groups`, {
+        headers: this.studentContextService.selectedContextHeaders(),
+        withCredentials: true,
+      })
+      .pipe(map((response) => response.data));
+  }
 
   getOverview(): Observable<StudentOverview> {
     return this.http

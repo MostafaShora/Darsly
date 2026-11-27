@@ -1,4 +1,4 @@
 export const environment = {
-  apiBaseUrl: 'https://darsly-centeer.vercel.app/api',
-  production: true,
+  apiBaseUrl: '/api',
+  production: false,
 } as const;
