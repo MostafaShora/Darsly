@@ -317,22 +317,54 @@
               </time>
             </div>
 
-            <div
-              class="mt-5 flex min-h-[154px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#dce8df] bg-[#fafcfb] px-5 py-6 text-center sm:flex-row sm:text-start"
-            >
-              <span
-                class="grid size-12 shrink-0 place-items-center rounded-2xl border border-[#dcece1] bg-white text-[#14805e]"
-                aria-hidden="true"
-              >
-                <svg lucideIcon="calendar-days" [size]="23"></svg>
-              </span>
-              <div>
-                <h3 class="text-xs font-extrabold text-[#405c50]">إدارة الجلسات متاحة</h3>
-                <p class="mt-1 max-w-md text-[11px] leading-6 text-[#5f7469]">
-                  اعرض الجلسات حسب المجموعة والتاريخ، أو أنشئ جلسة جديدة.
+            <div class="mt-5 min-h-[154px] rounded-xl border border-[#dce8df] bg-[#fafcfb] p-3 sm:p-4">
+              @if (workspaceLoading()) {
+                <p class="py-10 text-center text-xs text-[#71847a]" role="status">جارٍ التحقق من مساحة العمل...</p>
+              } @else if (workspaceAvailability()?.kind !== 'active') {
+                <p class="py-10 text-center text-xs leading-6 text-[#71847a]">
+                  اختر مساحة عمل نشطة لعرض الحصص القادمة.
                 </p>
-                <a routerLink="/sessions" class="mt-3 inline-flex min-h-9 items-center rounded-lg border border-[#dce8df] px-3 text-[11px] font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">إدارة الجلسات</a>
-              </div>
+              } @else if (upcomingSessionsLoading()) {
+                <p class="py-10 text-center text-xs text-[#71847a]" role="status">جارٍ تحميل الحصص القادمة...</p>
+              } @else if (upcomingSessionsError()) {
+                <div class="flex min-h-[130px] flex-col items-center justify-center gap-3 text-center">
+                  <p class="text-xs leading-6 text-[#a23e35]" role="alert">{{ upcomingSessionsError() }}</p>
+                  <button
+                    class="min-h-9 rounded-lg border border-[#dce8df] px-3 text-[11px] font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                    type="button"
+                    (click)="retryDashboardData()"
+                  >إعادة المحاولة</button>
+                </div>
+              } @else if (upcomingSessions().length === 0) {
+                <div class="flex min-h-[130px] flex-col items-center justify-center gap-2 text-center">
+                  <p class="text-xs font-bold text-[#405c50]">لا توجد حصص مجدولة قادمة.</p>
+                  <p class="text-[11px] leading-6 text-[#71847a]">ستظهر هنا الحصص المسجلة في مساحة العمل.</p>
+                </div>
+              } @else {
+                <ul class="grid gap-2">
+                  @for (item of upcomingSessions(); track item.session.id) {
+                    <li class="rounded-lg border border-[#e5ece7] bg-white px-3 py-3">
+                      <div class="flex flex-wrap items-start justify-between gap-2">
+                        <div class="min-w-0">
+                          <p class="truncate text-xs font-extrabold text-[#29483d]">
+                            {{ item.session.title || 'جلسة دراسية' }}
+                          </p>
+                          <p class="mt-1 text-[10px] leading-5 text-[#71847a]">
+                            {{ item.group.name }} · {{ item.subject.name }}
+                          </p>
+                        </div>
+                        <span class="shrink-0 rounded-full bg-[#edf8f1] px-2.5 py-1 text-[9px] font-bold text-[#087b59]">
+                          {{ sessionStatusLabel(item.session.status) }}
+                        </span>
+                      </div>
+                      <time class="mt-2 block text-[10px] font-semibold text-[#526b5f]" [attr.datetime]="item.session.startsAt">
+                        {{ formatSessionDate(item.session.startsAt) }}
+                      </time>
+                    </li>
+                  }
+                </ul>
+              }
+              <a routerLink="/sessions" class="mt-3 inline-flex min-h-9 items-center rounded-lg border border-[#dce8df] px-3 text-[11px] font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700">إدارة الجلسات</a>
             </div>
           </section>
 
@@ -347,25 +379,49 @@
               </span>
               <div>
                 <h2 id="activity-heading" class="text-sm font-black text-[#25483b]">
-                  الحضور والمالية
+                  النشاط الأخير
                 </h2>
-                <p class="mt-1 text-[10px] text-[#5f7469]">ملخص الفترة الحالية</p>
+                <p class="mt-1 text-[10px] text-[#5f7469]">آخر سجلات الحضور والمدفوعات</p>
               </div>
             </div>
-            <div
-              class="mt-5 grid min-h-[154px] gap-3 rounded-xl border border-[#dce8df] bg-[#fafcfb] px-4 py-4"
-            >
-              @if (summary(); as currentSummary) {
-                <div class="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                  <span class="text-[11px] text-[#71847a]">نسبة الحضور</span>
-                  <strong class="text-sm text-[#087b59]">{{ formatRate(currentSummary.attendance?.attendanceRate) }}</strong>
+            <div class="mt-5 grid min-h-[154px] content-start gap-2 rounded-xl border border-[#dce8df] bg-[#fafcfb] px-3 py-3">
+              @if (workspaceLoading()) {
+                <p class="py-10 text-center text-xs text-[#71847a]" role="status">جارٍ التحقق من مساحة العمل...</p>
+              } @else if (workspaceAvailability()?.kind !== 'active') {
+                <p class="py-10 text-center text-xs leading-6 text-[#71847a]">
+                  اختر مساحة عمل نشطة لعرض النشاط.
+                </p>
+              } @else if (recentActivityLoading()) {
+                <p class="py-10 text-center text-xs text-[#71847a]" role="status">جارٍ تحميل النشاط...</p>
+              } @else if (recentActivityError()) {
+                <div class="flex min-h-[130px] flex-col items-center justify-center gap-3 text-center">
+                  <p class="text-xs leading-6 text-[#a23e35]" role="alert">{{ recentActivityError() }}</p>
+                  <button
+                    class="min-h-9 rounded-lg border border-[#dce8df] px-3 text-[11px] font-extrabold text-[#087b59] hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+                    type="button"
+                    (click)="retryDashboardData()"
+                  >إعادة المحاولة</button>
                 </div>
-                <div class="flex items-center justify-between rounded-lg bg-white px-3 py-2">
-                  <span class="text-[11px] text-[#71847a]">مدفوعات غير مخصّصة</span>
-                  <strong class="text-sm text-[#087b59]" dir="ltr">{{ formatMoney(currentSummary.finance?.unallocatedPayments) }} ج.م</strong>
-                </div>
+              } @else if (recentActivity().length === 0) {
+                <p class="py-10 text-center text-xs leading-6 text-[#71847a]">
+                  لا توجد سجلات حضور أو مدفوعات حديثة.
+                </p>
               } @else {
-                <p class="text-[11px] leading-6 text-[#71847a]">تظهر الملخصات بعد التحقق من مساحة عمل نشطة.</p>
+                @for (activity of recentActivity(); track activity.type + activity.id) {
+                  <article class="rounded-lg border border-[#e5ece7] bg-white px-3 py-2.5">
+                    <div class="flex items-start justify-between gap-2">
+                      <p class="text-[11px] font-bold leading-5 text-[#405c50]">
+                        {{ activityDescription(activity) }}
+                      </p>
+                      <span class="shrink-0 rounded-full bg-[#f2f5f3] px-2 py-1 text-[9px] font-bold text-[#5f7469]">
+                        {{ activityStatusLabel(activity) }}
+                      </span>
+                    </div>
+                    <time class="mt-1 block text-[10px] text-[#71847a]" [attr.datetime]="activity.occurredAt">
+                      {{ formatSessionDate(activity.occurredAt) }}
+                    </time>
+                  </article>
+                }
               }
               <a
                 routerLink="/reports"

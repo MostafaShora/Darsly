@@ -39,6 +39,10 @@ export const reportRangeQuerySchema = z
         }
     );
 
+export const dashboardActivityQuerySchema = z.object({
+    limit: z.coerce.number().int().min(1).max(10).default(5),
+});
+
 export const attendanceReportQuerySchema = z
     .object({
         ...reportRangeFields,
@@ -71,6 +75,9 @@ export const financeReportQuerySchema = z
     );
 
 export type ReportRangeQuery = z.infer<typeof reportRangeQuerySchema>;
+export type DashboardActivityQuery = z.infer<
+    typeof dashboardActivityQuerySchema
+>;
 export type AttendanceReportQuery = z.infer<
     typeof attendanceReportQuerySchema
 >;

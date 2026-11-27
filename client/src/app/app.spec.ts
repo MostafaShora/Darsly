@@ -39,6 +39,7 @@ import { LearningService } from './core/services/learning.service';
 import { PeopleService } from './core/services/people.service';
 import {
   AttendanceReport,
+  DashboardActivityItem,
   DashboardSummary,
   FinanceReport,
   ReportService,
@@ -787,6 +788,44 @@ describe('App', () => {
         unallocatedPayments: '0',
       },
     };
+    const upcomingSession: Session = {
+      id: 'session-dashboard-upcoming',
+      groupId: 'group-dashboard-upcoming',
+      title: 'مراجعة الجبر',
+      startsAt: '2026-11-28T10:00:00.000Z',
+      endsAt: '2026-11-28T11:00:00.000Z',
+      status: 'scheduled',
+      notes: '',
+      createdAt: '2026-11-20T10:00:00.000Z',
+      updatedAt: '2026-11-20T10:00:00.000Z',
+    };
+    const upcomingGroup: StudyGroup = {
+      id: upcomingSession.groupId,
+      subjectId: 'subject-dashboard-upcoming',
+      name: 'المجموعة الأولى',
+      description: '',
+      monthlyFee: '0',
+      capacity: null,
+      status: 'active',
+      createdAt: '2026-11-01T10:00:00.000Z',
+      updatedAt: '2026-11-01T10:00:00.000Z',
+    };
+    const upcomingSubject: Subject = {
+      id: upcomingGroup.subjectId,
+      name: 'الرياضيات',
+      description: '',
+      status: 'active',
+      createdAt: '2026-11-01T10:00:00.000Z',
+      updatedAt: '2026-11-01T10:00:00.000Z',
+    };
+    const recentPayment: DashboardActivityItem = {
+      id: 'payment-dashboard-recent',
+      type: 'payment',
+      occurredAt: '2026-11-27T07:00:00.000Z',
+      amount: '150.00',
+      method: 'cash',
+      status: 'completed',
+    };
     let availabilityResponse: Observable<WorkspaceAvailability>;
     const workspaceServiceMock = {
       getWorkspaceAvailability: vi.fn<WorkspaceService['getWorkspaceAvailability']>(),
@@ -794,6 +833,12 @@ describe('App', () => {
     };
     const reportServiceMock = {
       getDashboard: vi.fn<ReportService['getDashboard']>(),
+      getDashboardActivity: vi.fn<ReportService['getDashboardActivity']>(),
+    };
+    const learningServiceMock = {
+      listSessions: vi.fn<LearningService['listSessions']>(),
+      getGroup: vi.fn<LearningService['getGroup']>(),
+      getSubject: vi.fn<LearningService['getSubject']>(),
     };
 
     beforeEach(async () => {
@@ -804,6 +849,15 @@ describe('App', () => {
         .mockImplementation(() => availabilityResponse);
       workspaceServiceMock.watchWorkspaceAvailability.mockReset();
       reportServiceMock.getDashboard.mockReset().mockReturnValue(of(dashboardSummary));
+      reportServiceMock.getDashboardActivity.mockReset().mockReturnValue(of([]));
+      learningServiceMock.listSessions.mockReset().mockReturnValue(
+        of({
+          items: [],
+          pagination: { page: 1, pageSize: 5, totalItems: 0, totalPages: 0 },
+        }),
+      );
+      learningServiceMock.getGroup.mockReset().mockReturnValue(of(upcomingGroup));
+      learningServiceMock.getSubject.mockReset().mockReturnValue(of(upcomingSubject));
       await TestBed.configureTestingModule({
         imports: [DashboardComponent],
         providers: [
@@ -823,6 +877,7 @@ describe('App', () => {
           },
           { provide: WorkspaceService, useValue: workspaceServiceMock },
           { provide: ReportService, useValue: reportServiceMock },
+          { provide: LearningService, useValue: learningServiceMock },
         ],
       });
       TestBed.overrideComponent(DashboardComponent, {
@@ -837,6 +892,20 @@ describe('App', () => {
             } @else if (summary(); as currentSummary) {
               <p>{{ currentSummary.students.total }}</p>
             }
+            @if (upcomingSessionsLoading()) {
+              <p>جارٍ تحميل الحصص القادمة...</p>
+            } @else if (upcomingSessionsError()) {
+              <p role="alert">{{ upcomingSessionsError() }}</p>
+            } @else if (workspaceAvailability()?.kind === 'active' && upcomingSessions().length === 0) {
+              <p>لا توجد حصص مجدولة قادمة.</p>
+            }
+            @if (recentActivityLoading()) {
+              <p>جارٍ تحميل النشاط...</p>
+            } @else if (recentActivityError()) {
+              <p role="alert">{{ recentActivityError() }}</p>
+            } @else if (workspaceAvailability()?.kind === 'active' && recentActivity().length === 0) {
+              <p>لا توجد سجلات حضور أو مدفوعات حديثة.</p>
+            }
           `,
         },
       });
@@ -850,6 +919,183 @@ describe('App', () => {
       expect(reportServiceMock.getDashboard).not.toHaveBeenCalled();
       expect(fixture.componentInstance.summary()).toBeNull();
       expect(fixture.nativeElement.textContent).toContain('مساحة العمل معلّقة');
+    });
+
+    it('loads upcoming sessions and recent persisted activity for the active Workspace', () => {
+      availabilityResponse = of({ kind: 'active', workspace: activeWorkspace });
+      learningServiceMock.listSessions.mockReturnValue(
+        of({
+          items: [upcomingSession],
+          pagination: { page: 1, pageSize: 5, totalItems: 1, totalPages: 1 },
+        }),
+      );
+      reportServiceMock.getDashboardActivity.mockReturnValue(of([recentPayment]));
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(learningServiceMock.listSessions).toHaveBeenCalledWith(
+        activeWorkspace._id,
+        expect.objectContaining({
+          page: 1,
+          pageSize: 5,
+          status: 'scheduled',
+          from: expect.any(String),
+        }),
+      );
+      expect(learningServiceMock.getGroup).toHaveBeenCalledWith(
+        activeWorkspace._id,
+        upcomingSession.groupId,
+      );
+      expect(learningServiceMock.getSubject).toHaveBeenCalledWith(
+        activeWorkspace._id,
+        upcomingGroup.subjectId,
+      );
+      expect(reportServiceMock.getDashboardActivity).toHaveBeenCalledWith(
+        activeWorkspace._id,
+        5,
+      );
+      expect(component.upcomingSessions()).toEqual([
+        { session: upcomingSession, group: upcomingGroup, subject: upcomingSubject },
+      ]);
+      expect(component.recentActivity()).toEqual([recentPayment]);
+    });
+
+    it('shows empty states when the active Workspace has no upcoming sessions or recent activity', () => {
+      availabilityResponse = of({ kind: 'active', workspace: activeWorkspace });
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(component.upcomingSessions()).toEqual([]);
+      expect(component.upcomingSessionsLoading()).toBe(false);
+      expect(component.recentActivity()).toEqual([]);
+      expect(component.recentActivityLoading()).toBe(false);
+      expect(component.upcomingSessionsError()).toBe('');
+      expect(component.recentActivityError()).toBe('');
+      expect(fixture.nativeElement.textContent).toContain('لا توجد حصص مجدولة قادمة.');
+      expect(fixture.nativeElement.textContent).toContain('لا توجد سجلات حضور أو مدفوعات حديثة.');
+    });
+
+    it('shows loading states while schedule and activity requests are pending', () => {
+      availabilityResponse = of({ kind: 'active', workspace: activeWorkspace });
+      const sessionResponse = new RxSubject<PageResult<Session>>();
+      const activityResponse = new RxSubject<DashboardActivityItem[]>();
+      learningServiceMock.listSessions.mockReturnValue(sessionResponse);
+      reportServiceMock.getDashboardActivity.mockReturnValue(activityResponse);
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(component.upcomingSessionsLoading()).toBe(true);
+      expect(component.recentActivityLoading()).toBe(true);
+      expect(fixture.nativeElement.textContent).toContain('جارٍ تحميل الحصص القادمة...');
+      expect(fixture.nativeElement.textContent).toContain('جارٍ تحميل النشاط...');
+
+      sessionResponse.next({
+        items: [],
+        pagination: { page: 1, pageSize: 5, totalItems: 0, totalPages: 0 },
+      });
+      activityResponse.next([]);
+      expect(component.upcomingSessionsLoading()).toBe(false);
+      expect(component.recentActivityLoading()).toBe(false);
+    });
+
+    it('reports upcoming-session and recent-activity API failures independently', () => {
+      availabilityResponse = of({ kind: 'active', workspace: activeWorkspace });
+      learningServiceMock.listSessions.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 500 })),
+      );
+      reportServiceMock.getDashboardActivity.mockReturnValue(
+        throwError(() => new HttpErrorResponse({ status: 500 })),
+      );
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+
+      expect(component.upcomingSessionsError()).toBe('تعذر تحميل الحصص القادمة.');
+      expect(component.upcomingSessionsLoading()).toBe(false);
+      expect(component.recentActivityError()).toBe('تعذر تحميل النشاط الأخير.');
+      expect(component.recentActivityLoading()).toBe(false);
+      expect(fixture.nativeElement.querySelector('[role="alert"]')?.textContent).toContain(
+        'تعذر تحميل الحصص القادمة.',
+      );
+    });
+
+    it('clears activity and upcoming sessions on Workspace switch and ignores stale responses', () => {
+      const workspaceChanges = new RxSubject<WorkspaceAvailability>();
+      const previousSessionResponse = new RxSubject<PageResult<Session>>();
+      const currentSessionResponse = new RxSubject<PageResult<Session>>();
+      const previousActivityResponse = new RxSubject<DashboardActivityItem[]>();
+      const currentActivityResponse = new RxSubject<DashboardActivityItem[]>();
+      const nextWorkspace: Workspace = {
+        ...activeWorkspace,
+        _id: 'workspace-dashboard-activity-next',
+        name: 'مساحة النشاط الثانية',
+        slug: 'workspace-dashboard-activity-next',
+      };
+      workspaceServiceMock.watchWorkspaceAvailability.mockReturnValue(workspaceChanges);
+      learningServiceMock.listSessions
+        .mockReset()
+        .mockReturnValueOnce(previousSessionResponse)
+        .mockReturnValueOnce(currentSessionResponse);
+      reportServiceMock.getDashboardActivity
+        .mockReset()
+        .mockReturnValueOnce(previousActivityResponse)
+        .mockReturnValueOnce(currentActivityResponse);
+      const fixture = TestBed.createComponent(DashboardComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      const emptyPage: PageResult<Session> = {
+        items: [],
+        pagination: { page: 1, pageSize: 5, totalItems: 0, totalPages: 0 },
+      };
+
+      workspaceChanges.next({ kind: 'active', workspace: activeWorkspace });
+      workspaceChanges.next({ kind: 'active', workspace: nextWorkspace });
+      expect(component.upcomingSessions()).toEqual([]);
+      expect(component.recentActivity()).toEqual([]);
+      expect(reportServiceMock.getDashboardActivity).toHaveBeenNthCalledWith(
+        1,
+        activeWorkspace._id,
+        5,
+      );
+      expect(reportServiceMock.getDashboardActivity).toHaveBeenNthCalledWith(
+        2,
+        nextWorkspace._id,
+        5,
+      );
+      expect(learningServiceMock.listSessions).toHaveBeenNthCalledWith(
+        1,
+        activeWorkspace._id,
+        expect.any(Object),
+      );
+      expect(learningServiceMock.listSessions).toHaveBeenNthCalledWith(
+        2,
+        nextWorkspace._id,
+        expect.any(Object),
+      );
+
+      previousActivityResponse.next([recentPayment]);
+      previousSessionResponse.next({
+        ...emptyPage,
+        items: [upcomingSession],
+        pagination: { ...emptyPage.pagination, totalItems: 1, totalPages: 1 },
+      });
+      expect(component.recentActivity()).toEqual([]);
+      expect(component.upcomingSessions()).toEqual([]);
+      expect(learningServiceMock.getGroup).not.toHaveBeenCalled();
+
+      currentActivityResponse.next([recentPayment]);
+      currentSessionResponse.next({
+        ...emptyPage,
+        items: [upcomingSession],
+        pagination: { ...emptyPage.pagination, totalItems: 1, totalPages: 1 },
+      });
+      expect(component.recentActivity()).toEqual([recentPayment]);
+      expect(component.upcomingSessions()).toEqual([
+        { session: upcomingSession, group: upcomingGroup, subject: upcomingSubject },
+      ]);
     });
 
     it('clears dashboard data when refreshed workspace state becomes suspended', () => {
@@ -3879,6 +4125,42 @@ describe('App', () => {
       expect(workspaces).toEqual([apiWorkspace]);
       expect(created).toEqual(apiWorkspace);
       expect(details).toEqual(apiWorkspace);
+      httpTesting.verify();
+    });
+
+    it('loads recent dashboard activity using the Workspace-scoped endpoint and bounded limit', () => {
+      const reportService = TestBed.inject(ReportService);
+      const httpTesting = TestBed.inject(HttpTestingController);
+      let activity: DashboardActivityItem[] = [];
+
+      reportService.getDashboardActivity('workspace-activity', 5).subscribe((result) => {
+        activity = result;
+      });
+      const request = httpTesting.expectOne(
+        '/api/workspaces/workspace-activity/dashboard/activity?limit=5',
+      );
+      expect(request.request.method).toBe('GET');
+      expect(request.request.withCredentials).toBe(true);
+      request.flush({
+        message: 'Dashboard activity retrieved successfully',
+        data: [
+          {
+            id: 'attendance-1',
+            type: 'attendance',
+            occurredAt: '2026-11-27T07:00:00.000Z',
+            status: 'present',
+          },
+        ],
+      });
+
+      expect(activity).toEqual([
+        {
+          id: 'attendance-1',
+          type: 'attendance',
+          occurredAt: '2026-11-27T07:00:00.000Z',
+          status: 'present',
+        },
+      ]);
       httpTesting.verify();
     });
 

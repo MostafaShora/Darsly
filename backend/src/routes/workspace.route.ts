@@ -20,12 +20,14 @@ import { requireWorkspaceAccess } from "../middlewares/workspace-access.middlewa
 import invoiceRoutes from "./invoice.route";
 import paymentRoutes from "./payment.route";
 import {
+  getDashboardActivityController,
   getAttendanceReportController,
   getDashboardSummaryController,
   getFinanceReportController,
 } from "../controllers/report.controller";
 import { validateRequest } from "../middlewares/validate-request.middleware";
 import {
+  dashboardActivityQuerySchema,
   attendanceReportQuerySchema,
   financeReportQuerySchema,
   reportRangeQuerySchema,
@@ -47,6 +49,12 @@ workspaceRoutes
   .use("/:workspaceId/enrollments", requireWorkspaceAccess(), enrollmentRoutes);
 
 workspaceRoutes
+  .get(
+    "/:workspaceId/dashboard/activity",
+    requireWorkspaceAccess(),
+    validateRequest({ query: dashboardActivityQuerySchema }),
+    getDashboardActivityController,
+  )
   .get(
     "/:workspaceId/dashboard/summary",
     requireWorkspaceAccess(),

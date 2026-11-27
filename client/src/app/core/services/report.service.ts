@@ -53,6 +53,22 @@ export interface DashboardSummary {
   };
 }
 
+export type DashboardActivityItem =
+  | {
+      id: string;
+      type: 'attendance';
+      occurredAt: string;
+      status: 'present' | 'absent' | 'late' | 'excused';
+    }
+  | {
+      id: string;
+      type: 'payment';
+      occurredAt: string;
+      amount: string;
+      method: 'cash' | 'bank_transfer' | 'card' | 'wallet' | 'other';
+      status: 'pending' | 'completed' | 'failed' | 'refunded';
+    };
+
 export interface AttendanceReport {
   period: ReportPeriod;
   summary: DashboardSummary['attendance'];
@@ -127,6 +143,16 @@ export class ReportService {
     return this.http
       .get<ApiResponse<DashboardSummary>>(
         `${this.baseUrl}/${workspaceId}/dashboard/summary`,
+        { withCredentials: true, params },
+      )
+      .pipe(mapResponse());
+  }
+
+  getDashboardActivity(workspaceId: string, limit = 5): Observable<DashboardActivityItem[]> {
+    const params = new HttpParams().set('limit', limit);
+    return this.http
+      .get<ApiResponse<DashboardActivityItem[]>>(
+        `${this.baseUrl}/${encodeURIComponent(workspaceId)}/dashboard/activity`,
         { withCredentials: true, params },
       )
       .pipe(mapResponse());

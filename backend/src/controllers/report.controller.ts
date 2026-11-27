@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware";
 import { getWorkspaceContext } from "../middlewares/workspace-access.middleware";
 import { getValidatedPart } from "../middlewares/validate-request.middleware";
+import { getDashboardActivityService } from "../services/dashboard-activity.service";
 import {
     getAttendanceReportService,
     getDashboardSummaryService,
@@ -9,12 +10,26 @@ import {
 } from "../services/report.service";
 import {
     AttendanceReportQuery,
+    DashboardActivityQuery,
     FinanceReportQuery,
     ReportRangeQuery,
 } from "../validators/report.validation";
 
 const getWorkspaceId = (req: Request) =>
     getWorkspaceContext(req).workspace._id;
+
+export const getDashboardActivityController = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+        const activity = await getDashboardActivityService(
+            getWorkspaceId(req),
+            getValidatedPart<DashboardActivityQuery>(req, "query").limit
+        );
+        res.status(200).json({
+            message: "Dashboard activity retrieved successfully",
+            data: activity,
+        });
+    }
+);
 
 export const getDashboardSummaryController = asyncHandler(
     async (req: Request, res: Response): Promise<void> => {
