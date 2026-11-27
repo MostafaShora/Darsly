@@ -27,6 +27,7 @@ import { getApiErrorMessage } from '../../core/utils/api-error';
 import { formatFinanceTimestamp, formatMoneyExact } from '../../core/utils/finance';
 import { localDateTimeToIso } from '../../core/utils/local-date-time';
 import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
+import { CustomSelectComponent } from '../../shared/components/custom-select/custom-select.component';
 
 type InvoiceView = 'list' | 'create' | 'detail';
 
@@ -57,7 +58,7 @@ const periodRangeValidator: ValidatorFn = (control) => {
 @Component({
   selector: 'app-invoices',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
+  imports: [CustomSelectComponent, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './invoices.component.html',
 })
 export class InvoicesComponent {

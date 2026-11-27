@@ -23,6 +23,10 @@ import {
   localDateTimeToIso,
   utcDateTimeToLocalInput,
 } from '../../core/utils/local-date-time';
+import {
+  CustomSelectComponent,
+  CustomSelectOption,
+} from '../../shared/components/custom-select/custom-select.component';
 
 export {
   localDateBoundaryToIso,
@@ -64,7 +68,7 @@ const sessionDateRangeValidator: ValidatorFn = (control) => {
 @Component({
   selector: 'app-sessions',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
+  imports: [CustomSelectComponent, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './sessions.component.html',
 })
 export class SessionsComponent {
@@ -76,6 +80,12 @@ export class SessionsComponent {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly statuses = SESSION_STATUSES;
+  readonly groupFilterSelectOptions = computed<CustomSelectOption[]>(() =>
+    this.groupFilterOptions().map((item) => ({
+      value: item.id,
+      label: `${item.name} (${item.status === 'active' ? 'نشطة' : item.status === 'inactive' ? 'غير نشطة' : 'مؤرشفة'})`,
+    })),
+  );
   readonly groupSearch = new FormControl('', { nonNullable: true });
   readonly filters = this.formBuilder.nonNullable.group({
     groupId: [''],

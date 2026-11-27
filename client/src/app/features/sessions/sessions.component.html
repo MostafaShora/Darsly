@@ -52,23 +52,23 @@
             <input id="session-to" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" type="date" formControlName="to" />
           </label>
           <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="session-status-filter">الحالة
-            <select id="session-status-filter" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" formControlName="status">
-              <option value="">كل الحالات</option>
-              @for (status of statuses; track status.value) {
-                <option [value]="status.value">{{ status.label }}</option>
-              }
-            </select>
+            <app-custom-select
+              controlId="session-status-filter"
+              [options]="statuses"
+              placeholder="كل الحالات"
+              formControlName="status"
+            ></app-custom-select>
           </label>
           <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="session-group-search">ابحث عن مجموعة
             <input id="session-group-search" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" type="search" maxlength="100" [formControl]="groupSearch" />
           </label>
           <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="session-group-filter">المجموعة
-            <select id="session-group-filter" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" formControlName="groupId">
-              <option value="">كل المجموعات</option>
-              @for (item of groupFilterOptions(); track item.id) {
-                <option [value]="item.id">{{ item.name }} ({{ item.status === 'active' ? 'نشطة' : item.status === 'inactive' ? 'غير نشطة' : 'مؤرشفة' }})</option>
-              }
-            </select>
+            <app-custom-select
+              controlId="session-group-filter"
+              [options]="groupFilterSelectOptions()"
+              placeholder="كل المجموعات"
+              formControlName="groupId"
+            ></app-custom-select>
           </label>
           <div class="flex items-end sm:col-span-2 xl:col-span-5">
             <button type="submit" class="min-h-11 rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60" [disabled]="loading()">تطبيق الفلاتر</button>
@@ -205,11 +205,11 @@
             </label>
             @if (!isCreating()) {
               <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="session-status">الحالة
-                <select id="session-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" formControlName="status">
-                  @for (status of statuses; track status.value) {
-                    <option [value]="status.value">{{ status.label }}</option>
-                  }
-                </select>
+                <app-custom-select
+                  controlId="session-status"
+                  [options]="statuses"
+                  formControlName="status"
+                ></app-custom-select>
               </label>
             }
             <label class="grid gap-1 text-xs font-bold text-[#38554a] sm:col-span-2" for="session-notes">ملاحظات

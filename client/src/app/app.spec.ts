@@ -1,6 +1,7 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
   ActivatedRoute,
   NavigationEnd,
@@ -9,7 +10,7 @@ import {
   convertToParamMap,
   provideRouter,
 } from '@angular/router';
-import { Component, Type, signal } from '@angular/core';
+import { Component, Type, ViewChild, signal } from '@angular/core';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { Observable, filter, firstValueFrom, of, Subject as RxSubject, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -72,6 +73,10 @@ import { WorkspaceOnboardingComponent } from './features/workspace/workspace-onb
 import { WorkspaceSelectorComponent } from './features/workspace/workspace-selector.component';
 import { DashboardComponent } from './features/dashboard/dashboard.component';
 import { formatMoneyExact, isPositiveDecimalString } from './core/utils/finance';
+import {
+  CustomSelectComponent,
+  CustomSelectOption,
+} from './shared/components/custom-select/custom-select.component';
 
 @Component({
   selector: 'app-dashboard-route-probe',
@@ -86,6 +91,42 @@ class DashboardRouteProbe {}
   template: '<p>Workspace onboarding destination</p>',
 })
 class WorkspaceOnboardingRouteProbe {}
+
+@Component({
+  selector: 'app-custom-select-test-host',
+  standalone: true,
+  imports: [CustomSelectComponent, ReactiveFormsModule],
+  template: `
+    <form (ngSubmit)="onSubmit()">
+      <app-custom-select
+        controlId="test-select"
+        [options]="options()"
+        placeholder="Choose an option"
+        [formControl]="control"
+      ></app-custom-select>
+      <button id="submit-form" type="submit">Submit</button>
+    </form>
+    <button id="outside-select" type="button">Outside</button>
+  `,
+})
+class CustomSelectTestHost {
+  @ViewChild(CustomSelectComponent) select!: CustomSelectComponent;
+
+  readonly control = new FormControl('active', {
+    nonNullable: true,
+    validators: [Validators.required],
+  });
+  readonly options = signal<readonly CustomSelectOption[]>([
+    { value: 'active', label: 'Active option' },
+    { value: 'disabled', label: 'Disabled option', disabled: true },
+    { value: 'other', label: 'Other option' },
+  ]);
+  submitCount = 0;
+
+  onSubmit(): void {
+    this.submitCount += 1;
+  }
+}
 
 describe('App', () => {
   beforeEach(async () => {
@@ -4616,14 +4657,25 @@ describe('App', () => {
 
       const fixture = TestBed.createComponent(WorkspaceSelectorComponent);
       fixture.detectChanges();
-      const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
-      const suspendedOption = select.querySelector(
-        `option[value="${suspendedWorkspace._id}"]`,
-      ) as HTMLOptionElement;
+      const trigger = fixture.nativeElement.querySelector(
+        '#workspace-selector',
+      ) as HTMLButtonElement;
+      trigger.click();
+      fixture.detectChanges();
+      const workspaceOptions = Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(
+          '#workspace-selector-listbox [role="option"]',
+        ),
+      ) as HTMLButtonElement[];
+      const suspendedOption = workspaceOptions.find((option) =>
+        option.textContent?.includes(suspendedWorkspace.name),
+      ) as HTMLButtonElement;
+      const otherOption = workspaceOptions.find((option) =>
+        option.textContent?.includes(otherWorkspace.name),
+      ) as HTMLButtonElement;
 
       expect(suspendedOption.disabled).toBe(true);
-      select.value = otherWorkspace._id;
-      select.dispatchEvent(new Event('change'));
+      otherOption.click();
       fixture.detectChanges();
 
       expect(service.workspaceAccessState()?.activeWorkspace).toEqual(otherWorkspace);
@@ -4634,8 +4686,10 @@ describe('App', () => {
         otherWorkspace._id,
       ]);
 
-      select.value = suspendedWorkspace._id;
-      select.dispatchEvent(new Event('change'));
+      trigger.click();
+      fixture.detectChanges();
+      suspendedOption.click();
+      fixture.detectChanges();
       fixture.detectChanges();
       expect(service.selectedWorkspaceId()).toBe(otherWorkspace._id);
       httpTesting.verify();
@@ -4761,5 +4815,129 @@ describe('App', () => {
       expect(activationError).toBeInstanceOf(WorkspaceActivationVerificationError);
       httpTesting.verify();
     });
+  });
+});
+
+describe('CustomSelectComponent', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CustomSelectTestHost],
+    }).compileComponents();
+  });
+
+  afterEach(() => {
+    TestBed.resetTestingModule();
+  });
+
+  it('reflects initial and patched form values, including options loaded later', () => {
+    const fixture = TestBed.createComponent(CustomSelectTestHost);
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector(
+      '#test-select',
+    ) as HTMLButtonElement;
+
+    expect(trigger.textContent).toContain('Active option');
+
+    fixture.componentInstance.control.setValue('other');
+    fixture.detectChanges();
+    expect(trigger.textContent).toContain('Other option');
+
+    fixture.componentInstance.control.setValue('loaded-later');
+    fixture.componentInstance.options.update((options) => [
+      ...options,
+      { value: 'loaded-later', label: 'Loaded later' },
+    ]);
+    fixture.detectChanges();
+    expect(fixture.componentInstance.select.value).toBe('loaded-later');
+    expect(
+      fixture.componentInstance.select.options.some((option) => option.value === 'loaded-later'),
+    ).toBe(true);
+    expect(trigger.textContent).toContain('Loaded later');
+  });
+
+  it('supports keyboard navigation, disabled options, and selection without form submission', () => {
+    const fixture = TestBed.createComponent(CustomSelectTestHost);
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector(
+      '#test-select',
+    ) as HTMLButtonElement;
+
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    fixture.detectChanges();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(fixture.componentInstance.select.value).toBe('active');
+    expect(fixture.componentInstance.select.activeIndex()).toBe(1);
+
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.select.activeIndex()).toBe(3);
+    expect(trigger.getAttribute('aria-activedescendant')).toBe('test-select-option-3');
+
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.control.value).toBe('other');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(fixture.componentInstance.submitCount).toBe(0);
+
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    fixture.detectChanges();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+    fixture.detectChanges();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+
+    trigger.click();
+    fixture.detectChanges();
+    const disabledOption = fixture.nativeElement.querySelector(
+      '#test-select-listbox [aria-disabled="true"]',
+    ) as HTMLButtonElement;
+    expect(disabledOption.disabled).toBe(true);
+    disabledOption.click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.control.value).toBe('other');
+  });
+
+  it('closes on Escape and outside click while retaining trigger focus behavior', () => {
+    const fixture = TestBed.createComponent(CustomSelectTestHost);
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector(
+      '#test-select',
+    ) as HTMLButtonElement;
+    const outside = fixture.nativeElement.querySelector(
+      '#outside-select',
+    ) as HTMLButtonElement;
+
+    trigger.click();
+    fixture.detectChanges();
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+
+    trigger.click();
+    fixture.detectChanges();
+    outside.click();
+    fixture.detectChanges();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('exposes required and invalid state and honors a disabled form control', () => {
+    const fixture = TestBed.createComponent(CustomSelectTestHost);
+    fixture.detectChanges();
+    const trigger = fixture.nativeElement.querySelector(
+      '#test-select',
+    ) as HTMLButtonElement;
+    const control = fixture.componentInstance.control;
+
+    control.setValue('');
+    control.markAsTouched();
+    fixture.detectChanges();
+    expect(trigger.getAttribute('aria-required')).toBe('true');
+    expect(trigger.getAttribute('aria-invalid')).toBe('true');
+
+    control.disable();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.select.isDisabled).toBe(true);
+    expect(trigger.disabled).toBe(true);
   });
 });

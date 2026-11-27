@@ -17,11 +17,12 @@ import { getApiErrorMessage } from '../../core/utils/api-error';
 import { PeopleService } from '../../core/services/people.service';
 import { WorkspaceService } from '../../core/services/workspace.service';
 import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
+import { CustomSelectComponent } from '../../shared/components/custom-select/custom-select.component';
 
 @Component({
   selector: 'app-students',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
+  imports: [CustomSelectComponent, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './students.component.html',
 })
 export class StudentsComponent {

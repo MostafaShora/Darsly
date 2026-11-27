@@ -10,11 +10,12 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { trimmedMinLength, trimmedRequired } from '../../core/utils/form-validators';
+import { CustomSelectComponent } from '../../shared/components/custom-select/custom-select.component';
 
 @Component({
   selector: 'app-guardians',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
+  imports: [CustomSelectComponent, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './guardians.component.html',
 })
 export class GuardiansComponent {

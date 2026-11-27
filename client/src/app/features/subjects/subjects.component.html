@@ -52,12 +52,11 @@
           </label>
           <label class="grid gap-1 text-xs font-bold text-[#38554a]">
             الحالة
-            <select class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" [formControl]="statusFilter">
-              <option value="">كل الحالات</option>
-              @for (status of statuses; track status.value) {
-                <option [value]="status.value">{{ status.label }}</option>
-              }
-            </select>
+            <app-custom-select
+              [options]="statuses"
+              placeholder="كل الحالات"
+              [formControl]="statusFilter"
+            ></app-custom-select>
           </label>
         </div>
 
@@ -126,11 +125,11 @@
             </label>
             @if (!isCreating()) {
               <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="subject-status">الحالة
-                <select id="subject-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" formControlName="status">
-                  @for (status of statuses; track status.value) {
-                    <option [value]="status.value">{{ status.label }}</option>
-                  }
-                </select>
+                <app-custom-select
+                  controlId="subject-status"
+                  [options]="statuses"
+                  formControlName="status"
+                ></app-custom-select>
               </label>
             }
           </fieldset>

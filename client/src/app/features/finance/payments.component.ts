@@ -25,6 +25,7 @@ import {
 } from '../../core/utils/finance';
 import { localDateBoundaryToIso, localDateTimeToIso } from '../../core/utils/local-date-time';
 import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
+import { CustomSelectComponent } from '../../shared/components/custom-select/custom-select.component';
 
 type PaymentView = 'list' | 'create' | 'detail';
 
@@ -51,7 +52,7 @@ const PAYMENT_STATUSES: ReadonlyArray<{ value: PaymentStatus; label: string }> =
 @Component({
   selector: 'app-payments',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
+  imports: [CustomSelectComponent, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './payments.component.html',
 })
 export class PaymentsComponent {

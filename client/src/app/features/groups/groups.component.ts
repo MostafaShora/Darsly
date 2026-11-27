@@ -33,6 +33,10 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { trimmedMinLength } from '../../core/utils/form-validators';
 import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
+import {
+  CustomSelectComponent,
+  CustomSelectOption,
+} from '../../shared/components/custom-select/custom-select.component';
 
 interface GroupListRow {
   group: StudyGroup;
@@ -74,7 +78,7 @@ const decimalPrecision: ValidatorFn = (control): ValidationErrors | null => {
 @Component({
   selector: 'app-groups',
   standalone: true,
-  imports: [DatePipe, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
+  imports: [CustomSelectComponent, DatePipe, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './groups.component.html',
 })
 export class GroupsComponent {
@@ -88,6 +92,16 @@ export class GroupsComponent {
 
   readonly statuses = GROUP_STATUSES;
   readonly enrollmentStatuses = ENROLLMENT_STATUSES;
+  readonly enrollmentInitialStatuses: readonly CustomSelectOption[] = [
+    { value: 'active', label: 'نشط' },
+    { value: 'paused', label: 'موقوف مؤقتًا' },
+  ];
+  readonly subjectFilterSelectOptions = computed<CustomSelectOption[]>(() =>
+    this.subjectFilterOptions().map((item) => ({
+      value: item.id,
+      label: `${item.name}${item.status === 'archived' ? ' (مؤرشفة)' : ''}`,
+    })),
+  );
   readonly search = new FormControl('', { nonNullable: true });
   readonly statusFilter = new FormControl<StudyGroupStatus | ''>('', { nonNullable: true });
   readonly subjectSearch = new FormControl('', { nonNullable: true });

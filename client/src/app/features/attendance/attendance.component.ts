@@ -25,6 +25,10 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { localDateBoundaryToIso } from '../sessions/sessions.component';
 import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
+import {
+  CustomSelectComponent,
+  CustomSelectOption,
+} from '../../shared/components/custom-select/custom-select.component';
 
 type AttendanceMode = 'overview' | 'session' | 'student';
 
@@ -93,7 +97,7 @@ const distinct = (values: string[]): string[] => [...new Set(values)];
 @Component({
   selector: 'app-attendance',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
+  imports: [CustomSelectComponent, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './attendance.component.html',
 })
 export class AttendanceComponent {
@@ -132,6 +136,12 @@ export class AttendanceComponent {
     const recordedStudentIds = new Set(this.attendanceRows().map((row) => row.record.studentId));
     return this.eligibleStudents().filter((row) => !recordedStudentIds.has(row.student.id));
   });
+  readonly availableStudentSelectOptions = computed<CustomSelectOption[]>(() =>
+    this.availableStudents().map((row) => ({
+      value: row.student.id,
+      label: `${row.student.name} · ${this.formatDateTime(row.enrollment.enrolledAt)}`,
+    })),
+  );
   readonly filters = this.formBuilder.nonNullable.group({
     from: [todayLocalDate()],
     to: [''],

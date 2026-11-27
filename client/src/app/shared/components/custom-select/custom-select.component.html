@@ -1,0 +1,118 @@
+@if (label) {
+  <label class="mb-1 block text-xs font-bold text-[#38554a]" [for]="controlId">
+    {{ label }} @if (isRequired) { <span aria-hidden="true">*</span> }
+  </label>
+}
+
+<button
+  #triggerElement
+  [id]="controlId"
+  type="button"
+  role="combobox"
+  class="flex w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-[#dce8df] bg-white px-3 text-start text-sm text-[#29483d] outline-none transition hover:border-[#b9d9c4] focus-visible:ring-4 focus-visible:ring-[#0ca879]/10 disabled:cursor-not-allowed disabled:opacity-60"
+  [class.min-h-10]="size === 'compact'"
+  [class.min-h-11]="size === 'default'"
+  [class.text-xs]="size === 'compact'"
+  [class.text-sm]="size === 'default'"
+  [class.border-[#b42318]]="isInvalid"
+  [attr.aria-label]="ariaLabel || null"
+  [attr.aria-describedby]="describedByIds"
+  [attr.aria-required]="isRequired ? 'true' : null"
+  [attr.aria-invalid]="isInvalid ? 'true' : null"
+  [attr.aria-haspopup]="'listbox'"
+  [attr.aria-expanded]="isOpen()"
+  [attr.aria-controls]="listboxId"
+  [attr.aria-activedescendant]="isOpen() && activeIndex() >= 0 ? optionId(activeIndex()) : null"
+  [disabled]="isDisabled"
+  (click)="toggleMenu()"
+  (keydown)="handleKeydown($event)"
+>
+  <span class="min-w-0 flex-1 whitespace-normal break-words">
+    {{ selectedLabel || placeholder }}
+  </span>
+  <svg
+    class="h-4 w-4 shrink-0 text-[#71847a] transition-transform duration-150"
+    [class.rotate-180]="isOpen()"
+    viewBox="0 0 20 20"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path d="m5 7.5 5 5 5-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+</button>
+
+<div
+  [id]="listboxId"
+  role="listbox"
+  [attr.aria-labelledby]="controlId"
+  class="fixed z-[1000] overflow-y-auto rounded-xl border border-[#dce8df] bg-white p-1 shadow-lg transition-[opacity,transform] duration-150 ease-out"
+  [class.pointer-events-none]="!isOpen()"
+  [class.scale-95]="!isOpen()"
+  [class.opacity-0]="!isOpen()"
+  [class.scale-100]="isOpen()"
+  [class.opacity-100]="isOpen()"
+  [attr.aria-hidden]="!isOpen()"
+  [attr.inert]="!isOpen() ? '' : null"
+  [style.top.px]="panelPosition().top"
+  [style.left.px]="panelPosition().left"
+  [style.width.px]="panelPosition().width"
+  [style.max-height.px]="panelPosition().maxHeight"
+>
+  @if (placeholder) {
+    <button
+      [id]="optionId(0)"
+      type="button"
+      role="option"
+      class="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm transition-colors hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700"
+      [class.bg-[#eff8f2]]="isSelected(placeholderValue)"
+      [class.bg-[#f2faf4]]="activeIndex() === 0 && !isSelected(placeholderValue)"
+      [class.text-[#087b59]]="isSelected(placeholderValue)"
+      [class.text-[#71847a]]="!isSelected(placeholderValue)"
+      [attr.aria-selected]="isSelected(placeholderValue)"
+      [attr.aria-disabled]="placeholderDisabled ? 'true' : null"
+      [disabled]="placeholderDisabled"
+      tabindex="-1"
+      (mouseenter)="setActiveIndex(0)"
+      (click)="selectOption(placeholderValue)"
+      (keydown)="handleKeydown($event)"
+    >
+      <span class="min-w-0 flex-1 whitespace-normal break-words">{{ placeholder }}</span>
+      @if (isSelected(placeholderValue)) {
+        <svg class="h-4 w-4 shrink-0 text-[#087b59]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="m4 10 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      }
+    </button>
+  }
+
+  @for (option of options; track option.value; let index = $index) {
+    <button
+      [id]="optionId(optionIndex(index))"
+      type="button"
+      role="option"
+      class="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-start text-sm transition-colors hover:bg-[#f2faf4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+      [class.bg-[#eff8f2]]="isSelected(option.value)"
+      [class.bg-[#f2faf4]]="activeIndex() === optionIndex(index) && !isSelected(option.value)"
+      [class.text-[#087b59]]="isSelected(option.value)"
+      [class.text-[#29483d]]="!isSelected(option.value)"
+      [attr.aria-selected]="isSelected(option.value)"
+      [attr.aria-disabled]="option.disabled ? 'true' : null"
+      [disabled]="option.disabled ?? false"
+      tabindex="-1"
+      (mouseenter)="setActiveIndex(optionIndex(index))"
+      (click)="selectOption(option.value)"
+      (keydown)="handleKeydown($event)"
+    >
+      <span class="min-w-0 flex-1 whitespace-normal break-words">{{ option.label }}</span>
+      @if (isSelected(option.value)) {
+        <svg class="h-4 w-4 shrink-0 text-[#087b59]" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="m4 10 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      }
+    </button>
+  }
+</div>
+
+@if (error) {
+  <p [id]="controlId + '-error'" class="mt-1 text-xs text-[#b42318]" role="alert">{{ error }}</p>
+}

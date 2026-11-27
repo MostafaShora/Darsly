@@ -50,23 +50,23 @@
             <input class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" type="search" maxlength="100" [formControl]="search" placeholder="اسم المجموعة أو وصفها" />
           </label>
           <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-status-filter">الحالة
-            <select id="group-status-filter" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" [formControl]="statusFilter">
-              <option value="">كل الحالات</option>
-              @for (status of statuses; track status.value) {
-                <option [value]="status.value">{{ status.label }}</option>
-              }
-            </select>
+            <app-custom-select
+              controlId="group-status-filter"
+              [options]="statuses"
+              placeholder="كل الحالات"
+              [formControl]="statusFilter"
+            ></app-custom-select>
           </label>
           <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="subject-search">ابحث عن مادة للتصفية
             <input id="subject-search" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm outline-none focus:border-[#0ca879] focus:ring-4 focus:ring-[#0ca879]/10" type="search" maxlength="100" [formControl]="subjectSearch" />
           </label>
           <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-subject-filter">المادة
-            <select id="group-subject-filter" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" [formControl]="subjectFilterId">
-              <option value="">كل المواد</option>
-              @for (subjectOption of subjectFilterOptions(); track subjectOption.id) {
-                <option [value]="subjectOption.id">{{ subjectOption.name }}{{ subjectOption.status === 'archived' ? ' (مؤرشفة)' : '' }}</option>
-              }
-            </select>
+            <app-custom-select
+              controlId="group-subject-filter"
+              [options]="subjectFilterSelectOptions()"
+              placeholder="كل المواد"
+              [formControl]="subjectFilterId"
+            ></app-custom-select>
           </label>
         </div>
         @if (subjectOptionsError()) {
@@ -194,11 +194,11 @@
             </label>
             @if (!isCreating()) {
               <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="group-status">الحالة
-                <select id="group-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" formControlName="status">
-                  @for (status of statuses; track status.value) {
-                    <option [value]="status.value">{{ status.label }}</option>
-                  }
-                </select>
+                <app-custom-select
+                  controlId="group-status"
+                  [options]="statuses"
+                  formControlName="status"
+                ></app-custom-select>
               </label>
             }
           </fieldset>
@@ -244,12 +244,12 @@
             <button type="button" class="min-h-10 rounded-xl bg-[#087b59] px-4 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" (click)="openEnrollmentForm()">تسجيل طالب</button>
           </div>
           <label class="mt-4 grid max-w-sm gap-1 text-xs font-bold text-[#38554a]" for="enrollment-status-filter">تصفية حسب حالة التسجيل
-            <select id="enrollment-status-filter" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" [formControl]="enrollmentStatusFilter">
-              <option value="">كل الحالات</option>
-              @for (status of enrollmentStatuses; track status.value) {
-                <option [value]="status.value">{{ status.label }}</option>
-              }
-            </select>
+            <app-custom-select
+              controlId="enrollment-status-filter"
+              [options]="enrollmentStatuses"
+              placeholder="كل الحالات"
+              [formControl]="enrollmentStatusFilter"
+            ></app-custom-select>
           </label>
 
           @if (rosterError()) {
@@ -341,10 +341,11 @@
                   <input id="enrollment-date" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" type="datetime-local" formControlName="enrolledAt" />
                 </label>
                 <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="enrollment-initial-status">الحالة عند التسجيل
-                  <select id="enrollment-initial-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm" formControlName="status">
-                    <option value="active">نشط</option>
-                    <option value="paused">موقوف مؤقتًا</option>
-                  </select>
+                  <app-custom-select
+                    controlId="enrollment-initial-status"
+                    [options]="enrollmentInitialStatuses"
+                    formControlName="status"
+                  ></app-custom-select>
                 </label>
               </div>
               <label class="mt-3 grid gap-1 text-xs font-bold text-[#38554a]" for="enrollment-notes">ملاحظات

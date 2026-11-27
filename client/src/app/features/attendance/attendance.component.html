@@ -46,12 +46,12 @@
             <input id="attendance-session-to" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" type="date" formControlName="to" />
           </label>
           <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="attendance-session-status">حالة الجلسة
-            <select id="attendance-session-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" formControlName="status">
-              <option value="">كل الحالات</option>
-              @for (status of sessionStatuses; track status.value) {
-                <option [value]="status.value">{{ sessionStatusLabel(status.value) }}</option>
-              }
-            </select>
+            <app-custom-select
+              controlId="attendance-session-status"
+              [options]="sessionStatuses"
+              placeholder="كل الحالات"
+              formControlName="status"
+            ></app-custom-select>
           </label>
           <div class="flex items-end">
             <button type="submit" class="min-h-11 rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:cursor-wait disabled:opacity-60" [disabled]="overviewLoading()">تطبيق الفلاتر</button>
@@ -143,12 +143,13 @@
                 <fieldset class="contents" [disabled]="recording() || !canRecordNewAttendance()">
                   <label class="grid gap-1 text-xs font-bold text-[#38554a] sm:col-span-2" for="attendance-student">
                     الطالب *
-                    <select id="attendance-student" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" formControlName="studentId" [attr.aria-invalid]="recordForm.controls.studentId.invalid && recordForm.controls.studentId.touched" aria-describedby="attendance-student-error">
-                      <option value="">اختر طالبًا</option>
-                      @for (row of availableStudents(); track row.student.id) {
-                        <option [value]="row.student.id">{{ row.student.name }} · {{ formatDateTime(row.enrollment.enrolledAt) }}</option>
-                      }
-                    </select>
+                    <app-custom-select
+                      controlId="attendance-student"
+                      [options]="availableStudentSelectOptions()"
+                      placeholder="اختر طالبًا"
+                      describedBy="attendance-student-error"
+                      formControlName="studentId"
+                    ></app-custom-select>
                     @if (recordForm.controls.studentId.touched && recordForm.controls.studentId.hasError('required')) {
                       <span id="attendance-student-error" class="font-normal text-[#b42318]" role="alert">اختر طالبًا مسجلًا في المجموعة.</span>
                     }
@@ -158,11 +159,11 @@
                   </label>
                   <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="attendance-status">
                     حالة الحضور *
-                    <select id="attendance-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" formControlName="status">
-                      @for (status of attendanceStatuses; track status.value) {
-                        <option [value]="status.value">{{ attendanceStatusLabel(status.value) }}</option>
-                      }
-                    </select>
+                    <app-custom-select
+                      controlId="attendance-status"
+                      [options]="attendanceStatuses"
+                      formControlName="status"
+                    ></app-custom-select>
                   </label>
                   @if (recordForm.controls.status.value === 'late') {
                     <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="attendance-late-minutes">
@@ -204,12 +205,14 @@
               </div>
               <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="attendance-record-status-filter">
                 تصفية حالة الحضور
-                <select id="attendance-record-status-filter" class="min-h-10 rounded-xl border border-[#dce8df] bg-white px-3 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" [formControl]="attendanceFilters.controls.status" (change)="applyAttendanceFilters()">
-                  <option value="">كل الحالات</option>
-                  @for (status of attendanceStatuses; track status.value) {
-                    <option [value]="status.value">{{ attendanceStatusLabel(status.value) }}</option>
-                  }
-                </select>
+                <app-custom-select
+                  controlId="attendance-record-status-filter"
+                  size="compact"
+                  [options]="attendanceStatuses"
+                  placeholder="كل الحالات"
+                  [formControl]="attendanceFilters.controls.status"
+                  (valueChange)="applyAttendanceFilters()"
+                ></app-custom-select>
               </label>
             </div>
             @if (attendanceError()) {
@@ -239,11 +242,12 @@
                             <form class="grid gap-3 rounded-xl bg-[#fafcfb] p-4 sm:grid-cols-2" [formGroup]="editForm" (ngSubmit)="saveEdit(row)" novalidate>
                               <label class="grid gap-1 text-xs font-bold text-[#38554a]" [for]="'edit-attendance-status-' + row.record.id">
                                 حالة الحضور
-                                <select [id]="'edit-attendance-status-' + row.record.id" class="min-h-10 rounded-lg border border-[#dce8df] bg-white px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" formControlName="status">
-                                  @for (status of attendanceStatuses; track status.value) {
-                                    <option [value]="status.value">{{ attendanceStatusLabel(status.value) }}</option>
-                                  }
-                                </select>
+                                <app-custom-select
+                                  [controlId]="'edit-attendance-status-' + row.record.id"
+                                  size="compact"
+                                  [options]="attendanceStatuses"
+                                  formControlName="status"
+                                ></app-custom-select>
                               </label>
                               @if (editForm.controls.status.value === 'late') {
                                 <label class="grid gap-1 text-xs font-bold text-[#38554a]" [for]="'edit-late-minutes-' + row.record.id">
@@ -327,12 +331,12 @@
               <input id="student-attendance-to" class="min-h-11 rounded-xl border border-[#dce8df] px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" type="date" formControlName="to" />
             </label>
             <label class="grid gap-1 text-xs font-bold text-[#38554a]" for="student-attendance-status">حالة الحضور
-              <select id="student-attendance-status" class="min-h-11 rounded-xl border border-[#dce8df] bg-white px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-700" formControlName="status">
-                <option value="">كل الحالات</option>
-                @for (status of attendanceStatuses; track status.value) {
-                  <option [value]="status.value">{{ attendanceStatusLabel(status.value) }}</option>
-                }
-              </select>
+              <app-custom-select
+                controlId="student-attendance-status"
+                [options]="attendanceStatuses"
+                placeholder="كل الحالات"
+                formControlName="status"
+              ></app-custom-select>
             </label>
             <div class="flex items-end">
               <button type="submit" class="min-h-11 rounded-xl bg-[#087b59] px-5 text-xs font-extrabold text-white hover:bg-[#066b4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:opacity-60" [disabled]="historyLoading()">تطبيق الفلاتر</button>

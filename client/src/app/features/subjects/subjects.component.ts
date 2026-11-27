@@ -14,6 +14,7 @@ import { WorkspaceService } from '../../core/services/workspace.service';
 import { getApiErrorMessage } from '../../core/utils/api-error';
 import { trimmedMinLength } from '../../core/utils/form-validators';
 import { WorkspaceSelectorComponent } from '../workspace/workspace-selector.component';
+import { CustomSelectComponent } from '../../shared/components/custom-select/custom-select.component';
 
 const SUBJECT_STATUSES: ReadonlyArray<{ value: SubjectStatus; label: string }> = [
   { value: 'active', label: 'نشطة' },
@@ -23,7 +24,7 @@ const SUBJECT_STATUSES: ReadonlyArray<{ value: SubjectStatus; label: string }> =
 @Component({
   selector: 'app-subjects',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
+  imports: [CustomSelectComponent, ReactiveFormsModule, RouterLink, WorkspaceSelectorComponent],
   templateUrl: './subjects.component.html',
 })
 export class SubjectsComponent {
