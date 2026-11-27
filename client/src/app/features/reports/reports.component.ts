@@ -1,10 +1,17 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { Workspace } from '../../core/models/workspace.models';
-import { AttendanceReport, FinanceReport, ReportCollection, ReportService } from '../../core/services/report.service';
+import {
+  AttendanceReport,
+  FinanceReport,
+  ReportCollection,
+  ReportExportRequest,
+  ReportService,
+} from '../../core/services/report.service';
 import {
   WorkspaceAvailability,
   WorkspaceService,
@@ -19,6 +26,17 @@ type ReportFilters = {
   groupId?: string;
   timezone: string;
 };
+
+type ExportContext = {
+  workspaceId: string;
+  revision: number;
+  type: 'attendance' | 'finance';
+  filters: ReportFilters;
+};
+
+type ExportResult =
+  | { type: 'attendance'; report: AttendanceReport }
+  | { type: 'finance'; report: FinanceReport };
 
 type ReportPagination = AttendanceReport['pagination'];
 
@@ -478,21 +496,17 @@ export class ReportsComponent {
 
   async exportExcel(): Promise<void> {
     if (this.exporting()) return;
-    if (!this.workspaceId || !this.appliedFilters) {
-      this.error.set('لا تتوفر مساحة عمل نشطة لتصدير التقرير.');
-      return;
-    }
+    const context = this.captureExportContext('لا تتوفر مساحة عمل نشطة لتصدير التقرير.');
+    if (!context) return;
     this.exporting.set(true);
     this.error.set('');
     try {
-      const attendance = this.activeTab() === 'attendance'
-        ? await this.fetchAllAttendance()
-        : null;
-      const finance = this.activeTab() === 'finance'
-        ? await this.fetchAllFinance()
-        : null;
+      const result = await this.requestExport(context);
+      if (!this.isCurrentExport(context)) return;
+      const attendance = result.type === 'attendance' ? result.report : null;
+      const finance = result.type === 'finance' ? result.report : null;
       const html = this.buildExportHtml(attendance, finance);
-      const title = this.activeTab() === 'attendance'
+      const title = result.type === 'attendance'
         ? 'تقرير الحضور'
         : 'التقرير المالي';
       this.downloadBlob(
@@ -500,9 +514,7 @@ export class ReportsComponent {
         `${title}.html`,
       );
     } catch (error) {
-      this.error.set(error instanceof Error && error.message === 'export-limit'
-        ? 'التقرير يتجاوز حد التصدير الآمن (10,000 سجل لكل نوع). قلّص الفترة أو المرشحات.'
-        : 'تعذر تصدير التقرير بالكامل. ضيّق الفترة أو المرشحات ثم حاول مجددًا.');
+      this.error.set(this.exportFailureMessage(error, false));
     } finally {
       this.exporting.set(false);
     }
@@ -510,10 +522,8 @@ export class ReportsComponent {
 
   async exportPdf(): Promise<void> {
     if (this.exporting()) return;
-    if (!this.workspaceId || !this.appliedFilters) {
-      this.error.set('لا تتوفر مساحة عمل نشطة لإعداد التقرير.');
-      return;
-    }
+    const context = this.captureExportContext('لا تتوفر مساحة عمل نشطة لإعداد التقرير.');
+    if (!context) return;
     const popup = window.open('', '_blank');
     if (!popup) {
       this.error.set('اسمح بفتح النافذة لإعداد نسخة الطباعة.');
@@ -522,22 +532,17 @@ export class ReportsComponent {
     this.exporting.set(true);
     this.error.set('');
     try {
-      const attendance = this.activeTab() === 'attendance'
-        ? await this.fetchAllAttendance()
-        : null;
-      const finance = this.activeTab() === 'finance'
-        ? await this.fetchAllFinance()
-        : null;
-      const report = attendance ?? finance;
-      if (!report) {
+      const result = await this.requestExport(context);
+      if (!this.isCurrentExport(context)) {
         popup.close();
         return;
       }
-      const title = attendance ? 'تقرير الحضور' : 'التقرير المالي';
+      const report = result.report;
+      const title = result.type === 'attendance' ? 'تقرير الحضور' : 'التقرير المالي';
       const period = `${this.formatReportDate(report.period.from)} — ${this.formatReportDate(report.period.to)}`;
-      const body = attendance
-        ? this.attendancePrintRows(attendance)
-        : this.financePrintRows(finance!);
+      const body = result.type === 'attendance'
+        ? this.attendancePrintRows(result.report)
+        : this.financePrintRows(result.report);
       popup.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${title}</title><style>
         body{font-family:Cairo,Arial,sans-serif;padding:24px;color:#173b32}
         table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #bfcac3;padding:8px;text-align:right;font-size:12px}
@@ -548,9 +553,7 @@ export class ReportsComponent {
       popup.print();
     } catch (error) {
       popup.close();
-      this.error.set(error instanceof Error && error.message === 'export-limit'
-        ? 'التقرير يتجاوز حد التصدير الآمن (10,000 سجل لكل نوع). قلّص الفترة أو المرشحات.'
-        : 'تعذر إعداد نسخة الطباعة الكاملة. ضيّق الفترة أو المرشحات ثم حاول مجددًا.');
+      this.error.set(this.exportFailureMessage(error, true));
     } finally {
       this.exporting.set(false);
     }
@@ -560,7 +563,7 @@ export class ReportsComponent {
     attendance: AttendanceReport | null,
     finance: FinanceReport | null,
   ): string {
-    const title = this.activeTab() === 'attendance'
+    const title = attendance
       ? 'تقرير الحضور'
       : 'التقرير المالي';
     const report = attendance ?? finance;
@@ -651,112 +654,65 @@ export class ReportsComponent {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
   }
 
-  private getReportFilters() {
-    if (!this.appliedFilters?.timezone) throw new Error('timezone-unavailable');
-    return this.appliedFilters;
-  }
-
-  private async fetchAllAttendance(): Promise<AttendanceReport> {
-    const filters = this.getReportFilters();
-    const pageSize = 100;
-    const first = await firstValueFrom(this.reportService.getAttendance(
-      this.workspaceId,
-      { ...filters, page: 1, pageSize },
-    ));
-    const totalItems = first.pagination.totalItems;
-    if (totalItems > 10_000) throw new Error('export-limit');
-    const items = [...first.items];
-    const seenIds = new Set(items.map((item) => item.id));
-    if (seenIds.size !== items.length) throw new Error('report-changed');
-
-    for (let page = 2; page <= first.pagination.totalPages; page += 1) {
-      const response = await firstValueFrom(this.reportService.getAttendance(
-        this.workspaceId,
-        { ...filters, page, pageSize },
-      ));
-      if (response.pagination.totalItems !== totalItems) {
-        throw new Error('report-changed');
-      }
-      if (response.items.some((item) => seenIds.has(item.id))) {
-        throw new Error('report-changed');
-      }
-      response.items.forEach((item) => seenIds.add(item.id));
-      items.push(...response.items);
+  private captureExportContext(message: string): ExportContext | null {
+    if (!this.workspaceId || !this.appliedFilters) {
+      this.error.set(message);
+      return null;
     }
-    if (items.length !== totalItems) throw new Error('report-changed');
-    return { ...first, items };
-  }
-
-  private async fetchAllFinance(): Promise<FinanceReport> {
-    const filters = this.getReportFilters();
-    const pageSize = 100;
-    const first = await firstValueFrom(this.reportService.getFinance(
-      this.workspaceId,
-      { from: filters.from, to: filters.to, studentId: filters.studentId, timezone: filters.timezone, page: 1, pageSize },
-    ));
-    const collections = {
-      invoices: [...first.invoices.items],
-      payments: [...first.payments.items],
-      allocations: [...first.allocations.items],
-    };
-    const seenIds = {
-      invoices: new Set(collections.invoices.map((item) => item.id)),
-      payments: new Set(collections.payments.map((item) => item.id)),
-      allocations: new Set(collections.allocations.map((item) => item.id)),
-    };
-    const totals = {
-      invoices: first.invoices.pagination.totalItems,
-      payments: first.payments.pagination.totalItems,
-      allocations: first.allocations.pagination.totalItems,
-    };
-    if (Object.values(totals).some((total) => total > 10_000)) {
-      throw new Error('export-limit');
-    }
-    const totalPages = Math.max(
-      first.invoices.pagination.totalPages,
-      first.payments.pagination.totalPages,
-      first.allocations.pagination.totalPages,
-    );
-
-    for (let page = 2; page <= totalPages; page += 1) {
-      const response = await firstValueFrom(this.reportService.getFinance(
-        this.workspaceId,
-        { from: filters.from, to: filters.to, studentId: filters.studentId, timezone: filters.timezone, page, pageSize },
-      ));
-      if (
-        response.invoices.pagination.totalItems !== totals.invoices ||
-        response.payments.pagination.totalItems !== totals.payments ||
-        response.allocations.pagination.totalItems !== totals.allocations
-      ) {
-        throw new Error('report-changed');
-      }
-      if (
-        response.invoices.items.some((item) => seenIds.invoices.has(item.id)) ||
-        response.payments.items.some((item) => seenIds.payments.has(item.id)) ||
-        response.allocations.items.some((item) => seenIds.allocations.has(item.id))
-      ) {
-        throw new Error('report-changed');
-      }
-      response.invoices.items.forEach((item) => seenIds.invoices.add(item.id));
-      response.payments.items.forEach((item) => seenIds.payments.add(item.id));
-      response.allocations.items.forEach((item) => seenIds.allocations.add(item.id));
-      collections.invoices.push(...response.invoices.items);
-      collections.payments.push(...response.payments.items);
-      collections.allocations.push(...response.allocations.items);
-    }
-    if (
-      collections.invoices.length !== totals.invoices ||
-      collections.payments.length !== totals.payments ||
-      collections.allocations.length !== totals.allocations
-    ) {
-      throw new Error('report-changed');
+    if (!this.appliedFilters.timezone) {
+      this.error.set('تعذر تحديد المنطقة الزمنية لهذا الجهاز.');
+      return null;
     }
     return {
-      ...first,
-      invoices: { ...first.invoices, items: collections.invoices },
-      payments: { ...first.payments, items: collections.payments },
-      allocations: { ...first.allocations, items: collections.allocations },
+      workspaceId: this.workspaceId,
+      revision: this.filterRevision,
+      type: this.activeTab(),
+      filters: { ...this.appliedFilters },
     };
+  }
+
+  private async requestExport(context: ExportContext): Promise<ExportResult> {
+    const request: ReportExportRequest = context.type === 'attendance'
+      ? { type: 'attendance', ...context.filters }
+      : {
+          type: 'finance',
+          from: context.filters.from,
+          to: context.filters.to,
+          studentId: context.filters.studentId,
+          timezone: context.filters.timezone,
+        };
+    const report = await firstValueFrom(
+      this.reportService.exportReport(context.workspaceId, request),
+    );
+    if (context.type === 'attendance') {
+      if (!('items' in report)) throw new Error('Unexpected report export response');
+      return { type: 'attendance', report };
+    }
+    if ('items' in report) throw new Error('Unexpected report export response');
+    return { type: 'finance', report };
+  }
+
+  private isCurrentExport(context: ExportContext): boolean {
+    return context.workspaceId === this.workspaceId &&
+      context.revision === this.filterRevision;
+  }
+
+  private exportFailureMessage(error: unknown, forPrint: boolean): string {
+    if (error instanceof HttpErrorResponse && error.status === 503) {
+      return 'تعذر إنشاء تصدير متسق حاليًا. حاول مرة أخرى لاحقًا.';
+    }
+    if (
+      error instanceof HttpErrorResponse &&
+      typeof error.error === 'object' &&
+      error.error !== null &&
+      'message' in error.error &&
+      error.error.message === 'Each exported report collection is limited to 10,000 records'
+    ) {
+      return 'التقرير يتجاوز حد التصدير الآمن (10,000 سجل لكل نوع). قلّص الفترة أو المرشحات.';
+    }
+    return forPrint
+      ? 'تعذر إعداد نسخة الطباعة الكاملة. ضيّق الفترة أو المرشحات ثم حاول مجددًا.'
+      : 'تعذر تصدير التقرير بالكامل. ضيّق الفترة أو المرشحات ثم حاول مجددًا.';
   }
 
   private escape(value: string): string {

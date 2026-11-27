@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import mongoose, { type ClientSession, Types } from "mongoose";
 import AttendanceRecordModel from "../models/attendance-record.model";
 import EnrollmentModel from "../models/enrollment.model";
 import InvoiceModel, { InvoiceDocument } from "../models/invoice.model";
@@ -15,16 +15,29 @@ import {
     subtractDecimalStrings,
     sumDecimalStrings,
 } from "../utils/money";
-import { NotFoundException } from "../utils/app-error";
+import {
+    AppError,
+    BadRequestException,
+    NotFoundException,
+    ServiceUnavailableException,
+} from "../utils/app-error";
 import {
     AttendanceReportQuery,
     FinanceReportQuery,
+    ReportExportRequest,
     ReportRangeQuery,
 } from "../validators/report.validation";
 
 interface ReportRange {
     from: Date;
     to: Date;
+}
+
+export const MAX_REPORT_EXPORT_RECORDS = 10_000;
+
+interface ReportServiceOptions {
+    session?: ClientSession;
+    exportAll?: boolean;
 }
 
 export interface AttendanceSummary {
@@ -157,44 +170,64 @@ export const getReportRange = (
 
 const validateStudentFilter = async (
     workspaceId: Types.ObjectId,
-    studentId?: string
+    studentId?: string,
+    session?: ClientSession
 ): Promise<void> => {
     if (!studentId) return;
-    const student = await StudentModel.exists({ _id: studentId, workspaceId });
+    const query = StudentModel.exists({ _id: studentId, workspaceId });
+    if (session) query.session(session);
+    const student = await query;
     if (!student) throw new NotFoundException("Student not found");
 };
 
 const validateGroupFilter = async (
     workspaceId: Types.ObjectId,
-    groupId?: string
+    groupId?: string,
+    session?: ClientSession
 ): Promise<void> => {
     if (!groupId) return;
-    const group = await StudyGroupModel.exists({ _id: groupId, workspaceId });
+    const query = StudyGroupModel.exists({ _id: groupId, workspaceId });
+    if (session) query.session(session);
+    const group = await query;
     if (!group) throw new NotFoundException("Study group not found");
 };
 
 const getValidAllocations = async (
     workspaceId: Types.ObjectId,
-    allocationFilter: Record<string, unknown> = {}
+    allocationFilter: Record<string, unknown> = {},
+    session?: ClientSession
 ): Promise<PaymentAllocationDocument[]> => {
-    const allocations = await PaymentAllocationModel.find({
+    const allocationQuery = PaymentAllocationModel.find({
         workspaceId,
         ...allocationFilter,
     });
+    if (session) allocationQuery.session(session);
+    const allocations = await allocationQuery;
     if (allocations.length === 0) return [];
 
-    const [payments, invoices] = await Promise.all([
-        PaymentModel.find({
-            workspaceId,
-            _id: { $in: allocations.map((item) => item.paymentId) },
-            status: "completed",
-        }),
-        InvoiceModel.find({
-            workspaceId,
-            _id: { $in: allocations.map((item) => item.invoiceId) },
-            status: "issued",
-        }),
-    ]);
+    const paymentQuery = PaymentModel.find({
+        workspaceId,
+        _id: { $in: allocations.map((item) => item.paymentId) },
+        status: "completed",
+    });
+    const invoiceQuery = InvoiceModel.find({
+        workspaceId,
+        _id: { $in: allocations.map((item) => item.invoiceId) },
+        status: "issued",
+    });
+    let payments: PaymentDocument[];
+    let invoices: InvoiceDocument[];
+    if (session) {
+        paymentQuery.session(session);
+        invoiceQuery.session(session);
+        payments = await paymentQuery;
+        invoices = await invoiceQuery;
+    } else {
+        [payments, invoices] = await Promise.all([
+            paymentQuery,
+            invoiceQuery,
+        ]);
+    }
     const paymentById = new Map(
         payments.map((payment) => [payment._id.toString(), payment])
     );
@@ -409,11 +442,15 @@ export const getDashboardSummaryService = async (
 
 export const getAttendanceReportService = async (
     workspaceId: Types.ObjectId,
-    query: AttendanceReportQuery
+    query: AttendanceReportQuery,
+    options: ReportServiceOptions = {}
 ) => {
-    await validateStudentFilter(workspaceId, query.studentId);
-    await validateGroupFilter(workspaceId, query.groupId);
+    await validateStudentFilter(workspaceId, query.studentId, options.session);
+    await validateGroupFilter(workspaceId, query.groupId, options.session);
     const range = getReportRange(query);
+    const pageSize = options.exportAll
+        ? MAX_REPORT_EXPORT_RECORDS
+        : query.pageSize;
 
     const sessionFilter: Record<string, unknown> = {
         workspaceId,
@@ -425,7 +462,9 @@ export const getAttendanceReportService = async (
     };
     if (query.groupId) sessionFilter.groupId = query.groupId;
 
-    const sessions = (await SessionModel.find(sessionFilter)).filter(
+    const sessionsQuery = SessionModel.find(sessionFilter);
+    if (options.session) sessionsQuery.session(options.session);
+    const sessions = (await sessionsQuery).filter(
         (session) => session.startsAt <= new Date()
     );
     if (sessions.length === 0) {
@@ -435,7 +474,7 @@ export const getAttendanceReportService = async (
             items: [],
             pagination: createPaginationMetadata(
                 query.page,
-                query.pageSize,
+                pageSize,
                 0
             ),
         };
@@ -449,31 +488,58 @@ export const getAttendanceReportService = async (
     if (query.status) recordFilter.status = query.status;
 
     const skip = (query.page - 1) * query.pageSize;
-    const [items, totalItems] = await Promise.all([
-        AttendanceRecordModel.find(recordFilter)
-            .sort({ recordedAt: -1, _id: -1 })
-            .skip(skip)
-            .limit(query.pageSize),
-        AttendanceRecordModel.countDocuments(recordFilter),
-    ]);
+    const itemQuery = AttendanceRecordModel.find(recordFilter)
+        .sort({ recordedAt: -1, _id: -1 });
+    if (options.session) itemQuery.session(options.session);
+    const pagedItemQuery = itemQuery
+        .skip(options.exportAll ? 0 : skip)
+        .limit(options.exportAll ? MAX_REPORT_EXPORT_RECORDS + 1 : pageSize);
 
-    const allRecords = await AttendanceRecordModel.find({
+    const countQuery = AttendanceRecordModel.countDocuments(recordFilter);
+    let items: Awaited<typeof pagedItemQuery>;
+    let totalItems: number;
+    if (options.session) {
+        pagedItemQuery.session(options.session);
+        countQuery.session(options.session);
+        items = await pagedItemQuery;
+        totalItems = await countQuery;
+    } else {
+        [items, totalItems] = await Promise.all([
+            pagedItemQuery,
+            countQuery,
+        ]);
+    }
+    if (options.exportAll && totalItems > MAX_REPORT_EXPORT_RECORDS) {
+        throw new BadRequestException(
+            "Each exported report collection is limited to 10,000 records"
+        );
+    }
+
+    let allRecords = items;
+    if (!options.exportAll) {
+        const recordsQuery = AttendanceRecordModel.find(recordFilter);
+        if (options.session) recordsQuery.session(options.session);
+        allRecords = await recordsQuery;
+    }
+
+    const studentQuery = StudentModel.find({
         workspaceId,
-        sessionId: { $in: sessions.map((session) => session._id) },
-        ...(query.studentId ? { studentId: query.studentId } : {}),
-        ...(query.status ? { status: query.status } : {}),
+        _id: { $in: allRecords.map((record) => record.studentId) },
     });
-
-    const [students, groups] = await Promise.all([
-        StudentModel.find({
-            workspaceId,
-            _id: { $in: allRecords.map((record) => record.studentId) },
-        }),
-        StudyGroupModel.find({
-            workspaceId,
-            _id: { $in: sessions.map((session) => session.groupId) },
-        }),
-    ]);
+    const groupQuery = StudyGroupModel.find({
+        workspaceId,
+        _id: { $in: sessions.map((session) => session.groupId) },
+    });
+    let students: Awaited<typeof studentQuery>;
+    let groups: Awaited<typeof groupQuery>;
+    if (options.session) {
+        studentQuery.session(options.session);
+        groupQuery.session(options.session);
+        students = await studentQuery;
+        groups = await groupQuery;
+    } else {
+        [students, groups] = await Promise.all([studentQuery, groupQuery]);
+    }
     const studentById = new Map(
         students.map((student) => [student._id.toString(), student])
     );
@@ -510,7 +576,7 @@ export const getAttendanceReportService = async (
         items: detailItems,
         pagination: createPaginationMetadata(
             query.page,
-            query.pageSize,
+            pageSize,
             totalItems
         ),
     };
@@ -518,9 +584,10 @@ export const getAttendanceReportService = async (
 
 export const getFinanceReportService = async (
     workspaceId: Types.ObjectId,
-    query: FinanceReportQuery
+    query: FinanceReportQuery,
+    options: ReportServiceOptions = {}
 ) => {
-    await validateStudentFilter(workspaceId, query.studentId);
+    await validateStudentFilter(workspaceId, query.studentId, options.session);
     const range = getReportRange(query);
     const invoiceFilter: Record<string, unknown> = {
         workspaceId,
@@ -534,14 +601,31 @@ export const getFinanceReportService = async (
     };
     if (query.studentId) paymentFilter.studentId = query.studentId;
 
-    const [invoiceRecords, currentPayments, allocations] = await Promise.all([
-        InvoiceModel.find({
-            ...invoiceFilter,
-            status: { $in: ["issued", "void"] },
-        }),
-        PaymentModel.find(paymentFilter),
-        getValidAllocations(workspaceId),
-    ]);
+    const invoiceQuery = InvoiceModel.find({
+        ...invoiceFilter,
+        status: { $in: ["issued", "void"] },
+    });
+    const paymentQuery = PaymentModel.find(paymentFilter);
+    let invoiceRecords: Awaited<typeof invoiceQuery>;
+    let currentPayments: Awaited<typeof paymentQuery>;
+    let allocations: PaymentAllocationDocument[];
+    if (options.session) {
+        invoiceQuery.session(options.session);
+        paymentQuery.session(options.session);
+        invoiceRecords = await invoiceQuery;
+        currentPayments = await paymentQuery;
+        allocations = await getValidAllocations(
+            workspaceId,
+            {},
+            options.session
+        );
+    } else {
+        [invoiceRecords, currentPayments, allocations] = await Promise.all([
+            invoiceQuery,
+            paymentQuery,
+            getValidAllocations(workspaceId),
+        ]);
+    }
     const issuedInvoices = invoiceRecords.filter(
         (invoice) => invoice.status === "issued"
     );
@@ -712,6 +796,28 @@ export const getFinanceReportService = async (
     const pagedInvoices = invoiceItems.slice(skip, skip + query.pageSize);
     const pagedPayments = paymentItems.slice(skip, skip + query.pageSize);
     const pagedAllocations = allocationItems.slice(skip, skip + query.pageSize);
+    if (
+        options.exportAll &&
+        [invoiceItems, paymentItems, allocationItems].some(
+            (items) => items.length > MAX_REPORT_EXPORT_RECORDS
+        )
+    ) {
+        throw new BadRequestException(
+            "Each exported report collection is limited to 10,000 records"
+        );
+    }
+    const resultPageSize = options.exportAll
+        ? MAX_REPORT_EXPORT_RECORDS
+        : query.pageSize;
+    const resultInvoices = options.exportAll
+        ? invoiceItems
+        : pagedInvoices;
+    const resultPayments = options.exportAll
+        ? paymentItems
+        : pagedPayments;
+    const resultAllocations = options.exportAll
+        ? allocationItems
+        : pagedAllocations;
 
     const normalize = (value: string) =>
         compareDecimalStrings(value, "0") < 0 ? "0" : value;
@@ -747,28 +853,93 @@ export const getFinanceReportService = async (
                 : null,
         },
         invoices: {
-            items: pagedInvoices,
+            items: resultInvoices,
             pagination: createPaginationMetadata(
                 query.page,
-                query.pageSize,
+                resultPageSize,
                 invoiceItems.length
             ),
         },
         payments: {
-            items: pagedPayments,
+            items: resultPayments,
             pagination: createPaginationMetadata(
                 query.page,
-                query.pageSize,
+                resultPageSize,
                 paymentItems.length
             ),
         },
         allocations: {
-            items: pagedAllocations,
+            items: resultAllocations,
             pagination: createPaginationMetadata(
                 query.page,
-                query.pageSize,
+                resultPageSize,
                 allocationItems.length
             ),
         },
     };
+};
+
+export const getReportExportService = async (
+    workspaceId: Types.ObjectId,
+    request: ReportExportRequest
+) => {
+    let session: ClientSession | undefined;
+    try {
+        session = await mongoose.startSession();
+        type AttendanceResult = Awaited<
+            ReturnType<typeof getAttendanceReportService>
+        >;
+        type FinanceResult = Awaited<
+            ReturnType<typeof getFinanceReportService>
+        >;
+        let report: AttendanceResult | FinanceResult | undefined;
+
+        await session.withTransaction(
+            async () => {
+                if (request.type === "attendance") {
+                    const { type: _type, ...filters } = request;
+                    report = await getAttendanceReportService(
+                        workspaceId,
+                        {
+                            ...filters,
+                            page: 1,
+                            pageSize: MAX_REPORT_EXPORT_RECORDS,
+                        },
+                        { session, exportAll: true }
+                    );
+                    return;
+                }
+
+                const { type: _type, ...filters } = request;
+                report = await getFinanceReportService(
+                    workspaceId,
+                    {
+                        ...filters,
+                        page: 1,
+                        pageSize: MAX_REPORT_EXPORT_RECORDS,
+                    },
+                    { session, exportAll: true }
+                );
+            },
+            {
+                readConcern: { level: "snapshot" },
+                writeConcern: { w: "majority" },
+                readPreference: "primary",
+            }
+        );
+
+        if (!report) {
+            throw new ServiceUnavailableException(
+                "A consistent report export is temporarily unavailable"
+            );
+        }
+        return report;
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        throw new ServiceUnavailableException(
+            "A consistent report export is temporarily unavailable"
+        );
+    } finally {
+        if (session) await session.endSession();
+    }
 };

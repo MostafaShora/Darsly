@@ -128,6 +128,24 @@ export interface ReportCollection<T> {
   };
 }
 
+export type ReportExportRequest =
+  | {
+      type: 'attendance';
+      from?: string;
+      to?: string;
+      studentId?: string;
+      groupId?: string;
+      timezone: string;
+      status?: 'present' | 'absent' | 'late' | 'excused';
+    }
+  | {
+      type: 'finance';
+      from?: string;
+      to?: string;
+      studentId?: string;
+      timezone: string;
+    };
+
 interface ApiResponse<T> {
   message: string;
   data: T;
@@ -195,6 +213,19 @@ export class ReportService {
       .get<ApiResponse<FinanceReport>>(
         `${this.baseUrl}/${workspaceId}/reports/finance`,
         { withCredentials: true, params },
+      )
+      .pipe(mapResponse());
+  }
+
+  exportReport(
+    workspaceId: string,
+    request: ReportExportRequest,
+  ): Observable<AttendanceReport | FinanceReport> {
+    return this.http
+      .post<ApiResponse<AttendanceReport | FinanceReport>>(
+        `${this.baseUrl}/${encodeURIComponent(workspaceId)}/reports/export`,
+        request,
+        { withCredentials: true },
       )
       .pipe(mapResponse());
   }

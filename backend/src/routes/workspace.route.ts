@@ -24,12 +24,14 @@ import {
   getAttendanceReportController,
   getDashboardSummaryController,
   getFinanceReportController,
+  getReportExportController,
 } from "../controllers/report.controller";
 import { validateRequest } from "../middlewares/validate-request.middleware";
 import {
   dashboardActivityQuerySchema,
   attendanceReportQuerySchema,
   financeReportQuerySchema,
+  reportExportRequestSchema,
   reportRangeQuerySchema,
 } from "../validators/report.validation";
 
@@ -72,6 +74,12 @@ workspaceRoutes
     requireWorkspaceAccess(),
     validateRequest({ query: financeReportQuerySchema }),
     getFinanceReportController,
+  )
+  .post(
+    "/:workspaceId/reports/export",
+    requireWorkspaceAccess(),
+    validateRequest({ body: reportExportRequestSchema }),
+    getReportExportController,
   );
 
 workspaceRoutes

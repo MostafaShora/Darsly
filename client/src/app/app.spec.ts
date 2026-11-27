@@ -42,6 +42,7 @@ import {
   DashboardActivityItem,
   DashboardSummary,
   FinanceReport,
+  ReportExportRequest,
   ReportService,
 } from './core/services/report.service';
 import {
@@ -116,6 +117,11 @@ describe('App', () => {
     let pendingAttendanceResponses: RxSubject<AttendanceReport>[] | null;
     let pendingAttendanceIndex: number;
     let pendingFinanceResponse: RxSubject<FinanceReport> | null;
+    let exportRequests: Array<{ workspaceId: string; request: ReportExportRequest }>;
+    let snapshotExportUnavailable: boolean;
+    let pendingExportResponse: RxSubject<AttendanceReport | FinanceReport> | null;
+    let attendanceExportReport: AttendanceReport;
+    let financeExportReport: FinanceReport;
     let activeWorkspaceStream: Observable<WorkspaceAvailability>;
 
     const reportWorkspace: Workspace = {
@@ -194,9 +200,14 @@ describe('App', () => {
       pendingAttendanceResponses = null;
       pendingAttendanceIndex = 0;
       pendingFinanceResponse = null;
+      exportRequests = [];
+      snapshotExportUnavailable = false;
+      pendingExportResponse = null;
       activeWorkspaceStream = of({ kind: 'active', workspace: reportWorkspace });
       attendancePage = () => emptyAttendance();
       financePage = () => emptyFinance();
+      attendanceExportReport = emptyAttendance();
+      financeExportReport = emptyFinance();
 
       await TestBed.configureTestingModule({
         imports: [ReportsComponent],
@@ -233,6 +244,16 @@ describe('App', () => {
                 }
                 return of(financePage(page));
               },
+              exportReport: (workspaceId: string, request: ReportExportRequest) => {
+                exportRequests.push({ workspaceId, request: { ...request } });
+                if (pendingExportResponse) return pendingExportResponse.asObservable();
+                if (snapshotExportUnavailable) {
+                  return throwError(() => new HttpErrorResponse({ status: 503 }));
+                }
+                return of(request.type === 'attendance'
+                  ? attendanceExportReport
+                  : financeExportReport);
+              },
             },
           },
         ],
@@ -268,21 +289,24 @@ describe('App', () => {
       ).toContain('02/28/2026');
     });
 
-    it('includes all attendance pages in the downloaded HTML export', async () => {
+    it('uses one captured attendance export request and preserves Arabic HTML formatting', async () => {
       const fixture = TestBed.createComponent(ReportsComponent);
       fixture.detectChanges();
       const component = fixture.componentInstance;
+      component.filters.patchValue({
+        studentId: 'student-filter',
+        groupId: 'group-filter',
+      });
+      component.applyFilters();
       attendanceRequests = [];
-      attendancePage = (page) => {
-        const report = emptyAttendance();
-        const items = page === 1
-          ? Array.from({ length: 100 }, (_, index) => attendanceItem(`student-${index}`))
-          : [attendanceItem('student-last')];
-        return {
-          ...report,
-          items,
-          pagination: { page, pageSize: 100, totalItems: 101, totalPages: 2 },
-        };
+      exportRequests = [];
+      attendanceExportReport = {
+        ...emptyAttendance(),
+        items: [{
+          ...attendanceItem('student-1'),
+          studentName: 'طالب <مميز>',
+        }],
+        pagination: { page: 1, pageSize: 10_000, totalItems: 1, totalPages: 1 },
       };
       const blobs: Blob[] = [];
       vi.stubGlobal('URL', {
@@ -296,146 +320,122 @@ describe('App', () => {
 
       await component.exportExcel();
 
-      expect(attendanceRequests).toEqual([1, 2]);
+      expect(attendanceRequests).toEqual([]);
+      expect(exportRequests).toHaveLength(1);
+      expect(exportRequests[0].workspaceId).toBe('workspace-1');
+      expect(exportRequests[0].request).toEqual(expect.objectContaining({
+        type: 'attendance',
+        studentId: 'student-filter',
+        groupId: 'group-filter',
+      }));
+      expect(exportRequests[0].request.timezone).toBeTruthy();
+      expect(exportRequests[0].request.from).toBeTruthy();
+      expect(exportRequests[0].request.to).toBeTruthy();
       expect(blobs).toHaveLength(1);
-      expect(await blobs[0].text()).toContain('student-last');
-      expect(await blobs[0].text()).toContain('الفترة:');
-      expect(await blobs[0].text()).not.toContain('2026-03-01T08:00:00.000Z');
+      const html = await blobs[0].text();
+      expect(html).toContain('طالب &lt;مميز&gt;');
+      expect(html).toContain('الفترة:');
+      expect(html).toContain('<th>الطالب</th>');
+      expect(html).not.toContain('2026-03-01T08:00:00.000Z');
     });
 
-    it('accepts 10,000 attendance rows and rejects results above the limit', async () => {
+    it('sends one finance export request containing the existing finance filters', async () => {
       const fixture = TestBed.createComponent(ReportsComponent);
       fixture.detectChanges();
       const component = fixture.componentInstance;
-      attendanceRequests = [];
-      let overLimit = false;
-      attendancePage = (page) => ({
-        ...emptyAttendance(),
-        items: overLimit
-          ? []
-          : Array.from({ length: 100 }, (_, index) =>
-              attendanceItem(`student-${(page - 1) * 100 + index}`)),
-        pagination: overLimit
-          ? { page: 1, pageSize: 100, totalItems: 10_001, totalPages: 101 }
-          : { page, pageSize: 100, totalItems: 10_000, totalPages: 100 },
+      component.filters.patchValue({
+        studentId: 'finance-student',
+        groupId: 'ignored-group',
       });
+      component.applyFilters();
+      component.setTab('finance');
+      financeRequests = [];
+      exportRequests = [];
+      financeExportReport = {
+        ...emptyFinance(),
+        invoices: {
+          items: [{
+            id: 'invoice-1',
+            invoiceNumber: 'INV-001',
+            studentId: 'finance-student',
+            issuedAt: '2026-03-01T08:00:00.000Z',
+            totalAmount: '100',
+            status: 'issued',
+          }],
+          pagination: { page: 1, pageSize: 10_000, totalItems: 1, totalPages: 1 },
+        },
+      };
       const blobs: Blob[] = [];
-      const createObjectURL = vi.fn((blob: Blob) => {
-        blobs.push(blob);
-        return 'blob:report';
+      vi.stubGlobal('URL', {
+        createObjectURL: (blob: Blob) => {
+          blobs.push(blob);
+          return 'blob:report';
+        },
+        revokeObjectURL: () => undefined,
       });
-      vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: () => undefined });
       vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
 
       await component.exportExcel();
 
-      expect(attendanceRequests).toEqual(Array.from({ length: 100 }, (_, index) => index + 1));
-      expect(createObjectURL).toHaveBeenCalledTimes(1);
-      expect(await blobs[0].text()).toContain('student-9999');
+      expect(financeRequests).toEqual([]);
+      expect(exportRequests).toHaveLength(1);
+      expect(exportRequests[0].workspaceId).toBe('workspace-1');
+      expect(exportRequests[0].request).toEqual(expect.objectContaining({
+        type: 'finance',
+        studentId: 'finance-student',
+      }));
+      expect(exportRequests[0].request).not.toHaveProperty('groupId');
+      expect(await blobs[0].text()).toContain('INV-001');
+    });
 
-      overLimit = true;
-      attendanceRequests = [];
-      await component.exportExcel();
-
-      expect(attendanceRequests).toEqual([1]);
-      expect(createObjectURL).toHaveBeenCalledTimes(1);
-      expect(component.error()).toContain('10,000');
-    }, 10000);
-
-    it('rejects attendance exports if the result count changes during pagination', async () => {
+    it('discards an export when Workspace changes while the request is pending', async () => {
       const fixture = TestBed.createComponent(ReportsComponent);
       fixture.detectChanges();
       const component = fixture.componentInstance;
-      attendanceRequests = [];
-      attendancePage = (page) => ({
-        ...emptyAttendance(),
-        items: page === 1 ? [attendanceItem('student-1')] : [attendanceItem('student-2')],
-        pagination: {
-          page,
-          pageSize: 100,
-          totalItems: page === 1 ? 101 : 102,
-          totalPages: 2,
-        },
-      });
+      pendingExportResponse = new RxSubject<AttendanceReport | FinanceReport>();
+      exportRequests = [];
       const createObjectURL = vi.fn(() => 'blob:report');
       vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: () => undefined });
 
-      await component.exportExcel();
+      const exportPromise = component.exportExcel();
+      activeWorkspaceStream = of({
+        kind: 'active',
+        workspace: { ...reportWorkspace, _id: 'workspace-2', name: 'Workspace 2' },
+      });
+      component.retryWorkspace();
+      pendingExportResponse.next(emptyAttendance());
+      pendingExportResponse.complete();
+      await exportPromise;
 
-      expect(attendanceRequests).toEqual([1, 2]);
+      expect(exportRequests).toHaveLength(1);
+      expect(exportRequests[0].workspaceId).toBe('workspace-1');
       expect(createObjectURL).not.toHaveBeenCalled();
-      expect(component.error()).toContain('تصدير التقرير بالكامل');
+      expect(component.exporting()).toBe(false);
     });
 
-    it('includes all finance collection pages in the downloaded HTML export', async () => {
+    it('does not download failed exports or send duplicate concurrent requests', async () => {
       const fixture = TestBed.createComponent(ReportsComponent);
       fixture.detectChanges();
       const component = fixture.componentInstance;
-      let financeMode: 'complete' | 'over-limit' | 'changed-count' = 'complete';
-      financePage = (page) => {
-        const report = emptyFinance();
-        const invoice = (id: string) => ({
-          id,
-          invoiceNumber: id,
-          studentId: 'student-1',
-          issuedAt: '2026-03-01T08:00:00.000Z',
-          totalAmount: '10',
-          status: 'issued',
-        });
-        return {
-          ...report,
-          invoices: {
-            items: financeMode === 'over-limit'
-              ? []
-              : page === 1
-                ? Array.from({ length: 100 }, (_, index) => invoice(`invoice-${index}`))
-                : [invoice('invoice-last')],
-            pagination: {
-              page,
-              pageSize: 100,
-              totalItems: financeMode === 'over-limit'
-                ? 10_001
-                : financeMode === 'changed-count' && page > 1
-                  ? 102
-                  : 101,
-              totalPages: financeMode === 'over-limit' ? 101 : 2,
-            },
-          },
-        };
-      };
-      component.setTab('finance');
-      financeRequests = [];
-      component.changeFinancePage('invoices', 2);
-      expect(component.invoices().pagination.page).toBe(2);
-      financeRequests = [];
-      const blobs: Blob[] = [];
-      vi.stubGlobal('URL', {
-        createObjectURL: (blob: Blob) => {
-          blobs.push(blob);
-          return 'blob:report';
-        },
-        revokeObjectURL: () => undefined,
-      });
+      const createObjectURL = vi.fn(() => 'blob:report');
+      vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: () => undefined });
       vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
 
+      snapshotExportUnavailable = true;
       await component.exportExcel();
+      expect(createObjectURL).not.toHaveBeenCalled();
+      expect(component.error()).toContain('تصدير متسق');
 
-      expect(financeRequests).toEqual([1, 2]);
-      expect(blobs).toHaveLength(1);
-      expect(await blobs[0].text()).toContain('invoice-last');
-
-      financeMode = 'over-limit';
-      financeRequests = [];
+      snapshotExportUnavailable = false;
+      pendingExportResponse = new RxSubject<AttendanceReport | FinanceReport>();
+      exportRequests = [];
+      const exportPromise = component.exportExcel();
       await component.exportExcel();
-      expect(financeRequests).toEqual([1]);
-      expect(blobs).toHaveLength(1);
-
-      financeMode = 'changed-count';
-      financeRequests = [];
-      await component.exportExcel();
-      expect(financeRequests).toEqual([1, 2]);
-      expect(blobs).toHaveLength(1);
-      expect(component.error()).toContain('تصدير التقرير بالكامل');
+      expect(exportRequests).toHaveLength(1);
+      pendingExportResponse.next(attendanceExportReport);
+      pendingExportResponse.complete();
+      await exportPromise;
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
     });
 
     it('paginates attendance, preserves applied filters, and resets to page one on filter apply', () => {
@@ -723,11 +723,18 @@ describe('App', () => {
         items: page === 1 ? Array.from({ length: 100 }, (_, index) => attendanceItem(`export-${index}`)) : [attendanceItem('export-last')],
         pagination: { page, pageSize: 100, totalItems: 101, totalPages: 2 },
       });
+      attendanceExportReport = {
+        ...emptyAttendance(),
+        items: Array.from({ length: 100 }, (_, index) => attendanceItem(`export-${index}`))
+          .concat(attendanceItem('export-last')),
+        pagination: { page: 1, pageSize: 10_000, totalItems: 101, totalPages: 1 },
+      };
       const fixture = TestBed.createComponent(ReportsComponent);
       fixture.detectChanges();
       const component = fixture.componentInstance;
       component.changeAttendancePage(2);
       attendanceRequests = [];
+      exportRequests = [];
       const blobs: Blob[] = [];
       vi.stubGlobal('URL', {
         createObjectURL: (blob: Blob) => {
@@ -740,7 +747,8 @@ describe('App', () => {
 
       await component.exportExcel();
 
-      expect(attendanceRequests).toEqual([1, 2]);
+      expect(attendanceRequests).toEqual([]);
+      expect(exportRequests).toHaveLength(1);
       expect(blobs).toHaveLength(1);
       expect(await blobs[0].text()).toContain('export-last');
     });

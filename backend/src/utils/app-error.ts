@@ -42,6 +42,11 @@ export class InternalServerException extends AppError {
         super(message, HTTPSTATUS.INTERNAL_SERVER_ERROR, ErrorCodes.ERR_INTERNAL);
     }
 }
+export class ServiceUnavailableException extends AppError {
+    constructor(message: string = "Service temporarily unavailable") {
+        super(message, HTTPSTATUS.SERVICE_UNAVAILABLE, ErrorCodes.ERR_INTERNAL);
+    }
+}
 export class NotFoundException extends AppError {
     constructor(message: string = "Resource Not Found") {
         super(message, HTTPSTATUS.NOT_FOUND, ErrorCodes.ERR_NOT_FOUND);

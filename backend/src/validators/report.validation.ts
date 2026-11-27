@@ -74,6 +74,36 @@ export const financeReportQuerySchema = z
         }
     );
 
+export const reportExportRequestSchema = z.discriminatedUnion("type", [
+    z
+        .object({
+            type: z.literal("attendance"),
+            ...reportRangeFields,
+            status: z.enum(["present", "absent", "late", "excused"]).optional(),
+        })
+        .refine(
+            ({ from, to }) =>
+                from === undefined || to === undefined || from <= to,
+            {
+                message: "from must be before or equal to to",
+                path: ["to"],
+            }
+        ),
+    z
+        .object({
+            type: z.literal("finance"),
+            ...reportRangeFields,
+        })
+        .refine(
+            ({ from, to }) =>
+                from === undefined || to === undefined || from <= to,
+            {
+                message: "from must be before or equal to to",
+                path: ["to"],
+            }
+        ),
+]);
+
 export type ReportRangeQuery = z.infer<typeof reportRangeQuerySchema>;
 export type DashboardActivityQuery = z.infer<
     typeof dashboardActivityQuerySchema
@@ -82,3 +112,4 @@ export type AttendanceReportQuery = z.infer<
     typeof attendanceReportQuerySchema
 >;
 export type FinanceReportQuery = z.infer<typeof financeReportQuerySchema>;
+export type ReportExportRequest = z.infer<typeof reportExportRequestSchema>;
