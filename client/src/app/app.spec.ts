@@ -413,6 +413,110 @@ describe('App', () => {
       expect(component.exporting()).toBe(false);
     });
 
+    it('discards an export after applied filters or the selected tab changes', async () => {
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      pendingExportResponse = new RxSubject<AttendanceReport | FinanceReport>();
+      const createObjectURL = vi.fn(() => 'blob:report');
+      vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: () => undefined });
+
+      const exportPromise = component.exportExcel();
+      component.filters.patchValue({ studentId: 'updated-student' });
+      component.applyFilters();
+      component.setTab('finance');
+      pendingExportResponse.next(emptyAttendance());
+      pendingExportResponse.complete();
+      await exportPromise;
+
+      expect(createObjectURL).not.toHaveBeenCalled();
+      expect(component.error()).toBe('');
+      expect(component.exporting()).toBe(false);
+    });
+
+    it('does not show an export failure after applied filters become stale', async () => {
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      const pendingResponse = new RxSubject<AttendanceReport | FinanceReport>();
+      pendingExportResponse = pendingResponse;
+
+      const exportPromise = component.exportExcel();
+      component.filters.patchValue({ studentId: 'updated-student' });
+      component.applyFilters();
+      pendingResponse.error(new HttpErrorResponse({ status: 503 }));
+      await exportPromise;
+
+      expect(component.error()).toBe('');
+      expect(component.exporting()).toBe(false);
+    });
+
+    it('opens and prints the current PDF export', async () => {
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      const popup = {
+        document: { write: vi.fn(), close: vi.fn() },
+        close: vi.fn(),
+        focus: vi.fn(),
+        print: vi.fn(),
+      };
+      const openPopup = vi.spyOn(window, 'open')
+        .mockReturnValue(popup as unknown as Window);
+
+      await component.exportPdf();
+
+      expect(openPopup).toHaveBeenCalledWith('', '_blank');
+      expect(popup.document.write).toHaveBeenCalledOnce();
+      expect(popup.document.write.mock.calls[0][0]).toContain('<html dir="rtl" lang="ar">');
+      expect(popup.document.close).toHaveBeenCalledOnce();
+      expect(popup.focus).toHaveBeenCalledOnce();
+      expect(popup.print).toHaveBeenCalledOnce();
+      expect(popup.close).not.toHaveBeenCalled();
+      expect(component.exporting()).toBe(false);
+    });
+
+    it('reports a blocked PDF popup without sending an export request', async () => {
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      vi.spyOn(window, 'open').mockReturnValue(null);
+
+      await component.exportPdf();
+
+      expect(exportRequests).toHaveLength(0);
+      expect(component.error()).toContain('اسمح بفتح النافذة');
+      expect(component.exporting()).toBe(false);
+    });
+
+    it('closes a PDF popup instead of printing after applied filters change', async () => {
+      const fixture = TestBed.createComponent(ReportsComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance;
+      const pendingResponse = new RxSubject<AttendanceReport | FinanceReport>();
+      pendingExportResponse = pendingResponse;
+      const popup = {
+        document: { write: vi.fn(), close: vi.fn() },
+        close: vi.fn(),
+        focus: vi.fn(),
+        print: vi.fn(),
+      };
+      vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
+
+      const exportPromise = component.exportPdf();
+      component.filters.patchValue({ studentId: 'updated-student' });
+      component.applyFilters();
+      pendingResponse.next(emptyAttendance());
+      pendingResponse.complete();
+      await exportPromise;
+
+      expect(popup.close).toHaveBeenCalledOnce();
+      expect(popup.document.write).not.toHaveBeenCalled();
+      expect(popup.print).not.toHaveBeenCalled();
+      expect(component.error()).toBe('');
+      expect(component.exporting()).toBe(false);
+    });
+
     it('does not download failed exports or send duplicate concurrent requests', async () => {
       const fixture = TestBed.createComponent(ReportsComponent);
       fixture.detectChanges();

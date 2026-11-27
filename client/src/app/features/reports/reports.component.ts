@@ -514,7 +514,9 @@ export class ReportsComponent {
         `${title}.html`,
       );
     } catch (error) {
-      this.error.set(this.exportFailureMessage(error, false));
+      if (this.isCurrentExport(context)) {
+        this.error.set(this.exportFailureMessage(error, false));
+      }
     } finally {
       this.exporting.set(false);
     }
@@ -553,7 +555,9 @@ export class ReportsComponent {
       popup.print();
     } catch (error) {
       popup.close();
-      this.error.set(this.exportFailureMessage(error, true));
+      if (this.isCurrentExport(context)) {
+        this.error.set(this.exportFailureMessage(error, true));
+      }
     } finally {
       this.exporting.set(false);
     }
@@ -693,8 +697,16 @@ export class ReportsComponent {
   }
 
   private isCurrentExport(context: ExportContext): boolean {
+    const filters = this.appliedFilters;
     return context.workspaceId === this.workspaceId &&
-      context.revision === this.filterRevision;
+      context.type === this.activeTab() &&
+      context.revision === this.filterRevision &&
+      filters !== null &&
+      context.filters.from === filters.from &&
+      context.filters.to === filters.to &&
+      context.filters.studentId === filters.studentId &&
+      context.filters.groupId === filters.groupId &&
+      context.filters.timezone === filters.timezone;
   }
 
   private exportFailureMessage(error: unknown, forPrint: boolean): string {
