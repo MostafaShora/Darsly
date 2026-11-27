@@ -7,6 +7,7 @@ export const ErrorCodes = {
     ERR_FORBIDDEN: "ERR_FORBIDDEN",
     ERR_NOT_FOUND: "ERR_NOT_FOUND",
     ERR_CONFLICT: "ERR_CONFLICT",
+    ERR_TOO_MANY_REQUESTS: "ERR_TOO_MANY_REQUESTS",
 } as const;
 
 export type ErrorCodeType = keyof typeof ErrorCodes;
@@ -64,6 +65,16 @@ export class ConflictException extends AppError {
             message,
             HTTPSTATUS.CONFLICT,
             ErrorCodes.ERR_CONFLICT
+        );
+    }
+}
+
+export class TooManyRequestsException extends AppError {
+    constructor(message: string = "Too many requests") {
+        super(
+            message,
+            HTTPSTATUS.TOO_MANY_REQUESTS,
+            ErrorCodes.ERR_TOO_MANY_REQUESTS
         );
     }
 }

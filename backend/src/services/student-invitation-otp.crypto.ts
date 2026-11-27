@@ -39,8 +39,26 @@ const getOtpHmacKey = (): Buffer => {
     );
 };
 
+const getRateLimitHmacKey = (): Buffer => {
+    const secret = getJwtSecret(process.env.JWT_SECRET);
+    return Buffer.from(
+        hkdfSync(
+            "sha256",
+            Buffer.from(secret, "utf8"),
+            Buffer.from("darsly-student-invitation-rate-limits-v1", "utf8"),
+            Buffer.from("subject-and-ip-identifiers", "utf8"),
+            32
+        )
+    );
+};
+
 const hmacHex = (value: string): string =>
     createHmac("sha256", getOtpHmacKey()).update(value, "utf8").digest("hex");
+
+const rateLimitHmacHex = (value: string): string =>
+    createHmac("sha256", getRateLimitHmacKey())
+        .update(value, "utf8")
+        .digest("hex");
 
 export const createStudentInvitationOtpHash = (
     redemptionId: string,
@@ -49,6 +67,11 @@ export const createStudentInvitationOtpHash = (
 
 export const createStudentInvitationEmailHash = (email: string): string =>
     hmacHex(`email:${email.trim().toLowerCase()}`);
+
+export const createStudentInvitationRateLimitKeyHash = (
+    scope: "subject-send" | "ip-send" | "subject-verification" | "ip-verification",
+    identifier: string
+): string => rateLimitHmacHex(`rate-limit:${scope}:${identifier}`);
 
 export const matchesStudentInvitationHash = (
     expected: string | null | undefined,

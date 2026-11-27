@@ -1,0 +1,70 @@
+<section aria-labelledby="student-overview-heading">
+  <div
+    class="relative isolate overflow-hidden rounded-2xl border border-[#dcebe1] bg-white px-5 py-6 shadow-sm shadow-[#173b32]/[0.03] sm:px-8 sm:py-8"
+  >
+    <div
+      class="pointer-events-none absolute inset-y-0 end-0 -z-10 w-2/3 bg-gradient-to-l from-[#eff8f2] via-[#f7fbf8] to-transparent"
+    ></div>
+    <span
+      class="inline-flex items-center gap-2 rounded-full border border-[#d8eddf] bg-[#f2faf4] px-3 py-1.5 text-[11px] font-extrabold text-[#087b59]"
+    >
+      <svg lucideIcon="book-open" [size]="15" aria-hidden="true"></svg>
+      بوابة الطالب
+    </span>
+    <h2
+      id="student-overview-heading"
+      class="mt-4 text-2xl font-black leading-[1.5] text-[#183e32] sm:text-[30px]"
+    >
+      مرحبًا بك في بوابة الطالب
+    </h2>
+    <p class="mt-2 max-w-2xl text-xs leading-7 text-[#5f7469] sm:text-sm">
+      ستظهر هنا معلوماتك الدراسية بعد ربط واجهات البوابة والتحقق من سياق الطالب.
+    </p>
+  </div>
+
+  <section class="mt-6" aria-label="ملخص الطالب">
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      @for (metric of metrics; track metric.label) {
+        <article class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-5">
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-xs font-extrabold text-[#5d7468]">{{ metric.label }}</h3>
+            <span
+              class="grid size-10 place-items-center rounded-xl border border-[#e4eee7] bg-[#f7faf8] text-[#73877b]"
+              aria-hidden="true"
+            >
+              <svg [lucideIcon]="metric.icon" [size]="19"></svg>
+            </span>
+          </div>
+          <p class="mt-4 text-2xl font-black text-[#9aab9f]" aria-label="غير متاح بعد">—</p>
+          <p class="mt-1 text-[11px] font-semibold text-[#84948a]">بانتظار ربط البيانات</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <div class="mt-6 grid gap-4 xl:grid-cols-2">
+    <section class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-6">
+      <div class="mb-4">
+        <h2 class="text-sm font-extrabold text-[#29483d]">الجدول القادم</h2>
+        <p class="mt-1 text-xs leading-6 text-[#71847a]">مواعيد الحصص ستظهر بعد ربط البيانات.</p>
+      </div>
+      <app-student-portal-pending-state
+        icon="calendar-days"
+        heading="لا توجد بيانات للعرض بعد"
+        description="سيظهر جدولك هنا عند توفر واجهة آمنة لبيانات الطالب."
+      />
+    </section>
+
+    <section class="rounded-2xl border border-[#e2ebe4] bg-white p-4 sm:p-6">
+      <div class="mb-4">
+        <h2 class="text-sm font-extrabold text-[#29483d]">ملخص الحضور</h2>
+        <p class="mt-1 text-xs leading-6 text-[#71847a]">بيانات الحضور غير متصلة حاليًا.</p>
+      </div>
+      <app-student-portal-pending-state
+        icon="clipboard-check"
+        heading="سيظهر ملخص الحضور هنا"
+        description="لن يتم عرض بيانات حتى تتوفر واجهة مرتبطة بملف الطالب المعتمد."
+      />
+    </section>
+  </div>
+</section>

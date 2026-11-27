@@ -34,6 +34,14 @@ const otpSecret = "phase8-test-jwt-secret-with-32-bytes-minimum";
 const resendApiKey = "re_test_secret_that_must_not_be_exposed";
 const senderEmail = "no-reply@example.test";
 const studentEmail = "student@example.test";
+let rateReservationId = 0;
+const testRateLimiter = {
+    reserve: async (keyHash: string) => ({
+        keyHash,
+        reservationId: `test-reservation-${++rateReservationId}`,
+    }),
+    release: async () => undefined,
+};
 
 const message: StudentInvitationOtpEmail = {
     recipient: studentEmail,
@@ -177,8 +185,10 @@ test("accepted Resend email advances the existing OTP challenge to sent without 
         const result = await requestStudentInvitationOtpService(
             redemptionId.toString(),
             claimToken,
+            "192.0.2.10",
             provider,
-            now
+            now,
+            testRateLimiter
         );
 
         assert.equal(result, undefined);
@@ -265,6 +275,7 @@ test("runtime configuration failure is explicit and occurs before database acces
         requestStudentInvitationOtpService(
             redemptionId.toString(),
             claimToken,
+            "192.0.2.10",
             provider
         ),
         (error: unknown) =>
@@ -331,6 +342,18 @@ test("failed Resend delivery leaves the OTP challenge failed and never sent", as
         };
         const updates: Array<Record<string, unknown>> = [];
         let updateCount = 0;
+        const sharedReservations: string[] = [];
+        const releasedReservations: string[] = [];
+        const failedDeliveryRateLimiter = {
+            reserve: async (keyHash: string) => {
+                const reservationId = `failed-delivery-${sharedReservations.length}`;
+                sharedReservations.push(keyHash);
+                return { keyHash, reservationId };
+            },
+            release: async (reservation: { reservationId: string }) => {
+                releasedReservations.push(reservation.reservationId);
+            },
+        };
         const log = t.mock.method(console, "log", () => undefined);
         const errorLog = t.mock.method(console, "error", () => undefined);
         const warning = t.mock.method(console, "warn", () => undefined);
@@ -385,8 +408,10 @@ test("failed Resend delivery leaves the OTP challenge failed and never sent", as
             requestStudentInvitationOtpService(
                 redemptionId.toString(),
                 claimToken,
+                "192.0.2.10",
                 provider,
-                now
+                now,
+                failedDeliveryRateLimiter
             ),
             (error: unknown) =>
                 error instanceof ServiceUnavailableException &&
@@ -408,6 +433,8 @@ test("failed Resend delivery leaves the OTP challenge failed and never sent", as
         assert.equal(cleanup.otpStatus, "failed");
         assert.equal(cleanup.otpHash, null);
         assert.notEqual(cleanup.otpStatus, "sent");
+        assert.equal(sharedReservations.length, 2);
+        assert.equal(releasedReservations.length, 0);
         assert.equal(log.mock.callCount(), 0);
         assert.equal(errorLog.mock.callCount(), 0);
         assert.equal(warning.mock.callCount(), 0);

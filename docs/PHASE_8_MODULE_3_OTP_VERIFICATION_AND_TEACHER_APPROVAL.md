@@ -21,7 +21,24 @@ The state sequence is:
 5. `consumed` — both OTP verification and teacher approval succeeded, the StudentAccountLink is active, and the invitation is consumed.
 6. `rejected` — a teacher rejected the request and the invitation is revoked. A new invitation is required.
 
-OTP delivery status is separately tracked as `none`, `sending`, `sent`, `failed`, `locked`, or `verified`. Resending replaces the previous hash and increments a challenge version, so an older delayed email cannot produce a valid code. Verification increments the attempt counter atomically; the fifth incorrect attempt locks the challenge and clears its hash. Successful verification clears the OTP hash. The code expires after five minutes. Resend is limited to once per 60 seconds and three sends in a rolling hour for one redemption.
+OTP delivery status is separately tracked as `none`, `sending`, `sent`, `failed`, `locked`, or `verified`. Resending replaces the previous hash and increments a challenge version, so an older delayed email cannot produce a valid code. Verification increments the attempt counter atomically; the fifth incorrect attempt locks the challenge and clears its hash. Successful verification clears the OTP hash. The code expires after five minutes. Per-redemption resend remains limited to once per 60 seconds and three sends in a rolling hour.
+
+### Shared OTP abuse limits
+
+MongoDB-backed shared event counters additionally prevent creating another redemption or invitation from resetting the OTP budget. The subject key combines the Student record ID and normalized Student email; a separate key applies to the IP address obtained from Express `req.ip`. Request-body identity and IP fields are never used. Keys are HMACed with a domain-separated key derived from the existing `JWT_SECRET`; raw email addresses and IP addresses are not persisted.
+
+Each configurable limit is a rolling 60-minute window, updated with one conditional MongoDB pipeline using MongoDB server time (`$$NOW`). A unique key-hash index arbitrates concurrent first writes; concurrent updates to an existing key are atomic. Exceeding a limit returns HTTP 429. Invalid/missing client IP or limiter configuration/storage failure fails closed with HTTP 503. The existing per-redemption send cooldown and attempt lock remain additional checks.
+
+Defaults and rationale:
+
+| Environment variable | Default per hour | Rationale |
+|---|---:|---|
+| `STUDENT_INVITATION_OTP_SUBJECT_SEND_LIMIT_PER_HOUR` | 3 | Preserves the existing three-send budget across redemptions for one Student/email. |
+| `STUDENT_INVITATION_OTP_IP_SEND_LIMIT_PER_HOUR` | 15 | Allows five independent student flows behind a shared IP at the existing three-send budget each. |
+| `STUDENT_INVITATION_OTP_SUBJECT_FAILURE_LIMIT_PER_HOUR` | 5 | Preserves the existing five-attempt ceiling across resends and redemptions for one Student/email. |
+| `STUDENT_INVITATION_OTP_IP_ATTEMPT_LIMIT_PER_HOUR` | 25 | Allows five independent student flows behind a shared IP at the existing five-attempt ceiling each. |
+
+Values must be positive integers no greater than 100. This cap bounds the per-key event array; expired counter documents are removed asynchronously by MongoDB's TTL monitor after their latest event's window ends. No cleanup job or in-memory per-instance state is needed. Both shared send quotas count requests attempted against the email provider, not confirmed deliveries: a timeout can happen after the provider accepted a message, so releasing that quota could enable duplicate sends and abuse. Failed delivery still clears the challenge and never marks it `sent`. The IP verification quota counts each valid challenge submission; the shared Student/email verification budget retains only incorrect-code attempts.
 
 The approval queue contains only OTP-verified requests whose invitations and Students remain active in that Workspace. Approval and rejection conditionally update only `otp_verified` records, so simultaneous terminal decisions cannot both succeed.
 
@@ -45,7 +62,7 @@ Unsupported transactions fail closed. There is no ordinary-read/write fallback. 
 Public redemption endpoints are mounted under `/student-invitation-redemptions`:
 
 - `POST /` — accepts an invitation secret and returns a redemption ID plus a one-time claim token.
-- `POST /:redemptionId/otp` — requests email delivery; currently returns 503 because no provider is configured.
+- `POST /:redemptionId/otp` — requests email delivery and applies the per-redemption plus shared Student/email and IP limits.
 - `POST /:redemptionId/verify` — verifies a six-digit OTP.
 - `POST /:redemptionId/register` — creates a student-only User after verification.
 - `POST /:redemptionId/claim-existing-account` — requires JWT authentication and binds only an account with the matching Student email.
@@ -59,7 +76,7 @@ Teacher approval endpoints are mounted under `/workspaces/:workspaceId/student-i
 
 ## Tests and operational limitations
 
-`backend/test/phase8-3.test.ts` and `backend/test/phase8-4.test.ts` use mocked Mongoose methods and a mocked Resend boundary; neither connects to MongoDB or calls Resend. They cover one redemption per invitation, claim-token hashing, OTP reservation and expiry, one-time verification/replay protection, fifth-attempt lockout, transaction-session use during activation, provider success and rejection, missing configuration, timeout/network failure, sanitized errors, and failed-delivery state cleanup. No real Resend delivery was attempted.
+`backend/test/phase8-3.test.ts`, `backend/test/phase8-4.test.ts`, and `backend/test/phase8-6.test.ts` use mocked Mongoose methods and a mocked Resend boundary; none connects to MongoDB or calls Resend. They cover one redemption per invitation, claim-token hashing, OTP reservation and expiry, one-time verification/replay protection, lockout, transaction-session use during activation, provider success and failure, hashed shared limiter keys, cross-redemption subject budgets, IP budgets, concurrent conditional reservations, TTL cleanup declarations, fail-closed storage errors, and failed-delivery challenge cleanup. No real Resend delivery was attempted.
 
 ## Resend configuration and deployment
 
@@ -74,4 +91,4 @@ Teacher approval endpoints are mounted under `/workspaces/:workspaceId/student-i
 
 4. Follow the [Resend Node.js SDK guide](https://resend.com/docs/send-with-nodejs). In a non-production environment, use a test invitation and designated mailbox, then confirm the accepted request and delivery event in Resend before enabling the flow for users.
 
-There is no `.env.example` in the repository, so none was added. Production sending requires a verified sender domain, correctly provisioned secrets, a successful end-to-end email check, verified MongoDB transaction support, and deployed/verified schema indexes. These deployment checks were not performed here. The send limits remain per redemption, not global per-email or per-IP. The repository's broader backend test type-check remains blocked by pre-existing imports of the missing `backend/src/app` module; focused Phase 8 tests and backend source type-check can be run independently.
+There is no `.env.example` in the repository, so none was added. Production sending requires a verified sender domain, correctly provisioned secrets, a successful end-to-end email check, verified MongoDB transaction support, and deployed/verified schema indexes, including the shared limiter's unique key and TTL indexes. These deployment checks were not performed here. Configure the four `STUDENT_INVITATION_OTP_*_LIMIT_PER_HOUR` variables only when a deployment needs values different from the defaults above. The repository's broader backend test type-check remains blocked by pre-existing imports of the missing `backend/src/app` module; focused Phase 8 tests and backend source type-check can be run independently.

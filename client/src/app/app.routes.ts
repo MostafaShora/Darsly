@@ -20,6 +20,14 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'student',
+    canActivate: [authGuard],
+    loadChildren: () =>
+      import('./features/student-portal/student-portal.routes').then(
+        (module) => module.STUDENT_PORTAL_ROUTES,
+      ),
+  },
+  {
     path: 'workspace/onboarding',
     canActivate: [authGuard],
     loadComponent: () =>

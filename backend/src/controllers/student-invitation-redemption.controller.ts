@@ -43,7 +43,7 @@ export const createRequestStudentInvitationOtpController = (
             getValidatedPart<{ redemptionId: string }>(req, "params");
         const { claimToken } =
             getValidatedPart<StudentInvitationClaimInput>(req, "body");
-        await requestOtp(redemptionId, claimToken);
+        await requestOtp(redemptionId, claimToken, req.ip);
 
         res.status(202).json({
             message: "If eligible, a verification code has been sent",
@@ -62,7 +62,8 @@ export const verifyStudentInvitationOtpController = asyncHandler(
         await verifyStudentInvitationOtpService(
             redemptionId,
             claimToken,
-            otp
+            otp,
+            req.ip
         );
 
         res.status(200).json({

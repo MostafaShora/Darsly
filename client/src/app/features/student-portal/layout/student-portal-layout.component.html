@@ -1,0 +1,111 @@
+<div class="min-h-screen bg-[#f5f8f6] text-[#173b32]" dir="rtl" lang="ar">
+  @if (isMobileNavigationOpen()) {
+    <button
+      class="fixed inset-0 z-40 bg-[#173b32]/35 lg:hidden"
+      type="button"
+      aria-label="إغلاق القائمة"
+      (click)="closeMobileNavigation()"
+    ></button>
+  }
+
+  <div class="mx-auto min-h-screen max-w-[1680px] lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+    <aside
+      id="student-portal-sidebar"
+      aria-label="قائمة بوابة الطالب"
+      class="fixed inset-y-0 end-0 z-50 flex h-dvh w-[min(86vw,292px)] flex-col border-s border-[#e5ece7] bg-white px-5 py-5 transition-transform duration-300 motion-reduce:transition-none lg:sticky lg:top-0 lg:z-20 lg:h-screen lg:w-[260px] lg:translate-x-0 lg:visible"
+      [class.translate-x-0]="isMobileNavigationOpen()"
+      [class.translate-x-full]="!isMobileNavigationOpen()"
+      [class.visible]="isMobileNavigationOpen()"
+      [class.invisible]="!isMobileNavigationOpen()"
+    >
+      <a
+        class="flex h-[72px] shrink-0 items-center rounded-xl px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+        routerLink="/student/overview"
+        aria-label="بوابة الطالب - دارسلي"
+        (click)="closeMobileNavigation()"
+      >
+        <img
+          class="h-14 w-[142px] object-contain object-right"
+          src="/assets/images/logo/Darsly-Logo.png"
+          alt="دارسلي"
+        />
+      </a>
+
+      <p class="mb-3 mt-8 px-2 text-[11px] font-extrabold tracking-wide text-[#71847a]">
+        بوابة الطالب
+      </p>
+      <nav class="grid gap-1" aria-label="التنقل الرئيسي">
+        @for (item of navigationItems; track item.path) {
+          <a
+            class="group flex min-h-11 items-center gap-3 rounded-xl border border-transparent px-3 text-[13px] font-bold text-[#5d7468] transition-colors hover:border-[#e1eee5] hover:bg-[#f5faf6] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none"
+            [routerLink]="item.path"
+            routerLinkActive="border-[#dceee2] bg-[#edf8f1] text-[#087b59]"
+            ariaCurrentWhenActive="page"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeMobileNavigation()"
+          >
+            <svg
+              [lucideIcon]="item.icon"
+              [size]="19"
+              class="shrink-0 text-[#73877b] group-hover:text-[#087b59]"
+              aria-hidden="true"
+            ></svg>
+            <span>{{ item.label }}</span>
+          </a>
+        }
+      </nav>
+
+      <div class="mt-auto rounded-2xl border border-[#e3ece5] bg-[#f7faf8] p-4">
+        <p class="text-xs font-extrabold text-[#29483d]">سياق الطالب</p>
+        <p class="mt-2 text-xs leading-6 text-[#687d72]">
+          اختيار وربط ملف الطالب غير متصل بعد.
+        </p>
+      </div>
+    </aside>
+
+    <div class="min-w-0">
+      <header
+        class="sticky top-0 z-30 flex min-h-[72px] items-center justify-between gap-3 border-b border-[#e4ece6] bg-white/95 px-4 sm:px-7 xl:px-10"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <button
+            class="grid size-10 shrink-0 place-items-center rounded-xl border border-[#e2ebe4] bg-white text-[#526b5f] transition-colors hover:border-[#cce5d5] hover:bg-[#f4faf6] hover:text-[#087b59] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none lg:hidden"
+            type="button"
+            aria-controls="student-portal-sidebar"
+            [attr.aria-expanded]="isMobileNavigationOpen()"
+            [attr.aria-label]="isMobileNavigationOpen() ? 'إغلاق القائمة' : 'فتح القائمة'"
+            (click)="toggleMobileNavigation()"
+          >
+            <svg
+              [lucideIcon]="isMobileNavigationOpen() ? 'x' : 'menu'"
+              [size]="20"
+              aria-hidden="true"
+            ></svg>
+          </button>
+          <div class="min-w-0">
+            <p class="text-[11px] font-semibold text-[#71847a]">بوابة الطالب</p>
+            <h1 class="truncate text-sm font-extrabold text-[#1f4135] sm:text-base">
+              مساحة تعلمك
+            </h1>
+          </div>
+        </div>
+
+        <div
+          class="flex max-w-[min(54vw,250px)] items-center gap-2 rounded-xl border border-[#e3ece5] bg-[#f8faf8] px-3 py-2 text-[11px] font-bold text-[#63786d] sm:max-w-none sm:text-xs"
+          role="status"
+          aria-live="polite"
+        >
+          <span class="size-2 shrink-0 rounded-full bg-[#9aab9f]" aria-hidden="true"></span>
+          <span class="truncate">السياق الطلابي غير متصل بعد</span>
+        </div>
+      </header>
+
+      <main
+        id="student-portal-main"
+        class="mx-auto w-full max-w-[1460px] px-4 py-5 sm:px-7 sm:py-7 xl:px-10"
+      >
+        <router-outlet />
+      </main>
+    </div>
+  </div>
+</div>

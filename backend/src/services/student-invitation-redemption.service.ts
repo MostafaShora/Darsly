@@ -1,5 +1,7 @@
 import bcrypt from "bcrypt";
 import mongoose, { ClientSession } from "mongoose";
+import { isIP } from "node:net";
+import { getStudentInvitationRateLimitConfig } from "../config/student-invitation-rate-limit.config";
 import StudentAccountLinkModel from "../models/student-account-link.model";
 import StudentInvitationModel from "../models/student-invitation.model";
 import StudentInvitationRedemptionModel, {
@@ -14,6 +16,7 @@ import {
     InternalServerException,
     NotFoundException,
     ServiceUnavailableException,
+    TooManyRequestsException,
 } from "../utils/app-error";
 import {
     createStudentInvitationClaimToken,
@@ -21,10 +24,16 @@ import {
     createStudentInvitationEmailHash,
     createStudentInvitationOtp,
     createStudentInvitationOtpHash,
+    createStudentInvitationRateLimitKeyHash,
     createStudentInvitationSecretHash,
     getStudentInvitationOtpLifetimeMs,
     matchesStudentInvitationHash,
 } from "./student-invitation-otp.crypto";
+import {
+    mongoStudentInvitationRateLimiter,
+    StudentInvitationRateLimiter,
+    StudentInvitationRateLimitReservation,
+} from "./student-invitation-rate-limit.service";
 import {
     StudentInvitationEmailProvider,
     resendStudentInvitationEmailProvider,
@@ -34,6 +43,69 @@ const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 const OTP_SEND_WINDOW_MS = 60 * 60 * 1000;
 const OTP_SEND_LIMIT = 3;
 const OTP_ATTEMPT_LIMIT = 5;
+
+const getClientIp = (clientIp: string | undefined): string => {
+    if (!clientIp || isIP(clientIp) === 0) {
+        throw new ServiceUnavailableException(
+            "Student verification rate limiting is temporarily unavailable"
+        );
+    }
+
+    return clientIp;
+};
+
+const rateLimitExceeded = (): TooManyRequestsException =>
+    new TooManyRequestsException(
+        "Student invitation request limit reached; try again later"
+    );
+
+const getRateLimitConfig = () => {
+    try {
+        return getStudentInvitationRateLimitConfig();
+    } catch {
+        throw new ServiceUnavailableException(
+            "Student verification rate limiting is not configured correctly"
+        );
+    }
+};
+
+const reserveSharedRateLimits = async (
+    limiter: StudentInvitationRateLimiter,
+    subjectKey: string,
+    ipKey: string,
+    subjectLimit: number,
+    ipLimit: number,
+    windowMs: number
+): Promise<{
+    subject: StudentInvitationRateLimitReservation;
+    ip: StudentInvitationRateLimitReservation;
+}> => {
+    const subject = await limiter.reserve(subjectKey, subjectLimit, windowMs);
+    if (!subject) {
+        throw rateLimitExceeded();
+    }
+
+    try {
+        const ip = await limiter.reserve(ipKey, ipLimit, windowMs);
+        if (!ip) {
+            throw rateLimitExceeded();
+        }
+
+        return { subject, ip };
+    } catch (error) {
+        await limiter.release(subject);
+        throw error;
+    }
+};
+
+const releaseSharedRateLimits = async (
+    limiter: StudentInvitationRateLimiter,
+    reservations: StudentInvitationRateLimitReservation[]
+): Promise<void> => {
+    await Promise.all(
+        reservations.map((reservation) => limiter.release(reservation))
+    );
+};
 
 const isDuplicateKeyError = (error: unknown): boolean =>
     typeof error === "object" &&
@@ -184,9 +256,11 @@ export const startStudentInvitationRedemptionService = async (
 export const requestStudentInvitationOtpService = async (
     redemptionId: string,
     claimToken: string,
+    clientIp: string | undefined,
     provider: StudentInvitationEmailProvider =
         resendStudentInvitationEmailProvider,
-    now: Date = new Date()
+    now: Date = new Date(),
+    limiter: StudentInvitationRateLimiter = mongoStudentInvitationRateLimiter
 ): Promise<void> => {
     if (!provider.available) {
         throw new ServiceUnavailableException(
@@ -194,6 +268,8 @@ export const requestStudentInvitationOtpService = async (
         );
     }
 
+    const ip = getClientIp(clientIp);
+    const rateLimitConfig = getRateLimitConfig();
     const redemption = await getRedemptionByToken(
         redemptionId,
         claimToken,
@@ -221,52 +297,85 @@ export const requestStudentInvitationOtpService = async (
             cond: { $gt: ["$$sentAt", oneHourAgo] },
         },
     };
-    const reserved = await StudentInvitationRedemptionModel.findOneAndUpdate(
-        {
-            _id: redemption._id,
-            claimTokenHash: createStudentInvitationClaimTokenHash(claimToken),
-            state: { $in: ["claimed", "otp_pending"] },
-            $expr: {
-                $and: [
-                    { $lt: [{ $size: recentSentTimes }, OTP_SEND_LIMIT] },
-                    {
-                        $or: [
-                            { $eq: [{ $size: sentTimes }, 0] },
-                            {
-                                $lte: [
-                                    { $arrayElemAt: [sentTimes, -1] },
-                                    cooldownBefore,
-                                ],
-                            },
-                        ],
-                    },
-                ],
-            },
-        },
-        {
-            $set: {
-                state: "otp_pending",
-                otpStatus: "sending",
-                otpHash,
-                otpEmailHash,
-                otpExpiresAt: expiresAt,
-                otpAttempts: 0,
-                otpVerifiedAt: null,
-                verifiedEmailHash: null,
-                updatedAt: now,
-            },
-            $inc: { otpChallengeVersion: 1 },
-            $push: {
-                otpSendTimes: {
-                    $each: [now],
-                    $slice: -10,
+    const subjectKey = createStudentInvitationRateLimitKeyHash(
+        "subject-send",
+        `${student._id.toString()}:${recipient}`
+    );
+    const ipKey = createStudentInvitationRateLimitKeyHash("ip-send", ip);
+    const sharedReservations = await reserveSharedRateLimits(
+        limiter,
+        subjectKey,
+        ipKey,
+        rateLimitConfig.sendsPerStudentEmail,
+        rateLimitConfig.sendsPerIp,
+        rateLimitConfig.windowMs
+    );
+
+    let reserved: StudentInvitationRedemptionDocument | null;
+    try {
+        reserved = await StudentInvitationRedemptionModel.findOneAndUpdate(
+            {
+                _id: redemption._id,
+                claimTokenHash:
+                    createStudentInvitationClaimTokenHash(claimToken),
+                state: { $in: ["claimed", "otp_pending"] },
+                $expr: {
+                    $and: [
+                        {
+                            $lt: [
+                                { $size: recentSentTimes },
+                                OTP_SEND_LIMIT,
+                            ],
+                        },
+                        {
+                            $or: [
+                                { $eq: [{ $size: sentTimes }, 0] },
+                                {
+                                    $lte: [
+                                        { $arrayElemAt: [sentTimes, -1] },
+                                        cooldownBefore,
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
                 },
             },
-        },
-        { returnDocument: "after" }
-    ).select("+otpHash +otpEmailHash +claimTokenHash");
+            {
+                $set: {
+                    state: "otp_pending",
+                    otpStatus: "sending",
+                    otpHash,
+                    otpEmailHash,
+                    otpExpiresAt: expiresAt,
+                    otpAttempts: 0,
+                    otpVerifiedAt: null,
+                    verifiedEmailHash: null,
+                    updatedAt: now,
+                },
+                $inc: { otpChallengeVersion: 1 },
+                $push: {
+                    otpSendTimes: {
+                        $each: [now],
+                        $slice: -10,
+                    },
+                },
+            },
+            { returnDocument: "after" }
+        ).select("+otpHash +otpEmailHash +claimTokenHash");
+    } catch (error) {
+        await releaseSharedRateLimits(limiter, [
+            sharedReservations.subject,
+            sharedReservations.ip,
+        ]);
+        throw error;
+    }
 
     if (!reserved) {
+        await releaseSharedRateLimits(limiter, [
+            sharedReservations.subject,
+            sharedReservations.ip,
+        ]);
         throw invalidRedemption();
     }
 
@@ -319,36 +428,118 @@ export const verifyStudentInvitationOtpService = async (
     redemptionId: string,
     claimToken: string,
     submittedOtp: string,
-    now: Date = new Date()
+    clientIp: string | undefined,
+    now: Date = new Date(),
+    limiter: StudentInvitationRateLimiter = mongoStudentInvitationRateLimiter
 ): Promise<void> => {
-    const attempt = await StudentInvitationRedemptionModel.findOneAndUpdate(
-        {
-            _id: redemptionId,
-            claimTokenHash: createStudentInvitationClaimTokenHash(claimToken),
-            state: "otp_pending",
-            otpStatus: "sent",
-            otpExpiresAt: { $gt: now },
-            otpAttempts: { $lt: OTP_ATTEMPT_LIMIT },
-        },
-        { $inc: { otpAttempts: 1 }, $set: { updatedAt: now } },
-        { returnDocument: "after" }
-    ).select("+otpHash +otpEmailHash +claimTokenHash");
-
-    if (!attempt?.otpHash || !attempt.otpEmailHash) {
+    const ip = getClientIp(clientIp);
+    const rateLimitConfig = getRateLimitConfig();
+    const redemption = await getRedemptionByToken(
+        redemptionId,
+        claimToken,
+        ["otp_pending"]
+    );
+    if (
+        redemption.otpStatus !== "sent" ||
+        !redemption.otpExpiresAt ||
+        redemption.otpExpiresAt <= now
+    ) {
         throw invalidRedemption();
     }
 
-    const expectedOtpHash = createStudentInvitationOtpHash(
-        redemptionId,
-        submittedOtp
+    const { student } = await ensureActiveInvitationAndStudent(
+        redemption,
+        now
     );
-    const otpMatches = matchesStudentInvitationHash(
-        attempt.otpHash,
-        expectedOtpHash
-    );
+    const recipient = student.email?.trim().toLowerCase();
+    if (!recipient) {
+        throw invalidRedemption();
+    }
 
-    if (!otpMatches) {
-        if (attempt.otpAttempts >= OTP_ATTEMPT_LIMIT) {
+    const subjectKey = createStudentInvitationRateLimitKeyHash(
+        "subject-verification",
+        `${student._id.toString()}:${recipient}`
+    );
+    const ipKey = createStudentInvitationRateLimitKeyHash(
+        "ip-verification",
+        ip
+    );
+    const sharedReservations = await reserveSharedRateLimits(
+        limiter,
+        subjectKey,
+        ipKey,
+        rateLimitConfig.verificationFailuresPerStudentEmail,
+        rateLimitConfig.verificationAttemptsPerIp,
+        rateLimitConfig.windowMs
+    );
+    let keepSubjectReservation = false;
+    let keepIpReservation = false;
+
+    try {
+        const attempt = await StudentInvitationRedemptionModel.findOneAndUpdate(
+            {
+                _id: redemptionId,
+                claimTokenHash:
+                    createStudentInvitationClaimTokenHash(claimToken),
+                state: "otp_pending",
+                otpStatus: "sent",
+                otpExpiresAt: { $gt: now },
+                otpAttempts: { $lt: OTP_ATTEMPT_LIMIT },
+            },
+            { $inc: { otpAttempts: 1 }, $set: { updatedAt: now } },
+            { returnDocument: "after" }
+        ).select("+otpHash +otpEmailHash +claimTokenHash");
+
+        if (!attempt?.otpHash || !attempt.otpEmailHash) {
+            throw invalidRedemption();
+        }
+
+        keepIpReservation = true;
+        const expectedOtpHash = createStudentInvitationOtpHash(
+            redemptionId,
+            submittedOtp
+        );
+        const otpMatches = matchesStudentInvitationHash(
+            attempt.otpHash,
+            expectedOtpHash
+        );
+
+        if (!otpMatches) {
+            keepSubjectReservation = true;
+            if (attempt.otpAttempts >= OTP_ATTEMPT_LIMIT) {
+                await StudentInvitationRedemptionModel.findOneAndUpdate(
+                    {
+                        _id: attempt._id,
+                        claimTokenHash:
+                            createStudentInvitationClaimTokenHash(claimToken),
+                        otpChallengeVersion: attempt.otpChallengeVersion,
+                        otpStatus: "sent",
+                        otpAttempts: { $gte: OTP_ATTEMPT_LIMIT },
+                    },
+                    {
+                        $set: {
+                            otpStatus: "locked",
+                            otpHash: null,
+                            otpEmailHash: null,
+                            updatedAt: now,
+                        },
+                    }
+                );
+            }
+            throw new BadRequestException("Unable to verify this code");
+        }
+
+        const { student: currentStudent } =
+            await ensureActiveInvitationAndStudent(attempt, now);
+        const currentEmailHash = currentStudent.email
+            ? createStudentInvitationEmailHash(currentStudent.email)
+            : "";
+        if (
+            !matchesStudentInvitationHash(
+                attempt.otpEmailHash,
+                currentEmailHash
+            )
+        ) {
             await StudentInvitationRedemptionModel.findOneAndUpdate(
                 {
                     _id: attempt._id,
@@ -356,74 +547,59 @@ export const verifyStudentInvitationOtpService = async (
                         createStudentInvitationClaimTokenHash(claimToken),
                     otpChallengeVersion: attempt.otpChallengeVersion,
                     otpStatus: "sent",
-                    otpAttempts: { $gte: OTP_ATTEMPT_LIMIT },
                 },
                 {
                     $set: {
-                        otpStatus: "locked",
+                        state: "claimed",
+                        otpStatus: "failed",
                         otpHash: null,
                         otpEmailHash: null,
+                        otpExpiresAt: null,
+                        otpAttempts: 0,
                         updatedAt: now,
                     },
                 }
             );
+            throw invalidRedemption();
         }
-        throw new BadRequestException("Unable to verify this code");
-    }
 
-    const { student } = await ensureActiveInvitationAndStudent(attempt, now);
-    const currentEmailHash = student.email
-        ? createStudentInvitationEmailHash(student.email)
-        : "";
-    if (!matchesStudentInvitationHash(attempt.otpEmailHash, currentEmailHash)) {
-        await StudentInvitationRedemptionModel.findOneAndUpdate(
+        const verified = await StudentInvitationRedemptionModel.findOneAndUpdate(
             {
                 _id: attempt._id,
                 claimTokenHash:
                     createStudentInvitationClaimTokenHash(claimToken),
-                otpChallengeVersion: attempt.otpChallengeVersion,
+                state: "otp_pending",
                 otpStatus: "sent",
+                otpChallengeVersion: attempt.otpChallengeVersion,
+                otpExpiresAt: { $gt: now },
+                otpAttempts: attempt.otpAttempts,
             },
             {
                 $set: {
-                    state: "claimed",
-                    otpStatus: "failed",
+                    state: "otp_verified",
+                    otpStatus: "verified",
                     otpHash: null,
-                    otpEmailHash: null,
-                    otpExpiresAt: null,
-                    otpAttempts: 0,
+                    verifiedEmailHash: attempt.otpEmailHash,
+                    otpVerifiedAt: now,
                     updatedAt: now,
                 },
-            }
-        );
-        throw invalidRedemption();
-    }
-
-    const verified = await StudentInvitationRedemptionModel.findOneAndUpdate(
-        {
-            _id: attempt._id,
-            claimTokenHash: createStudentInvitationClaimTokenHash(claimToken),
-            state: "otp_pending",
-            otpStatus: "sent",
-            otpChallengeVersion: attempt.otpChallengeVersion,
-            otpExpiresAt: { $gt: now },
-            otpAttempts: attempt.otpAttempts,
-        },
-        {
-            $set: {
-                state: "otp_verified",
-                otpStatus: "verified",
-                otpHash: null,
-                verifiedEmailHash: attempt.otpEmailHash,
-                otpVerifiedAt: now,
-                updatedAt: now,
             },
-        },
-        { returnDocument: "after" }
-    );
+            { returnDocument: "after" }
+        );
 
-    if (!verified) {
-        throw invalidRedemption();
+        if (!verified) {
+            throw invalidRedemption();
+        }
+    } finally {
+        const reservationsToRelease = [
+            ...(!keepSubjectReservation
+                ? [sharedReservations.subject]
+                : []),
+            ...(!keepIpReservation ? [sharedReservations.ip] : []),
+        ];
+        if (reservationsToRelease.length > 0) {
+            await releaseSharedRateLimits(limiter, reservationsToRelease);
+        }
     }
 };
 

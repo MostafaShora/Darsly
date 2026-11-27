@@ -41,6 +41,14 @@ const now = new Date("2026-04-04T10:00:00.000Z");
 const claimToken = "b".repeat(64);
 const invitationSecret = "a".repeat(64);
 const testJwtSecret = "phase8-test-jwt-secret-with-32-bytes-minimum";
+let rateReservationId = 0;
+const testRateLimiter = {
+    reserve: async (keyHash: string) => ({
+        keyHash,
+        reservationId: `test-reservation-${++rateReservationId}`,
+    }),
+    release: async () => undefined,
+};
 
 const withOtpSecret = async <T>(callback: () => Promise<T>): Promise<T> => {
     const previous = process.env.JWT_SECRET;
@@ -171,6 +179,7 @@ test("OTP delivery is fail-closed when no provider is configured", async (t: Tes
         requestStudentInvitationOtpService(
             redemptionId.toString(),
             claimToken,
+            "192.0.2.10",
             {
                 available: false,
                 async sendOtpEmail() {
@@ -236,8 +245,10 @@ test("OTP requests reserve a hashed challenge, enforce cooldown limits, and neve
         const result = await requestStudentInvitationOtpService(
             redemptionId.toString(),
             claimToken,
+            "192.0.2.10",
             provider,
-            now
+            now,
+            testRateLimiter
         );
 
         assert.equal(result, undefined);
@@ -289,6 +300,18 @@ test("successful OTP verification consumes the challenge and a replay is rejecte
         let updateCount = 0;
         t.mock.method(
             StudentInvitationRedemptionModel,
+            "findOne",
+            (() =>
+                makeQuery(
+                    makeRedemption({
+                        state: "otp_pending",
+                        otpStatus: "sent",
+                        otpExpiresAt: new Date(now.getTime() + 60_000),
+                    })
+                )) as never
+        );
+        t.mock.method(
+            StudentInvitationRedemptionModel,
             "findOneAndUpdate",
             ((filter: Record<string, unknown>, update: Record<string, unknown>) => {
                 updates.push({ filter, update });
@@ -330,7 +353,9 @@ test("successful OTP verification consumes the challenge and a replay is rejecte
             redemptionId.toString(),
             claimToken,
             otp,
-            now
+            "192.0.2.10",
+            now,
+            testRateLimiter
         );
         const verificationUpdate = (
             updates[1].update as Record<string, unknown>
@@ -346,7 +371,9 @@ test("successful OTP verification consumes the challenge and a replay is rejecte
                 redemptionId.toString(),
                 claimToken,
                 otp,
-                now
+                "192.0.2.10",
+                now,
+                testRateLimiter
             ),
             ConflictException
         );
@@ -373,6 +400,33 @@ test("the fifth incorrect OTP attempt locks and clears the challenge", async (t:
         let calls = 0;
         t.mock.method(
             StudentInvitationRedemptionModel,
+            "findOne",
+            (() =>
+                makeQuery(
+                    makeRedemption({
+                        state: "otp_pending",
+                        otpStatus: "sent",
+                        otpExpiresAt: new Date(now.getTime() + 60_000),
+                    })
+                )) as never
+        );
+        t.mock.method(
+                StudentInvitationModel,
+                "findOne",
+                (async () => makeInvitation()) as never
+        );
+        t.mock.method(
+                StudentModel,
+                "findOne",
+                (async () => makeStudent()) as never
+        );
+        t.mock.method(
+                WorkspaceModel,
+                "findOne",
+                (async () => ({ _id: workspaceId, status: "active" })) as never
+        );
+        t.mock.method(
+            StudentInvitationRedemptionModel,
             "findOneAndUpdate",
             ((filter: Record<string, unknown>, update: Record<string, unknown>) => {
                 calls += 1;
@@ -390,7 +444,9 @@ test("the fifth incorrect OTP attempt locks and clears the challenge", async (t:
                 redemptionId.toString(),
                 claimToken,
                 "654321",
-                now
+                "192.0.2.10",
+                now,
+                testRateLimiter
             ),
             BadRequestException
         );
