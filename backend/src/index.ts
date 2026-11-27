@@ -7,7 +7,6 @@ import cookieParser from "cookie-parser";
 import passport from "passport";
 
 import { Env } from "./config/env.config";
-import { corsMiddleware } from "./config/cors.config";
 import { HTTPSTATUS } from "./config/http.config";
 import connectDatabase from "./config/database.config";
 import { errorHandler } from "./middlewares/errorHandler.middleware";
@@ -22,7 +21,6 @@ const app = express();
 app.use(express.json({ limit: "10MB" }));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
-app.use(corsMiddleware);
 
 app.use(passport.initialize());
 
