@@ -5,6 +5,7 @@ import {
   HostListener,
   OnInit,
   ViewChild,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -23,6 +24,46 @@ type DestinationState = 'hidden' | 'loading' | 'available' | 'empty' | 'error';
   standalone: true,
   imports: [LucideDynamicIcon, RouterLink],
   templateUrl: './navbar.component.html',
+  styles: [
+    `
+      .account-menu-enter {
+        animation: account-menu-in 160ms ease-out both;
+      }
+
+      .account-menu-leave {
+        animation: account-menu-out 120ms ease-in both;
+      }
+
+      @keyframes account-menu-in {
+        from {
+          opacity: 0;
+          transform: translateY(-0.25rem) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      @keyframes account-menu-out {
+        from {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-0.15rem) scale(0.99);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .account-menu-enter,
+        .account-menu-leave {
+          animation-duration: 1ms;
+        }
+      }
+    `,
+  ],
 })
 export class NavbarComponent implements OnInit {
   private readonly authService = inject(AuthService);
@@ -43,6 +84,18 @@ export class NavbarComponent implements OnInit {
   readonly signOutError = signal('');
   readonly isSigningOut = signal(false);
   readonly user = this.authService.currentUser;
+  readonly activeWorkspace = computed(
+    () => this.workspaceService.workspaceAccessState()?.activeWorkspace ?? null,
+  );
+  readonly avatarInitials = computed(() => {
+    const name = this.user()?.name.trim();
+    if (!name) return '؟';
+    return name
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => Array.from(part)[0] ?? '')
+      .join('');
+  });
 
   ngOnInit(): void {
     this.loadAccountSummary();

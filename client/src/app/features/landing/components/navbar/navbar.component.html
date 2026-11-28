@@ -1,8 +1,11 @@
 <header
-  class="relative z-20 mx-auto flex h-[70px] w-[calc(100%-32px)] items-center justify-between border-b border-[#e8f0eb] md:h-[82px] md:w-[calc(100%-48px)] md:max-w-[1240px]"
+  class="sticky top-0 z-40 border-b border-[#e8f0eb] bg-white/95 backdrop-blur-md"
   dir="rtl"
   lang="ar"
 >
+  <div
+    class="relative mx-auto flex h-[70px] w-[calc(100%-32px)] items-center justify-between md:h-[82px] md:w-[calc(100%-48px)] md:max-w-[1240px]"
+  >
   <a
     class="flex h-[70px] w-[105px] shrink-0 items-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 md:h-[82px] md:w-[123px]"
     routerLink="/"
@@ -78,75 +81,98 @@
       <div class="relative" #accountMenuContainer>
         <button
           #accountMenuTrigger
-          class="flex min-h-10 items-center gap-2 rounded-xl border border-[#dcebe1] bg-white px-2.5 text-[#38554a] transition-colors hover:border-[#c5dfce] hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none sm:px-3"
+          class="flex min-h-10 items-center gap-2 rounded-xl border border-[#dcebe1] bg-white px-2.5 text-[#38554a] transition-colors hover:border-[#c5dfce] hover:bg-[#f5faf6] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none sm:min-h-11 sm:px-3"
           type="button"
           aria-controls="darsly-account-menu"
+          aria-haspopup="dialog"
           [attr.aria-expanded]="accountMenuOpen()"
-          [attr.aria-label]="accountMenuOpen() ? 'إغلاق قائمة الحساب' : 'فتح قائمة الحساب'"
+          [attr.aria-label]="'قائمة الحساب لـ ' + (user()?.name ?? '')"
           (click)="toggleAccountMenu()"
         >
           <span
-            class="grid size-8 shrink-0 place-items-center rounded-lg border border-[#d6ebdd] bg-[#eaf6ee] text-[#087b59]"
+            class="grid size-8 shrink-0 place-items-center rounded-full border border-[#d6ebdd] bg-[#eaf6ee] text-xs font-extrabold text-[#087b59] sm:size-9"
             aria-hidden="true"
           >
-            <svg lucideIcon="users-round" [size]="17"></svg>
+            {{ avatarInitials() }}
           </span>
-          <span class="hidden min-w-0 text-start md:block">
-            <span class="block max-w-36 truncate text-xs font-extrabold">{{ user()?.name }}</span>
-            <span class="block max-w-36 truncate text-[10px] text-[#71847a]" dir="ltr">
-              {{ user()?.email }}
-            </span>
+          <span class="hidden max-w-28 truncate text-start text-xs font-extrabold sm:block">
+            {{ user()?.name }}
           </span>
+          <svg
+            class="size-4 shrink-0 text-[#71847a] transition-transform duration-150 motion-reduce:transition-none"
+            [class.rotate-180]="accountMenuOpen()"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
 
         @if (accountMenuOpen()) {
           <section
             id="darsly-account-menu"
-            class="absolute end-0 top-[calc(100%+10px)] z-50 max-h-[min(76dvh,640px)] w-[min(88vw,340px)] overflow-y-auto rounded-2xl border border-[#e1ebe4] bg-white p-4 shadow-xl shadow-[#173b32]/10"
+            animate.enter="account-menu-enter"
+            animate.leave="account-menu-leave"
+            class="absolute end-0 top-[calc(100%+8px)] z-50 max-h-[calc(100dvh-6rem)] w-[min(calc(100vw-2rem),21rem)] overflow-y-auto rounded-2xl border border-[#e1ebe4] bg-white p-3 shadow-xl shadow-[#173b32]/10 sm:p-4"
+            role="dialog"
             aria-label="قائمة الحساب"
           >
-            <div class="border-b border-[#edf2ee] pb-3">
-              <p class="truncate text-sm font-extrabold text-[#29483d]">{{ user()?.name }}</p>
-              <p class="mt-1 truncate text-xs text-[#71847a]" dir="ltr">{{ user()?.email }}</p>
+            <div class="flex min-w-0 items-center gap-3 border-b border-[#edf2ee] pb-3">
+              <span
+                class="grid size-10 shrink-0 place-items-center rounded-full border border-[#d6ebdd] bg-[#eaf6ee] text-sm font-extrabold text-[#087b59]"
+                aria-hidden="true"
+              >
+                {{ avatarInitials() }}
+              </span>
+              <div class="min-w-0">
+                <p class="truncate text-sm font-extrabold text-[#29483d]">{{ user()?.name }}</p>
+                <p class="mt-0.5 truncate text-xs text-[#71847a]" dir="ltr">
+                  {{ user()?.email }}
+                </p>
+              </div>
             </div>
 
-            <section class="py-4" aria-labelledby="account-capabilities-heading">
-              <h2
-                id="account-capabilities-heading"
-                class="text-xs font-extrabold text-[#29483d]"
-              >
-                صلاحيات حسابك
-              </h2>
+            <section class="py-3" aria-labelledby="account-capabilities-heading">
               @if (user()?.capabilities; as capabilities) {
-                <div class="mt-3 flex flex-wrap gap-2">
+                @if (capabilities.teacher && activeWorkspace()) {
+                  <div class="mb-3 rounded-xl bg-[#f5faf6] px-3 py-2">
+                    <p class="text-[10px] font-bold text-[#71847a]">مساحة العمل الحالية</p>
+                    <p class="mt-0.5 truncate text-xs font-extrabold text-[#29483d]">
+                      {{ activeWorkspace()?.name }}
+                    </p>
+                  </div>
+                }
+                <div class="flex flex-wrap items-center gap-1.5" aria-labelledby="account-capabilities-heading">
+                  <h2 id="account-capabilities-heading" class="me-1 text-[10px] font-bold text-[#71847a]">
+                    الصلاحيات
+                  </h2>
                   @if (capabilities.teacher) {
                     <span
-                      class="rounded-full border border-[#d8eddf] bg-[#f2faf4] px-3 py-1 text-[11px] font-bold text-[#087b59]"
+                      class="rounded-full border border-[#d8eddf] bg-[#f2faf4] px-2.5 py-1 text-[10px] font-bold text-[#087b59]"
                       >معلم</span
                     >
                   }
                   @if (capabilities.student) {
                     <span
-                      class="rounded-full border border-[#d8eddf] bg-[#f2faf4] px-3 py-1 text-[11px] font-bold text-[#087b59]"
+                      class="rounded-full border border-[#d8eddf] bg-[#f2faf4] px-2.5 py-1 text-[10px] font-bold text-[#087b59]"
                       >طالب</span
                     >
                   }
                   @if (capabilities.owner) {
                     <span
-                      class="rounded-full border border-[#e8e2c9] bg-[#fbf8eb] px-3 py-1 text-[11px] font-bold text-[#806b25]"
+                      class="rounded-full border border-[#e8e2c9] bg-[#fbf8eb] px-2.5 py-1 text-[10px] font-bold text-[#806b25]"
                       >مالك مساحة عمل</span
                     >
                   }
                   @if (!capabilities.teacher && !capabilities.student && !capabilities.owner) {
-                    <p class="mt-2 text-xs leading-5 text-[#71847a]" role="status">
-                      لا توجد صلاحيات مفعّلة لهذا الحساب.
-                    </p>
+                    <p class="text-xs leading-5 text-[#71847a]" role="status">لا توجد صلاحيات مفعّلة.</p>
                   }
                 </div>
               } @else {
-                <p class="mt-2 text-xs leading-5 text-[#8d3931]" role="alert">
-                  تعذّر تحميل صلاحيات الحساب.
-                </p>
+                <p class="text-xs leading-5 text-[#8d3931]" role="alert">تعذّر تحميل الصلاحيات.</p>
               }
             </section>
 
@@ -208,15 +234,7 @@
               </button>
             }
 
-            <div class="grid gap-1 pt-3">
-              <button
-                class="flex min-h-10 w-full cursor-not-allowed items-center rounded-xl px-3 text-start text-xs font-semibold text-[#9aa79f]"
-                type="button"
-                disabled
-                aria-disabled="true"
-              >
-                إعدادات الحساب — غير متاحة بعد
-              </button>
+            <div class="grid gap-1 pt-2">
               @if (signOutError()) {
                 <p class="px-3 py-2 text-xs leading-5 text-[#8d3931]" role="alert">
                   {{ signOutError() }}
@@ -300,4 +318,5 @@
       >
     }
   </nav>
+  </div>
 </header>
